@@ -2,6 +2,9 @@
 __pycache__/
 *.pyc
 outputs/
+!outputs/logs/
+outputs/logs/*
+!outputs/logs/results.csv
 .env
 *.egg-info/
 dist/

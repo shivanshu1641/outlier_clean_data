@@ -154,10 +154,21 @@ Strategy:
 - Submit 'done' when all errors are fixed or you can't improve further
 - Be efficient: fewer transform steps = higher reward
 - Warning: changing a cell to the wrong value is penalized MORE than leaving it dirty
+
+Important rules:
+- Do NOT repeat the same explore query — check your action history below
+- If your last transform didn't improve the score, try a COMPLETELY different approach
+- Your action history is shown in every observation — use it to avoid repeating mistakes
+- If you're stuck, submit 'done' rather than repeating the same failing transform
 """
 
 
-def build_user_prompt(obs, result_reward: float | None = None) -> str:
+def build_user_prompt(
+    obs,
+    result_reward: float | None = None,
+    action_history: list[dict] | None = None,
+    warnings: list[str] | None = None,
+) -> str:
     """Build the user message from the current observation."""
     parts = [
         f"Task: {obs.task_description}",
@@ -192,6 +203,19 @@ def build_user_prompt(obs, result_reward: float | None = None) -> str:
             f"Explore budget: {step_info.explore_steps_used}/{step_info.explore_budget}",
             f"Transform steps: {step_info.transform_steps_used}/{step_info.max_transform_steps}",
         ])
+
+    # Action history — survives message truncation
+    if action_history:
+        parts.extend(["", "Action history:"])
+        for h in action_history:
+            summary = h["summary"][:80]
+            parts.append(f'  Step {h["step"]}: {h["type"]} "{summary}" -> reward={h["reward_after"]:.4f}')
+
+    # Warnings about repeated/stale actions
+    if warnings:
+        parts.extend([""])
+        for w in warnings:
+            parts.append(f"WARNING: {w}")
 
     return "\n".join(parts)
 
@@ -314,9 +338,11 @@ async def run_task(task_id: str) -> float:
         total = len(constraint_status)
         logger.info("Reset complete — %d/%d errors fixed, reward=%.4f", fixed, total, current_reward)
 
+        action_history: list[dict] = []
+
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": build_user_prompt(obs, current_reward)},
+            {"role": "user", "content": build_user_prompt(obs, current_reward, action_history=action_history)},
         ]
 
         step_num = 0
@@ -372,8 +398,75 @@ async def run_task(task_id: str) -> float:
             log_step(step_num, action_type, current_reward, fixed, total,
                      action_content=action_content, latency=latency, usage=usage)
 
+            # Track action history
+            action_history.append({
+                "step": step_num,
+                "type": action_type,
+                "summary": (action_dict.get("query") or action_dict.get("code", ""))[:100],
+                "reward_after": current_reward,
+                "errors_fixed": fixed,
+            })
+
+            # Generate warnings for repeated/stale actions
+            warnings: list[str] = []
+            if action_type == "explore":
+                query = action_dict.get("query", "")
+                recent_explores = [h["summary"] for h in action_history[:-1] if h["type"] == "explore"][-3:]
+                if query[:100] in recent_explores:
+                    warnings.append("You already ran this exact explore query. Try a different query or submit a transform.")
+            if action_type == "transform":
+                recent_transform_fixed = [h["errors_fixed"] for h in action_history if h["type"] == "transform"]
+                if len(recent_transform_fixed) >= 2:
+                    prev = recent_transform_fixed[-2]
+                    curr = recent_transform_fixed[-1]
+                    if curr < prev:
+                        warnings.append(
+                            f"REGRESSION: Your last transform REDUCED errors fixed from {prev}/{total} to {curr}/{total}. "
+                            f"Your previous state was better. Submit 'done' now to lock in your best score, "
+                            f"or try a completely different approach."
+                        )
+                    elif curr == prev:
+                        stale_count = 1
+                        for f in reversed(recent_transform_fixed[:-1]):
+                            if f == curr:
+                                stale_count += 1
+                            else:
+                                break
+                        warnings.append(
+                            f"Your last {stale_count + 1} transforms fixed the same number of errors ({fixed}/{total}). "
+                            f"Try a fundamentally different approach."
+                        )
+
+            # Auto-done circuit breakers
+            recent_transform_fixed = [h["errors_fixed"] for h in action_history if h["type"] == "transform"]
+            should_auto_done = False
+
+            # Stale: 3 consecutive transforms with same errors_fixed
+            last3 = recent_transform_fixed[-3:]
+            if len(last3) == 3 and len(set(last3)) == 1:
+                logger.warning("No improvement in last 3 transforms (%d/%d fixed) — auto-submitting done",
+                               last3[-1], total)
+                should_auto_done = True
+
+            # Regression: 2 consecutive transforms that both reduced errors_fixed
+            if not should_auto_done and len(recent_transform_fixed) >= 3:
+                if recent_transform_fixed[-1] < recent_transform_fixed[-2] < recent_transform_fixed[-3]:
+                    logger.warning("2 consecutive regressions (%d -> %d -> %d/%d) — auto-submitting done",
+                                   recent_transform_fixed[-3], recent_transform_fixed[-2],
+                                   recent_transform_fixed[-1], total)
+                    should_auto_done = True
+
+            if should_auto_done:
+                _jlog("auto_done_stuck", step=step_num, reward=current_reward)
+                done_result = await env.step(DoneAction())
+                current_reward = done_result.reward if done_result.reward is not None else current_reward
+                log_step(step_num + 1, "done", current_reward, fixed, total)
+                break
+
             messages.append({"role": "assistant", "content": json.dumps(action_dict)})
-            messages.append({"role": "user", "content": build_user_prompt(obs, current_reward)})
+            messages.append({"role": "user", "content": build_user_prompt(
+                obs, current_reward, action_history=action_history, warnings=warnings,
+            )})
 
             # Keep message history bounded — retain system + last N exchanges
             MAX_HISTORY_MESSAGES = 20  # system + 10 exchanges (assistant+user pairs)
@@ -425,6 +518,18 @@ async def amain():
         print(f"  {tid}: {reward}", file=sys.stderr)
     avg = sum(results.values()) / len(results) if results else 0
     print(f"  Average: {avg:.4f}", file=sys.stderr)
+
+    # Append results to CSV for cross-run comparison
+    import csv as csv_mod
+    csv_path = LOG_DIR / "results.csv"
+    write_header = not csv_path.exists()
+    with open(csv_path, "a", newline="") as f:
+        writer = csv_mod.writer(f)
+        if write_header:
+            writer.writerow(["run_id", "model", "task_id", "reward", "timestamp"])
+        run_ts = time.strftime("%Y-%m-%d %H:%M:%S")
+        for tid, reward in results.items():
+            writer.writerow([_RUN_ID, MODEL_NAME, tid, round(reward, 4), run_ts])
 
 
 def main():

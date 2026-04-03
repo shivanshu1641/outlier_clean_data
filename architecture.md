@@ -56,17 +56,22 @@ A data cleaning RL environment where an AI agent receives dirty CSV data and mus
            |    | LLM call  |
            |    +-----+-----+
            |          |
-           |    +-----+-----+-----+
-           |    |           |     |
-           |    v           v     v
-           | explore   transform  done
-           | (cheap)   (costly)    |
-           |    |           |      |
-           |    v           v      v
-           | +--------+  +--------+
-           +-+ step   |  | final  |
-             +--------+  | grade  |
-                          +--------+
+           |    +-----+-----+--------+
+           |    |           |        |
+           |    v           v        v
+           | explore   transform   done
+           | (cheap)   (costly)      |
+           |    |           |    +---+---+
+           |    |           |    | grade |
+           |    |           |    +---+---+
+           |    |           |        |
+           |    |           |   score < 1.0?
+           |    |           |    yes/    \no
+           |    |           |   /         \
+           |    v           v  v     +--------+
+           | +--------+  soft done   | final  |
+           +-+ step   |  (retry 1x)  | done   |
+             +--------+              +--------+
 ```
 
 ## Data Flow

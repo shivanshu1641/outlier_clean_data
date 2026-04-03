@@ -91,6 +91,7 @@ class StepInfo(BaseObservation):
     transform_steps_used: int = Field(0, description="Total transform steps taken")
     max_transform_steps: int = Field(10, description="Max transform steps allowed")
     min_transform_steps: int = Field(2, description="Known minimum transforms for this task")
+    done_count: int = Field(0, description="Number of times agent has submitted done")
 
 
 # ── Observation ──────────────────────────────────────────────────────────────

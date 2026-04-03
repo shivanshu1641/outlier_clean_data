@@ -128,6 +128,7 @@ class DataCleaningEnvironment(
         self._error_status: dict[str, str] = {}
         self._error_summary_cache: dict[str, Any] = {}
         self._done: bool = False
+        self._done_count: int = 0
         self._step_count: int = 0
 
     def reset(
@@ -150,6 +151,7 @@ class DataCleaningEnvironment(
         self._transform_steps = 0
         self._current_reward = 0.0
         self._done = False
+        self._done_count = 0
         self._step_count = 0
 
         # Load error map
@@ -320,10 +322,9 @@ class DataCleaningEnvironment(
         return self._make_observation(transform_result=transform_msg)
 
     def _handle_done(self) -> DataCleaningObservation:
-        self._done = True
-        if self._worker_proc is not None:
-            terminate_worker(self._worker_proc)
-            self._worker_proc = None
+        self._done_count += 1
+
+        # Always grade current state
         self._current_df = pd.read_csv(os.path.join(self._sandbox_dir, "current.csv"))
         df = self._current_df
         self._error_status, self._current_reward = grade(
@@ -339,6 +340,22 @@ class DataCleaningEnvironment(
             explore_timeout_cost=self._task_config.get("explore_timeout_cost", 0.03),
         )
         self._error_summary_cache = summarize_errors(self._error_status, self._error_map)
+
+        # Soft done: first attempt with imperfect score — give agent another chance
+        if self._done_count == 1 and self._current_reward < 1.0:
+            unfixed = sum(1 for s in self._error_status.values() if s != "fixed")
+            return self._make_observation(
+                transform_result=(
+                    f"Soft done — your score is {self._current_reward:.4f} with {unfixed} errors remaining. "
+                    f"You can continue exploring/transforming, or submit done again to finalize."
+                ),
+            )
+
+        # Hard done: perfect score, or second done attempt
+        self._done = True
+        if self._worker_proc is not None:
+            terminate_worker(self._worker_proc)
+            self._worker_proc = None
         return self._make_observation(
             transform_result="Episode complete. Final grading applied.",
         )
@@ -352,6 +369,7 @@ class DataCleaningEnvironment(
             transform_steps_used=self._transform_steps,
             max_transform_steps=self._task_config.get("max_transform_steps", 10),
             min_transform_steps=self._task_config.get("min_transform_steps", 2),
+            done_count=self._done_count,
         )
 
     def _make_observation(
