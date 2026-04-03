@@ -35,11 +35,11 @@ except ImportError:
 from openenv.core import Environment
 
 try:
-    from .grader import compute_reward, grade
-    from .sandbox import ExecutionResult, create_sandbox, execute_explore, execute_transform
+    from .grader import grade, summarize_errors
+    from .sandbox import ExecutionResult, create_sandbox, execute_explore, execute_transform, terminate_worker
 except ImportError:
-    from grader import compute_reward, grade
-    from sandbox import ExecutionResult, create_sandbox, execute_explore, execute_transform
+    from grader import grade, summarize_errors
+    from sandbox import ExecutionResult, create_sandbox, execute_explore, execute_transform, terminate_worker
 
 
 # Type alias for the discriminated union
@@ -58,14 +58,6 @@ def _load_task(task_id: str) -> dict[str, Any]:
             config = json.load(f)
         if config.get("task_id") == task_id:
             return config
-    # If task_id not found, try loading by difficulty prefix
-    for difficulty in ["easy", "medium", "hard"]:
-        path = tasks_dir / f"task_{difficulty}.json"
-        if path.exists():
-            with open(path) as f:
-                config = json.load(f)
-            if config.get("task_id") == task_id:
-                return config
     raise ValueError(f"Task not found: {task_id}")
 
 
@@ -73,7 +65,7 @@ def _list_tasks() -> list[str]:
     """List all available task IDs."""
     tasks_dir = Path(TASKS_DIR)
     task_ids = []
-    for task_file in tasks_dir.glob("*.json"):
+    for task_file in sorted(tasks_dir.glob("*.json")):
         with open(task_file) as f:
             config = json.load(f)
         task_ids.append(config["task_id"])
@@ -96,6 +88,22 @@ def _data_summary(df: pd.DataFrame, max_rows: int = 5) -> str:
     return buf.getvalue()
 
 
+def _error_summary(error_status: dict[str, str], summary: dict[str, Any]) -> str:
+    """Human-readable error fix progress for the agent."""
+    total = summary["total_errors"]
+    fixed = summary["fixed"]
+    wrong = summary["wrong_value"]
+    unfixed = summary["unfixed"]
+    lines = [
+        f"Error fix progress: {fixed}/{total} fixed",
+    ]
+    if wrong:
+        lines.append(f"  {wrong} cells changed to wrong value (penalized 1.5x)")
+    if unfixed:
+        lines.append(f"  {unfixed} errors still unfixed")
+    return "\n".join(lines)
+
+
 class DataCleaningEnvironment(
     Environment[ActionType, DataCleaningObservation, DataCleaningState]
 ):
@@ -106,14 +114,18 @@ class DataCleaningEnvironment(
     def __init__(self):
         super().__init__()
         self._task_config: dict[str, Any] = {}
-        self._constraints: list[dict[str, Any]] = []
+        self._error_map: dict[str, Any] = {}
         self._sandbox_dir: str = ""
         self._episode_id: str = ""
-        self._explore_steps_cycle: int = 0  # resets each transform cycle
+        self._clean_df: pd.DataFrame = pd.DataFrame()
+        self._worker_proc = None
+        self._current_df: pd.DataFrame = pd.DataFrame()
+        self._explore_steps_cycle: int = 0
         self._explore_steps_total: int = 0
         self._transform_steps: int = 0
         self._current_reward: float = 0.0
-        self._constraint_status: dict[str, bool] = {}
+        self._error_status: dict[str, str] = {}
+        self._error_summary_cache: dict[str, Any] = {}
         self._done: bool = False
         self._step_count: int = 0
 
@@ -126,12 +138,10 @@ class DataCleaningEnvironment(
         """Reset the environment for a new episode."""
         task_id = kwargs.get("task_id")
         if not task_id:
-            # Default to easy if no task_id specified
             available = _list_tasks()
-            task_id = available[0] if available else "easy_titanic"
+            task_id = available[0] if available else "titanic_easy"
 
         self._task_config = _load_task(task_id)
-        self._constraints = self._task_config["constraints"]
         self._episode_id = episode_id or str(uuid.uuid4())[:8]
         self._explore_steps_cycle = 0
         self._explore_steps_total = 0
@@ -140,33 +150,46 @@ class DataCleaningEnvironment(
         self._done = False
         self._step_count = 0
 
-        # Create sandbox with dirty data
+        # Load error map
+        error_map_path = self._task_config["error_map_path"]
+        with open(error_map_path) as f:
+            self._error_map = json.load(f)
+
+        # Load clean data (for grading)
+        self._clean_df = pd.read_csv(self._task_config["clean_data_path"])
+
+        # Terminate any existing worker from a previous episode
+        if self._worker_proc is not None:
+            terminate_worker(self._worker_proc)
+            self._worker_proc = None
+
+        # Create sandbox and spawn persistent worker
         dirty_path = self._task_config["dirty_data_path"]
-        self._sandbox_dir = create_sandbox(
+        self._sandbox_dir, self._worker_proc = create_sandbox(
             self._episode_id, dirty_path, base_dir=SANDBOX_BASE
         )
 
-        # Load dirty data for initial summary
-        df = pd.read_csv(os.path.join(self._sandbox_dir, "current.csv"))
-
-        # Initial constraint check
-        self._constraint_status = grade(df, self._constraints)
-        self._current_reward = compute_reward(
-            self._constraint_status,
-            self._constraints,
+        # Load dirty data for initial summary + initial grade
+        self._current_df = pd.read_csv(os.path.join(self._sandbox_dir, "current.csv"))
+        df = self._current_df
+        self._error_status, self._current_reward = grade(
+            self._clean_df,
+            df,
+            self._error_map,
             self._transform_steps,
             self._task_config["min_transform_steps"],
             self._task_config["max_transform_steps"],
         )
+        self._error_summary_cache = summarize_errors(self._error_status, self._error_map)
 
         return DataCleaningObservation(
             task_id=self._task_config["task_id"],
             task_description=self._task_config["description"],
-            constraints=[c["description"] for c in self._constraints],
+            constraints=[_error_summary(self._error_status, self._error_summary_cache)],
             data_summary=_data_summary(df),
             explore_result=None,
             transform_result=None,
-            constraint_status=self._constraint_status,
+            constraint_status={k: (v == "fixed") for k, v in self._error_status.items()},
             reward=self._current_reward,
             done=False,
             step_info=self._make_step_info(),
@@ -201,7 +224,9 @@ class DataCleaningEnvironment(
     @property
     def state(self) -> DataCleaningState:
         """Return current environment state."""
-        satisfied = sum(1 for v in self._constraint_status.values() if v)
+        summary = self._error_summary_cache
+        satisfied = summary.get("fixed", 0)
+        total = summary.get("total_errors", 0)
         return DataCleaningState(
             episode_id=self._episode_id,
             task_id=self._task_config.get("task_id", ""),
@@ -210,7 +235,7 @@ class DataCleaningEnvironment(
             transform_steps_total=self._transform_steps,
             current_reward=self._current_reward,
             constraints_satisfied=satisfied,
-            constraints_total=len(self._constraints),
+            constraints_total=total,
         )
 
     # ── Action Handlers ──────────────────────────────────────────────────────
@@ -227,7 +252,7 @@ class DataCleaningEnvironment(
 
         result = execute_explore(
             action.query,
-            self._sandbox_dir,
+            self._worker_proc,
             self._explore_steps_total,
         )
 
@@ -241,22 +266,30 @@ class DataCleaningEnvironment(
 
         result = execute_transform(
             action.code,
-            self._sandbox_dir,
+            self._worker_proc,
             self._transform_steps,
         )
 
         if result.success:
-            # Re-grade
-            df = pd.read_csv(os.path.join(self._sandbox_dir, "current.csv"))
-            self._constraint_status = grade(df, self._constraints)
-            self._current_reward = compute_reward(
-                self._constraint_status,
-                self._constraints,
+            prev_df = self._current_df
+            self._current_df = pd.read_csv(os.path.join(self._sandbox_dir, "current.csv"))
+            df = self._current_df
+
+            # Detect if data actually changed
+            data_changed = not prev_df.equals(df)
+
+            self._error_status, self._current_reward = grade(
+                self._clean_df,
+                df,
+                self._error_map,
                 self._transform_steps,
                 self._task_config["min_transform_steps"],
                 self._task_config["max_transform_steps"],
             )
+            self._error_summary_cache = summarize_errors(self._error_status, self._error_map)
             transform_msg = "Transform applied successfully."
+            if not data_changed:
+                transform_msg += "\nWARNING: Data was not modified by this transform. Common cause: using inplace=True on a column (e.g. df['col'].fillna(val, inplace=True)) does NOT modify df. Use df['col'] = df['col'].fillna(val) instead."
             if result.stdout:
                 transform_msg += f"\nOutput: {result.stdout[:500]}"
         else:
@@ -264,25 +297,31 @@ class DataCleaningEnvironment(
             if result.stderr:
                 transform_msg += f"\nStderr: {result.stderr[:500]}"
 
-        # Check if max transform steps reached
         if self._transform_steps >= self._task_config["max_transform_steps"]:
             self._done = True
             transform_msg += "\nMax transform steps reached. Episode ending."
+            if self._worker_proc is not None:
+                terminate_worker(self._worker_proc)
+                self._worker_proc = None
 
         return self._make_observation(transform_result=transform_msg)
 
     def _handle_done(self) -> DataCleaningObservation:
         self._done = True
-        # Final grading
-        df = pd.read_csv(os.path.join(self._sandbox_dir, "current.csv"))
-        self._constraint_status = grade(df, self._constraints)
-        self._current_reward = compute_reward(
-            self._constraint_status,
-            self._constraints,
+        if self._worker_proc is not None:
+            terminate_worker(self._worker_proc)
+            self._worker_proc = None
+        self._current_df = pd.read_csv(os.path.join(self._sandbox_dir, "current.csv"))
+        df = self._current_df
+        self._error_status, self._current_reward = grade(
+            self._clean_df,
+            df,
+            self._error_map,
             self._transform_steps,
             self._task_config["min_transform_steps"],
             self._task_config["max_transform_steps"],
         )
+        self._error_summary_cache = summarize_errors(self._error_status, self._error_map)
         return self._make_observation(
             transform_result="Episode complete. Final grading applied.",
         )
@@ -303,18 +342,16 @@ class DataCleaningEnvironment(
         explore_result: Optional[str] = None,
         transform_result: Optional[str] = None,
     ) -> DataCleaningObservation:
-        # Load current data for summary
-        current_csv = os.path.join(self._sandbox_dir, "current.csv")
-        df = pd.read_csv(current_csv)
+        df = self._current_df
 
         return DataCleaningObservation(
             task_id=self._task_config["task_id"],
             task_description=self._task_config["description"],
-            constraints=[c["description"] for c in self._constraints],
+            constraints=[_error_summary(self._error_status, self._error_summary_cache)],
             data_summary=_data_summary(df),
             explore_result=explore_result,
             transform_result=transform_result,
-            constraint_status=self._constraint_status,
+            constraint_status={k: (v == "fixed") for k, v in self._error_status.items()},
             reward=self._current_reward,
             done=self._done,
             step_info=self._make_step_info(),
