@@ -6,3 +6,4 @@ outputs/
 *.egg-info/
 dist/
 build/
+.claude

@@ -5,7 +5,7 @@ Uses the OpenAI Client for LLM calls as required by the hackathon.
 Implements the [START]/[STEP]/[END] logging format.
 
 Usage:
-    API_BASE_URL=http://localhost:11434/v1 MODEL_NAME=qwen3 ENV_URL=http://localhost:8000 python inference.py
+    python inference.py
 """
 
 from __future__ import annotations
@@ -16,16 +16,19 @@ import os
 import sys
 import time
 
+from dotenv import load_dotenv
 from openai import OpenAI
+
+load_dotenv()
 
 from client import DataCleaningClient
 from models import DoneAction, ExploreAction, TransformAction
 
 # ── Configuration ────────────────────────────────────────────────────────────
 
-API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:11434/v1")
-MODEL_NAME = os.environ.get("MODEL_NAME", "qwen3")
-HF_TOKEN = os.environ.get("HF_TOKEN", "")
+API_BASE_URL = os.environ.get("API_BASE_URL", "https://integrate.api.nvidia.com/v1")
+MODEL_NAME = os.environ.get("MODEL_NAME", "nvidia/nemotron-3-super-120b-a12b")
+NVIDIA_API_KEY = os.environ.get("NVIDIA_API_KEY", "")
 ENV_URL = os.environ.get("ENV_URL", "http://localhost:8000")
 
 TASK_IDS = ["easy_titanic", "medium_wine", "hard_combined"]
@@ -34,7 +37,7 @@ TASK_IDS = ["easy_titanic", "medium_wine", "hard_combined"]
 
 llm_client = OpenAI(
     base_url=API_BASE_URL,
-    api_key=HF_TOKEN or "not-needed",
+    api_key=NVIDIA_API_KEY or "not-needed",
 )
 
 # ── Structured Logging ───────────────────────────────────────────────────────
