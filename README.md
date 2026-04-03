@@ -12,27 +12,85 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r server/requirements.txt
 
 # Start the environment server
-uvicorn server.app:app --port 8000
+uvicorn server.app:app --port 8000 --ws-ping-interval 60 --ws-ping-timeout 120
 
 # Run the baseline agent (in another terminal)
 API_BASE_URL=http://localhost:11434/v1 MODEL_NAME=qwen3 ENV_URL=http://localhost:8000 python inference.py
+
+# Run specific tasks
+python inference.py titanic_easy wine_medium
 ```
+
+## Architecture
+
+```
+[Generator]  tools/corruption/engine.py
+  load_titanic() / load_wine()
+       |
+  apply_corruptions(df, config, error_log)
+       |
+  4 artifacts per task:
+    clean.csv          <-- ground truth
+    dirty.csv          <-- agent input
+    error_map.json     <-- cell/row errors (what, where, clean value, severity)
+    severity_map.json  <-- totals per corruption type
+
+[Server]  server/app.py -> environment.py -> grader.py
+  POST /reset?task_id=titanic_easy
+       |
+  Environment.reset()
+    -> load error_map + clean.csv
+    -> create sandbox (dirty.csv -> current.csv)
+    -> grade(clean_df, dirty_df, error_map) -> initial reward
+    -> return Observation
+
+  POST /step  {type: "explore", query: "df.head()"}
+       |
+  execute_explore(query, worker)  <-- subprocess, read-only
+    -> return Observation (no state change, small efficiency cost)
+
+  POST /step  {type: "transform", code: "df['Age'].fillna(...)"}
+       |
+  execute_transform(code, worker)  <-- subprocess, AST-checked
+    -> overwrite current.csv
+    -> grade(clean_df, result_df, error_map) -> updated reward
+    -> return Observation
+
+  POST /step  {type: "done"}
+       |
+  final grade -> return Observation (done=True)
+
+[Client]  client.py
+  DataCleaningClient(base_url=ENV_URL)
+    .reset(task_id=...) -> StepResult
+    .step(action)       -> StepResult
+
+[Inference]  inference.py
+  for task in task_ids:
+    obs = env.reset(task_id)
+    while not done:
+      action = llm(system_prompt, obs)
+      obs = env.step(action)
+```
+
+## Component Responsibilities
+
+| Component | Owns |
+|-----------|------|
+| `tools/corruption/engine.py` | All domain knowledge: what corruptions exist, their severity, how to track them |
+| `server/grader.py` | Pure diff engine: compare result vs clean using error_map, compute reward |
+| `server/environment.py` | Episode lifecycle, sandbox management, observation building |
+| `server/sandbox.py` | Code safety (AST scan), subprocess isolation, timeout/memory limits |
+| `server/worker.py` | Worker process: exec/eval agent code, auto-rewrite `inplace=True` patterns |
+| `inference.py` | LLM orchestration, prompt building, action parsing |
 
 ## How It Works
 
-1. **Reset**: Agent receives a dirty dataset + list of constraints to satisfy
-2. **Explore**: Agent inspects the data (pandas queries, no modification, 10/cycle budget)
+1. **Reset**: Agent receives a dirty dataset + error summary
+2. **Explore**: Agent inspects the data (pandas queries, read-only, 10/cycle budget, small cost per call)
 3. **Transform**: Agent submits Python/pandas code executed in a sandbox
-4. **Grade**: Constraints are checked, severity-weighted score computed
+4. **Grade**: Diff-based grading against ground truth, severity-weighted
 5. **Done**: Agent signals completion or hits max transform steps
-
-## Tasks
-
-| Task | Dataset | Constraints | Difficulty |
-|------|---------|-------------|------------|
-| `easy_titanic` | Titanic (891 rows) | 5 | Easy — nulls, types, whitespace |
-| `medium_wine` | Wine Quality (1599 rows) | 10 | Medium — + duplicates, outliers, ranges |
-| `hard_combined` | Titanic + Wine (891 rows) | 18 | Hard — + cross-column, format, casing |
 
 ## Action Space
 
@@ -42,32 +100,96 @@ API_BASE_URL=http://localhost:11434/v1 MODEL_NAME=qwen3 ENV_URL=http://localhost
 | `TransformAction(code="df['Age'] = df['Age'].fillna(0)")` | Execute pandas code in sandbox |
 | `DoneAction()` | End the episode |
 
-## Scoring
+## Grading
+
+The grader compares the agent's result to the ground truth using a pre-built error map:
+
+- **Fixed** (result == clean value) -> 0 severity remaining
+- **Unfixed** (still dirty) -> full severity remaining
+- **Wrong value** (changed to wrong value) -> 1.5x severity remaining
 
 ```
-score = Σ(severity × solved) / Σ(severity)    # constraint satisfaction
-reward = score × efficiency_factor              # penalizes excess steps
+constraint_score  = 1 - (remaining_severity / total_severity)
+
+transform_penalty = max(0, transform_steps - min_steps) / (max_steps * 2)
+explore_penalty   = (successful_explores * 0.01) + (timed_out_explores * 0.03)
+efficiency_factor = max(0.5, 1.0 - transform_penalty - explore_penalty)
+
+reward = constraint_score * efficiency_factor   [clamped to 0.0-1.0]
 ```
 
-Severity levels: `critical` (3×), `high` (2×), `medium` (1×)
+Explores are cheap but not free. Timed-out explores cost 3x a successful one. The 0.5 floor ensures even heavy explorers get half credit for good cleaning.
 
-## Documentation
+## Tasks
 
-- [technical.md](technical.md) — Architecture, models, sandbox, grading details
-- [deployment.md](deployment.md) — Local dev, Docker, HF Spaces deployment guide
+| Task | Dataset | Errors | Difficulty |
+|------|---------|--------|------------|
+| `titanic_easy` | Titanic (891 rows) | 59 | Easy -- nulls, whitespace |
+| `titanic_medium` | Titanic (891 rows) | 277 | Medium -- + type errors |
+| `titanic_hard` | Titanic (891 rows) | 958 | Hard -- + outliers, dupes, format |
+| `wine_easy` | Wine Quality (1599 rows) | 255 | Easy -- nulls |
+| `wine_medium` | Wine Quality (1599 rows) | 836 | Medium -- + dupes, types, outliers |
+| `wine_hard` | Wine Quality (1599 rows) | 2312 | Hard -- + heavy nulls, whitespace |
+
+## Sandbox Isolation
+
+Each episode gets an isolated directory:
+
+```
+outputs/sandbox/{episode_id}/
+  input.csv       (original dirty data, never modified)
+  current.csv     (working copy, updated after each transform)
+  scripts/        (generated transform scripts for replay)
+  artifacts/      (snapshots after each transform)
+```
+
+Agent code runs in a subprocess with:
+- AST-level import/call blocking (no os, sys, subprocess, open, eval, etc.)
+- 30s transform timeout, 10s explore timeout
+- 2GB memory limit
+
+## Verified Results (Gemma 4 E2B, 2B params, local)
+
+| Task | Errors Fixed | Reward |
+|------|-------------|--------|
+| titanic_easy | 59/59 | 1.00 |
+| titanic_medium | 233/277 | 0.67 |
+| titanic_hard | 764/958 | 0.66 |
+| wine_easy | 255/255 | 1.00 |
+| wine_medium | 611/836 | 0.52 |
+| wine_hard | 1418/2312 | 0.49 |
+| **Average** | | **0.64** |
+
+## Environment Variables
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `API_BASE_URL` | `http://localhost:11434/v1` | LLM endpoint (any OpenAI-compatible) |
+| `API_KEY` | `` | API key (empty for local) |
+| `MODEL_NAME` | `qwen3` | Model name |
+| `ENV_URL` | `http://localhost:8000` | OpenEnv server URL |
+| `LOG_LEVEL` | `INFO` | `INFO` for actions/timing, `DEBUG` for full LLM I/O |
+| `LOG_DIR` | `outputs/logs` | JSONL log directory |
+| `MIN_CALL_INTERVAL` | `2.5` | Min seconds between LLM calls (0 for local) |
 
 ## Project Structure
 
 ```
-├── models.py              # Typed Pydantic models (Action, Observation, State)
-├── client.py              # EnvClient subclass (WebSocket)
-├── inference.py           # Baseline LLM agent
-├── server/
-│   ├── environment.py     # Core reset/step/state loop
-│   ├── sandbox.py         # Sandboxed code execution
-│   ├── grader.py          # Constraint checkers + scoring
-│   └── app.py             # FastAPI application
-├── tasks/                 # Task configs (easy/medium/hard)
-├── data/                  # Clean + dirty datasets
-└── tools/corruption/      # Standalone dirty data generator
+models.py                  # Typed Pydantic models (Action, Observation, State)
+client.py                  # EnvClient subclass (WebSocket)
+inference.py               # Baseline LLM agent
+server/
+  environment.py           # Core reset/step/state loop
+  sandbox.py               # Sandboxed code execution + AST safety
+  worker.py                # Worker process (exec/eval, inplace rewriting)
+  grader.py                # Diff engine + reward formula
+  app.py                   # FastAPI application
+tasks/                     # Task configs (per difficulty)
+data/                      # Clean + dirty datasets + error maps
+tools/corruption/          # Standalone dirty data generator
+docs/                      # Architecture, ADRs, runbooks
 ```
+
+## Documentation
+
+- [architecture.md](architecture.md) -- Architecture and data flow

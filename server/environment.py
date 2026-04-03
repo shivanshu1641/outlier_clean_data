@@ -122,6 +122,7 @@ class DataCleaningEnvironment(
         self._current_df: pd.DataFrame = pd.DataFrame()
         self._explore_steps_cycle: int = 0
         self._explore_steps_total: int = 0
+        self._explore_timeouts: int = 0
         self._transform_steps: int = 0
         self._current_reward: float = 0.0
         self._error_status: dict[str, str] = {}
@@ -145,6 +146,7 @@ class DataCleaningEnvironment(
         self._episode_id = episode_id or str(uuid.uuid4())[:8]
         self._explore_steps_cycle = 0
         self._explore_steps_total = 0
+        self._explore_timeouts = 0
         self._transform_steps = 0
         self._current_reward = 0.0
         self._done = False
@@ -179,6 +181,10 @@ class DataCleaningEnvironment(
             self._transform_steps,
             self._task_config["min_transform_steps"],
             self._task_config["max_transform_steps"],
+            explore_steps=self._explore_steps_total,
+            explore_timeouts=self._explore_timeouts,
+            explore_cost_per_step=self._task_config.get("explore_cost_per_step", 0.01),
+            explore_timeout_cost=self._task_config.get("explore_timeout_cost", 0.03),
         )
         self._error_summary_cache = summarize_errors(self._error_status, self._error_map)
 
@@ -256,6 +262,9 @@ class DataCleaningEnvironment(
             self._explore_steps_total,
         )
 
+        if not result.success:
+            self._explore_timeouts += 1
+
         return self._make_observation(
             explore_result=result.stdout if result.success else f"Error: {result.error}",
         )
@@ -285,6 +294,10 @@ class DataCleaningEnvironment(
                 self._transform_steps,
                 self._task_config["min_transform_steps"],
                 self._task_config["max_transform_steps"],
+                explore_steps=self._explore_steps_total,
+                explore_timeouts=self._explore_timeouts,
+                explore_cost_per_step=self._task_config.get("explore_cost_per_step", 0.01),
+                explore_timeout_cost=self._task_config.get("explore_timeout_cost", 0.03),
             )
             self._error_summary_cache = summarize_errors(self._error_status, self._error_map)
             transform_msg = "Transform applied successfully."
@@ -320,6 +333,10 @@ class DataCleaningEnvironment(
             self._transform_steps,
             self._task_config["min_transform_steps"],
             self._task_config["max_transform_steps"],
+            explore_steps=self._explore_steps_total,
+            explore_timeouts=self._explore_timeouts,
+            explore_cost_per_step=self._task_config.get("explore_cost_per_step", 0.01),
+            explore_timeout_cost=self._task_config.get("explore_timeout_cost", 0.03),
         )
         self._error_summary_cache = summarize_errors(self._error_status, self._error_map)
         return self._make_observation(

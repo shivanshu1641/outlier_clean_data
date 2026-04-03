@@ -498,6 +498,8 @@ def generate_task(config: dict[str, Any], clean_df: pd.DataFrame, data_dir: Path
         "base_dataset": config["base_dataset"],
         "min_transform_steps": config["min_transform_steps"],
         "max_transform_steps": config["max_transform_steps"],
+        "explore_cost_per_step": config.get("explore_cost_per_step", 0.01),
+        "explore_timeout_cost": config.get("explore_timeout_cost", 0.03),
         "clean_data_path": str(clean_path),
         "dirty_data_path": str(dirty_path),
         "error_map_path": str(task_dir / "error_map.json"),

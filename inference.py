@@ -270,10 +270,14 @@ def get_agent_action(messages: list[dict]) -> tuple[dict, float, dict | None]:
     try:
         action = json.loads(content)
     except json.JSONDecodeError:
+        # Try to extract the first complete JSON object using a decoder
+        decoder = json.JSONDecoder()
         start = content.find("{")
-        end = content.rfind("}") + 1
-        if start >= 0 and end > start:
-            action = json.loads(content[start:end])
+        if start >= 0:
+            try:
+                action, _ = decoder.raw_decode(content, start)
+            except json.JSONDecodeError:
+                action = {"type": "done"}
         else:
             action = {"type": "done"}
 
