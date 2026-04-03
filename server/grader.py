@@ -1,202 +1,293 @@
 """
-Constraint-based grader for data cleaning tasks.
+Generic diff-based grader for data cleaning tasks.
 
-Each constraint type has a checker function that evaluates whether the
-constraint is satisfied on the current DataFrame. The grader aggregates
-results into a score in [0.0, 1.0].
+The grader receives clean data, result data, and a pre-built error map
+(produced by the corruption engine). It computes a severity-weighted score
+based on how many errors were fixed, with an extra penalty for cells changed
+to the wrong value, and an efficiency factor based on transform steps used.
 """
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 
-# ── Constraint Checkers ──────────────────────────────────────────────────────
+# ── Constants ────────────────────────────────────────────────────────────────
+
+WRONG_VALUE_MULTIPLIER = 1.5  # penalty for changing a cell to the wrong value
 
 
-def check_no_nulls(df: pd.DataFrame, constraint: dict[str, Any]) -> bool:
-    col = constraint["column"]
-    if col not in df.columns:
-        return False
-    return df[col].isnull().sum() == 0
+# ── Core Grading ─────────────────────────────────────────────────────────────
 
 
-def check_dtype(df: pd.DataFrame, constraint: dict[str, Any]) -> bool:
-    col = constraint["column"]
-    expected = constraint["dtype"]
-    if col not in df.columns:
-        return False
+def _values_equal(a: Any, b: Any) -> bool:
+    """Compare two cell values with tolerance for numeric types and NaN."""
     try:
-        # Try to convert and check
-        converted = pd.to_numeric(df[col], errors="coerce") if "float" in expected or "int" in expected else df[col]
-        if "float" in expected:
-            return converted.dtype in (np.float64, np.float32, float)
-        elif "int" in expected:
-            # Check no NaNs (can't be int with NaN) and all values are whole numbers
-            if converted.isnull().any():
-                return False
-            return (converted == converted.astype(int)).all()
-        return str(df[col].dtype) == expected
-    except Exception:
-        return False
-
-
-def check_no_duplicates(df: pd.DataFrame, constraint: dict[str, Any]) -> bool:
-    key = constraint.get("key")
-    if key is None:
-        return df.duplicated().sum() == 0
-    missing_cols = [k for k in key if k not in df.columns]
-    if missing_cols:
-        return False
-    return df.duplicated(subset=key).sum() == 0
-
-
-def check_value_range(df: pd.DataFrame, constraint: dict[str, Any]) -> bool:
-    col = constraint["column"]
-    if col not in df.columns:
-        return False
-    try:
-        numeric = pd.to_numeric(df[col], errors="coerce")
-        if numeric.isnull().any():
-            return False
-        return bool((numeric >= constraint["min"]).all() and (numeric <= constraint["max"]).all())
-    except Exception:
-        return False
-
-
-def check_regex_match(df: pd.DataFrame, constraint: dict[str, Any]) -> bool:
-    col = constraint["column"]
-    pattern = constraint["pattern"]
-    if col not in df.columns:
-        return False
-    try:
-        return bool(df[col].astype(str).str.match(pattern).all())
-    except Exception:
-        return False
-
-
-def check_unique_values(df: pd.DataFrame, constraint: dict[str, Any]) -> bool:
-    col = constraint["column"]
-    allowed = set(constraint["allowed"])
-    if col not in df.columns:
-        return False
-    # Drop NaNs before checking (NaN handling is a separate constraint)
-    values = df[col].dropna().unique()
-    return all(v in allowed for v in values)
-
-
-def check_row_count_range(df: pd.DataFrame, constraint: dict[str, Any]) -> bool:
-    return constraint["min"] <= len(df) <= constraint["max"]
-
-
-def check_no_whitespace(df: pd.DataFrame, constraint: dict[str, Any]) -> bool:
-    col = constraint["column"]
-    if col not in df.columns:
-        return False
-    try:
-        str_col = df[col].dropna().astype(str)
-        return bool((str_col == str_col.str.strip()).all())
-    except Exception:
-        return False
-
-
-def check_consistent_case(df: pd.DataFrame, constraint: dict[str, Any]) -> bool:
-    col = constraint["column"]
-    if col not in df.columns:
-        return False
-    try:
-        values = df[col].dropna().astype(str).unique()
-        if len(values) == 0:
+        if pd.isna(a) and pd.isna(b):
             return True
-        # Check if all values follow a single casing pattern
-        all_upper = all(v == v.upper() for v in values)
-        all_lower = all(v == v.lower() for v in values)
-        all_title = all(v == v.title() for v in values)
-        return all_upper or all_lower or all_title
-    except Exception:
-        return False
-
-
-def check_cross_column(df: pd.DataFrame, constraint: dict[str, Any]) -> bool:
-    expr = constraint["expression"]
+        if pd.isna(a) or pd.isna(b):
+            return False
+    except (TypeError, ValueError):
+        pass
+    # Numeric tolerance — handles float/int/string-of-number mismatches
     try:
-        result = df.eval(expr)
-        return bool(result.all())
+        fa, fb = float(a), float(b)
+        return abs(fa - fb) < 1e-6
+    except (TypeError, ValueError):
+        pass
+    # Exact string comparison — do NOT strip, whitespace corruption is intentional
+    return str(a) == str(b)
+
+
+def _is_reasonable_fill(clean_df: pd.DataFrame, col: str, result_val: Any) -> bool:
+    """Check if a fill value is a reasonable imputation (not random garbage).
+
+    Accepts: any value within the column's observed range for numeric columns,
+    or any value that exists in the column for categorical columns.
+    This covers mean, median, mode, ffill, bfill, interpolate, and similar.
+    """
+    if col not in clean_df.columns:
+        return True  # can't validate, give benefit of doubt
+    series = clean_df[col].dropna()
+    if len(series) == 0:
+        return True
+
+    # Numeric column: accept if within [min - 10% range, max + 10% range]
+    try:
+        fval = float(result_val)
+        numeric = pd.to_numeric(series, errors="coerce").dropna()
+        if len(numeric) > 0:
+            col_min, col_max = numeric.min(), numeric.max()
+            col_range = col_max - col_min if col_max != col_min else abs(col_max) * 0.1 or 1.0
+            margin = col_range * 0.1
+            return (col_min - margin) <= fval <= (col_max + margin)
+    except (TypeError, ValueError):
+        pass
+
+    # Categorical column: accept if value exists in column's unique values
+    unique_vals = set(series.astype(str).str.strip().str.lower())
+    try:
+        return str(result_val).strip().lower() in unique_vals
+    except Exception:
+        pass
+
+    return False  # can't interpret → reject
+
+
+def _check_stat_fill(clean_df: pd.DataFrame, col: str, result_val: Any, stat: str) -> bool:
+    """Check if result_val matches the expected column statistic from clean data."""
+    if col not in clean_df.columns:
+        return False
+    try:
+        if stat == "mean":
+            expected = clean_df[col].mean()
+        elif stat == "median":
+            expected = clean_df[col].median()
+        elif stat == "mode":
+            mode_vals = clean_df[col].mode()
+            if len(mode_vals) == 0:
+                return False
+            # Accept any of the modes
+            return any(_values_equal(result_val, m) for m in mode_vals)
+        else:
+            return False
+        return _values_equal(result_val, expected)
     except Exception:
         return False
 
 
-# ── Dispatcher ───────────────────────────────────────────────────────────────
-
-CHECKERS = {
-    "no_nulls": check_no_nulls,
-    "dtype": check_dtype,
-    "no_duplicates": check_no_duplicates,
-    "value_range": check_value_range,
-    "regex_match": check_regex_match,
-    "unique_values": check_unique_values,
-    "row_count_range": check_row_count_range,
-    "no_whitespace": check_no_whitespace,
-    "consistent_case": check_consistent_case,
-    "cross_column": check_cross_column,
-}
-
-
-def grade(df: pd.DataFrame, constraints: list[dict[str, Any]]) -> dict[str, bool]:
-    """Evaluate all constraints against the DataFrame.
-
-    Returns a dict of {constraint_id: satisfied}.
-    """
-    results = {}
-    for c in constraints:
-        checker = CHECKERS.get(c["type"])
-        if checker is None:
-            results[c["id"]] = False
-            continue
-        try:
-            results[c["id"]] = checker(df, c)
-        except Exception:
-            results[c["id"]] = False
-    return results
-
-
-def compute_reward(
-    constraint_results: dict[str, bool],
-    constraints: list[dict[str, Any]],
+def grade(
+    clean_df: pd.DataFrame,
+    result_df: pd.DataFrame,
+    error_map: dict[str, Any],
     transform_steps: int,
     min_transform_steps: int,
     max_transform_steps: int,
-) -> float:
-    """Compute final reward from severity-weighted constraint satisfaction + efficiency.
+) -> tuple[dict[str, str], float]:
+    """Grade the agent's result against the clean reference using the error map.
 
-    score = Σ(severity_i * solved_i) / Σ(severity_i)   [0.0–1.0]
-    reward = score * efficiency_factor
+    Args:
+        clean_df: Ground truth DataFrame.
+        result_df: Agent's cleaned DataFrame.
+        error_map: Dict with keys "cell_errors", "spurious_rows", "missing_rows".
+        transform_steps: Number of transform steps the agent used.
+        min_transform_steps: Minimum expected steps (efficiency baseline).
+        max_transform_steps: Maximum allowed steps.
 
-    Severity levels:
-      critical=3, high=2, medium=1 (default=1)
+    Returns:
+        (error_status, reward) where error_status maps each error key to one of
+        "fixed", "wrong_value", or "unfixed", and reward is in [0.0, 1.0].
     """
-    if not constraint_results:
-        return 0.0
+    cell_errors: dict[str, dict] = error_map.get("cell_errors", {})
+    spurious_rows: dict[str, dict] = error_map.get("spurious_rows", {})
+    missing_rows: dict[str, dict] = error_map.get("missing_rows", {})
 
-    severity_map = {"critical": 3, "high": 2, "medium": 1}
+    total_severity = 0.0
+    remaining_severity = 0.0
+    error_status: dict[str, str] = {}
 
-    weighted_solved = 0.0
-    weighted_total = 0.0
-    for c in constraints:
-        sev = severity_map.get(c.get("severity", "medium"), 1)
-        weighted_total += sev
-        if constraint_results.get(c["id"], False):
-            weighted_solved += sev
+    # ── Cell errors ──────────────────────────────────────────────────────────
+    result_index = set(result_df.index.astype(str))
 
-    if weighted_total == 0:
-        return 0.0
+    for key, info in cell_errors.items():
+        row_str, col = key.rsplit(",", 1)
+        severity = float(info["severity"])
+        clean_val = info["clean_value"]
+        total_severity += severity
 
-    constraint_score = weighted_solved / weighted_total
+        try:
+            row_idx = int(row_str)
+        except ValueError:
+            # Can't match row — treat as unfixed
+            error_status[key] = "unfixed"
+            remaining_severity += severity
+            continue
+
+        if row_str not in result_index:
+            # Row missing from result entirely
+            error_status[key] = "unfixed"
+            remaining_severity += severity
+            continue
+
+        if col not in result_df.columns:
+            error_status[key] = "unfixed"
+            remaining_severity += severity
+            continue
+
+        try:
+            result_val = result_df.at[row_idx, col]
+        except KeyError:
+            error_status[key] = "unfixed"
+            remaining_severity += severity
+            continue
+
+        if _values_equal(result_val, clean_val):
+            error_status[key] = "fixed"
+        else:
+            corruption_type = info.get("corruption", "")
+            accepted_fill = info.get("accepted_fill")
+
+            try:
+                result_is_nan = pd.isna(result_val)
+            except (TypeError, ValueError):
+                result_is_nan = False
+
+            if corruption_type == "null_injected":
+                if result_is_nan:
+                    # Still null — unfixed
+                    error_status[key] = "unfixed"
+                    remaining_severity += severity
+                elif accepted_fill == "any":
+                    # Any reasonable imputation is acceptable (mean, median, mode,
+                    # ffill, bfill, interpolate). Reject obvious garbage.
+                    if _is_reasonable_fill(clean_df, col, result_val):
+                        error_status[key] = "fixed"
+                    else:
+                        error_status[key] = "wrong_value"
+                        remaining_severity += severity * WRONG_VALUE_MULTIPLIER
+                elif accepted_fill == "exact":
+                    # Must match clean value exactly — already failed above
+                    error_status[key] = "wrong_value"
+                    remaining_severity += severity * WRONG_VALUE_MULTIPLIER
+                elif accepted_fill in ("mean", "median", "mode"):
+                    # Validate against the column statistic
+                    if _check_stat_fill(clean_df, col, result_val, accepted_fill):
+                        error_status[key] = "fixed"
+                    else:
+                        error_status[key] = "wrong_value"
+                        remaining_severity += severity * WRONG_VALUE_MULTIPLIER
+                else:
+                    # Unknown accepted_fill or None — default to "any"
+                    error_status[key] = "fixed"
+            elif corruption_type in ("whitespace_noise", "format_inconsistency"):
+                # Whitespace/format: accept if stripped version matches clean value
+                try:
+                    result_stripped = str(result_val).strip()
+                    clean_stripped = str(clean_val).strip()
+                    if result_stripped.lower() == clean_stripped.lower():
+                        error_status[key] = "fixed"
+                    else:
+                        error_status[key] = "wrong_value"
+                        remaining_severity += severity * WRONG_VALUE_MULTIPLIER
+                except Exception:
+                    error_status[key] = "wrong_value"
+                    remaining_severity += severity * WRONG_VALUE_MULTIPLIER
+            else:
+                # Other corruptions (type_mangle, outlier)
+                # Changed to wrong value → penalized
+                error_status[key] = "wrong_value"
+                remaining_severity += severity * WRONG_VALUE_MULTIPLIER
+
+    # ── Spurious rows (duplicates) ───────────────────────────────────────────
+    clean_len = len(clean_df)
+    result_len = len(result_df)
+
+    for row_str, info in spurious_rows.items():
+        severity = float(info["severity"])
+        total_severity += severity
+        key = f"spurious_{row_str}"
+
+        # Heuristic: if result has more rows than clean, spurious rows remain
+        if result_len > clean_len:
+            error_status[key] = "unfixed"
+            remaining_severity += severity
+        else:
+            error_status[key] = "fixed"
+
+    # ── Missing rows ─────────────────────────────────────────────────────────
+    for row_str, info in missing_rows.items():
+        severity = float(info["severity"])
+        total_severity += severity
+        key = f"missing_{row_str}"
+
+        try:
+            row_idx = int(row_str)
+            if row_idx in result_df.index:
+                error_status[key] = "fixed"
+            else:
+                error_status[key] = "unfixed"
+                remaining_severity += severity
+        except (ValueError, KeyError):
+            error_status[key] = "unfixed"
+            remaining_severity += severity
+
+    # ── Compute reward ───────────────────────────────────────────────────────
+    if total_severity == 0.0:
+        return error_status, 1.0
+
+    # Clamp remaining_severity (wrong_value penalty can push it above total)
+    constraint_score = max(0.0, 1.0 - remaining_severity / total_severity)
 
     excess_steps = max(0, transform_steps - min_transform_steps)
     efficiency_factor = max(0.5, 1.0 - excess_steps / (max_transform_steps * 2))
 
-    return round(constraint_score * efficiency_factor, 4)
+    reward = round(min(1.0, constraint_score * efficiency_factor), 4)
+    return error_status, reward
+
+
+# ── Summary Helper ───────────────────────────────────────────────────────────
+
+
+def summarize_errors(error_status: dict[str, str], error_map: dict[str, Any]) -> dict[str, Any]:
+    """Summarize error status counts for logging and observation building."""
+    total = len(error_status)
+    fixed = sum(1 for s in error_status.values() if s == "fixed")
+    wrong = sum(1 for s in error_status.values() if s == "wrong_value")
+    unfixed = sum(1 for s in error_status.values() if s == "unfixed")
+
+    cell_errors = error_map.get("cell_errors", {})
+    spurious = error_map.get("spurious_rows", {})
+    missing = error_map.get("missing_rows", {})
+
+    return {
+        "total_errors": total,
+        "fixed": fixed,
+        "wrong_value": wrong,
+        "unfixed": unfixed,
+        "cell_errors_total": len(cell_errors),
+        "spurious_rows_total": len(spurious),
+        "missing_rows_total": len(missing),
+    }

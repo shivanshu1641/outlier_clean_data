@@ -1,7 +1,13 @@
 """
 Synthetic corruption engine — standalone tool for generating dirty datasets.
 
-NOT part of the OpenEnv deployment. Run once to produce data/dirty/ files.
+NOT part of the OpenEnv deployment. Run once to produce data/ artifacts.
+
+Each task gets 4 artifacts:
+  clean.csv       — ground truth
+  dirty.csv       — corrupted version
+  error_map.json  — cell/row errors with severity and clean value
+  severity_map.json — total severity and per-corruption breakdown
 
 Usage:
     python tools/corruption/engine.py
@@ -11,7 +17,6 @@ from __future__ import annotations
 
 import json
 import random
-import string
 from pathlib import Path
 from typing import Any
 
@@ -22,117 +27,301 @@ SEED = 42
 RNG = np.random.default_rng(SEED)
 random.seed(SEED)
 
+# Severity per corruption type
+CORRUPTION_SEVERITY = {
+    "inject_nulls": 2.0,       # high
+    "type_mangle": 3.0,        # critical
+    "duplicate_rows": 2.0,     # high
+    "whitespace_noise": 1.0,   # medium
+    "format_inconsistency": 1.0,  # medium
+    "outlier_injection": 3.0,  # critical
+}
+
 
 # ── Corruption Functions ─────────────────────────────────────────────────────
 
 
-def inject_nulls(df: pd.DataFrame, columns: list[str], fraction: float = 0.1) -> pd.DataFrame:
+def inject_nulls(
+    df: pd.DataFrame,
+    columns: list[str],
+    fraction: float = 0.1,
+    error_log: list[dict] | None = None,
+    **kwargs: Any,
+) -> pd.DataFrame:
     """Randomly set cells to NaN."""
     df = df.copy()
+    severity = CORRUPTION_SEVERITY["inject_nulls"]
     for col in columns:
+        if col not in df.columns:
+            continue
         mask = RNG.random(len(df)) < fraction
-        df.loc[mask, col] = np.nan
+        indices = df.index[mask]
+        # accepted_fill: "any" = any non-null value, "mean" = only mean,
+        # "mode" = only mode, "median" = only median, "exact" = only clean value
+        accepted_fill = kwargs.get("accepted_fill", "any")
+        if error_log is not None:
+            for idx in indices:
+                val = df.at[idx, col]
+                if not pd.isna(val):  # only log if cell wasn't already null
+                    error_log.append({
+                        "row": int(idx),
+                        "col": col,
+                        "type": "cell",
+                        "corruption": "null_injected",
+                        "clean_value": val,
+                        "severity": severity,
+                        "accepted_fill": accepted_fill,
+                    })
+        df.loc[indices, col] = np.nan
     return df
 
 
-def type_mangle(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+def type_mangle(
+    df: pd.DataFrame,
+    columns: list[str],
+    error_log: list[dict] | None = None,
+) -> pd.DataFrame:
     """Mix string garbage into numeric columns."""
     df = df.copy()
+    severity = CORRUPTION_SEVERITY["type_mangle"]
     garbage = ["N/A", "unknown", "##", "n/a", "-", "???", "null", "NA"]
     for col in columns:
+        if col not in df.columns:
+            continue
         df[col] = df[col].astype(object)
         n_corrupt = max(1, int(len(df) * 0.05))
-        indices = RNG.choice(len(df), size=n_corrupt, replace=False)
-        for idx in indices:
-            df.at[df.index[idx], col] = RNG.choice(garbage)
+        idxs = RNG.choice(len(df), size=n_corrupt, replace=False)
+        for pos in idxs:
+            idx = df.index[pos]
+            clean_val = df.at[idx, col]
+            garb = garbage[int(RNG.integers(0, len(garbage)))]
+            if error_log is not None:
+                error_log.append({
+                    "row": int(idx),
+                    "col": col,
+                    "type": "cell",
+                    "corruption": "type_mangled",
+                    "clean_value": None if pd.isna(clean_val) else clean_val,
+                    "severity": severity,
+                })
+            df.at[idx, col] = garb
     return df
 
 
-def duplicate_rows(df: pd.DataFrame, fraction: float = 0.05) -> pd.DataFrame:
+def duplicate_rows(
+    df: pd.DataFrame,
+    fraction: float = 0.05,
+    error_log: list[dict] | None = None,
+) -> pd.DataFrame:
     """Insert exact duplicate rows."""
     n_dupes = max(1, int(len(df) * fraction))
-    dupe_indices = RNG.choice(len(df), size=n_dupes, replace=True)
-    dupes = df.iloc[dupe_indices].copy()
-    return pd.concat([df, dupes], ignore_index=True)
+    severity = CORRUPTION_SEVERITY["duplicate_rows"]
+    dupe_pos = RNG.choice(len(df), size=n_dupes, replace=True)
+    dupes = df.iloc[dupe_pos].copy()
+    result = pd.concat([df, dupes], ignore_index=True)
+    if error_log is not None:
+        # Log the new spurious row indices (appended at end)
+        start_idx = len(df)
+        for i in range(n_dupes):
+            error_log.append({
+                "row": start_idx + i,
+                "col": None,
+                "type": "spurious_row",
+                "corruption": "duplicate_rows",
+                "clean_value": None,
+                "severity": severity,
+            })
+    return result
 
 
-def format_inconsistency(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
-    """Inject inconsistent string formats (e.g., casing, abbreviations)."""
+def format_inconsistency(
+    df: pd.DataFrame,
+    columns: list[str],
+    error_log: list[dict] | None = None,
+) -> pd.DataFrame:
+    """Inject inconsistent string formats (e.g., casing)."""
     df = df.copy()
+    severity = CORRUPTION_SEVERITY["format_inconsistency"]
     for col in columns:
-        if df[col].dtype == object:
-            n_corrupt = max(1, int(len(df) * 0.15))
-            indices = RNG.choice(len(df), size=n_corrupt, replace=False)
-            for idx in indices:
-                val = str(df.iloc[idx, df.columns.get_loc(col)])
-                choice = RNG.integers(0, 3)
-                if choice == 0:
-                    df.iloc[idx, df.columns.get_loc(col)] = val.upper()
-                elif choice == 1:
-                    df.iloc[idx, df.columns.get_loc(col)] = val.lower()
-                else:
-                    df.iloc[idx, df.columns.get_loc(col)] = val.title()
+        if col not in df.columns or df[col].dtype != object:
+            continue
+        n_corrupt = max(1, int(len(df) * 0.15))
+        idxs = RNG.choice(len(df), size=n_corrupt, replace=False)
+        for pos in idxs:
+            idx = df.index[pos]
+            val = str(df.at[idx, col])
+            clean_val = df.at[idx, col]
+            choice = int(RNG.integers(0, 3))
+            new_val = val.upper() if choice == 0 else (val.lower() if choice == 1 else val.title())
+            if new_val != val:
+                df.at[idx, col] = new_val
+                if error_log is not None:
+                    error_log.append({
+                        "row": int(idx),
+                        "col": col,
+                        "type": "cell",
+                        "corruption": "format_inconsistency",
+                        "clean_value": None if pd.isna(clean_val) else clean_val,
+                        "severity": severity,
+                    })
     return df
 
 
-def whitespace_noise(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+def whitespace_noise(
+    df: pd.DataFrame,
+    columns: list[str],
+    error_log: list[dict] | None = None,
+) -> pd.DataFrame:
     """Add leading/trailing/double spaces."""
     df = df.copy()
+    severity = CORRUPTION_SEVERITY["whitespace_noise"]
     for col in columns:
-        if df[col].dtype == object:
-            n_corrupt = max(1, int(len(df) * 0.1))
-            indices = RNG.choice(len(df), size=n_corrupt, replace=False)
-            for idx in indices:
-                val = str(df.iloc[idx, df.columns.get_loc(col)])
-                choice = RNG.integers(0, 3)
-                if choice == 0:
-                    val = "  " + val
-                elif choice == 1:
-                    val = val + "  "
-                else:
-                    val = val.replace(" ", "  ", 1) if " " in val else "  " + val
-                df.iloc[idx, df.columns.get_loc(col)] = val
+        if col not in df.columns or df[col].dtype != object:
+            continue
+        n_corrupt = max(1, int(len(df) * 0.1))
+        idxs = RNG.choice(len(df), size=n_corrupt, replace=False)
+        for pos in idxs:
+            idx = df.index[pos]
+            val = str(df.at[idx, col])
+            clean_val = df.at[idx, col]
+            choice = int(RNG.integers(0, 3))
+            if choice == 0:
+                new_val = "  " + val
+            elif choice == 1:
+                new_val = val + "  "
+            else:
+                new_val = val.replace(" ", "  ", 1) if " " in val else "  " + val
+            if error_log is not None:
+                error_log.append({
+                    "row": int(idx),
+                    "col": col,
+                    "type": "cell",
+                    "corruption": "whitespace_noise",
+                    "clean_value": None if pd.isna(clean_val) else clean_val,
+                    "severity": severity,
+                })
+            df.at[idx, col] = new_val
     return df
 
 
-def outlier_injection(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+def outlier_injection(
+    df: pd.DataFrame,
+    columns: list[str],
+    error_log: list[dict] | None = None,
+) -> pd.DataFrame:
     """Inject extreme outlier values into numeric columns."""
     df = df.copy()
+    severity = CORRUPTION_SEVERITY["outlier_injection"]
     for col in columns:
+        if col not in df.columns:
+            continue
         numeric = pd.to_numeric(df[col], errors="coerce")
         if numeric.notna().sum() == 0:
             continue
         col_mean = numeric.mean()
         col_std = numeric.std()
         n_outliers = max(1, int(len(df) * 0.02))
-        indices = RNG.choice(len(df), size=n_outliers, replace=False)
-        for idx in indices:
-            if RNG.random() > 0.5:
-                df.iloc[idx, df.columns.get_loc(col)] = col_mean + col_std * RNG.uniform(5, 20)
-            else:
-                df.iloc[idx, df.columns.get_loc(col)] = col_mean - col_std * RNG.uniform(5, 20)
+        idxs = RNG.choice(len(df), size=n_outliers, replace=False)
+        for pos in idxs:
+            idx = df.index[pos]
+            clean_val = df.at[idx, col]
+            multiplier = float(RNG.uniform(5, 20))
+            new_val = col_mean + col_std * multiplier if RNG.random() > 0.5 else col_mean - col_std * multiplier
+            if error_log is not None:
+                error_log.append({
+                    "row": int(idx),
+                    "col": col,
+                    "type": "cell",
+                    "corruption": "outlier_injected",
+                    "clean_value": None if pd.isna(clean_val) else (float(clean_val) if isinstance(clean_val, (int, float)) else None),
+                    "severity": severity,
+                })
+            df.at[idx, col] = new_val
     return df
 
 
 # ── Corruption Pipeline ──────────────────────────────────────────────────────
 
 
-def apply_corruptions(df: pd.DataFrame, config: list[dict[str, Any]]) -> pd.DataFrame:
-    """Apply a sequence of corruption operations to a DataFrame."""
-    dispatch = {
-        "inject_nulls": inject_nulls,
-        "type_mangle": type_mangle,
-        "duplicate_rows": duplicate_rows,
-        "format_inconsistency": format_inconsistency,
-        "whitespace_noise": whitespace_noise,
-        "outlier_injection": outlier_injection,
-    }
+DISPATCH = {
+    "inject_nulls": inject_nulls,
+    "type_mangle": type_mangle,
+    "duplicate_rows": duplicate_rows,
+    "format_inconsistency": format_inconsistency,
+    "whitespace_noise": whitespace_noise,
+    "outlier_injection": outlier_injection,
+}
+
+
+def apply_corruptions(
+    df: pd.DataFrame,
+    config: list[dict[str, Any]],
+    error_log: list[dict] | None = None,
+) -> pd.DataFrame:
+    """Apply a sequence of corruption operations, optionally tracking errors."""
     for step in config:
         fn_name = step["function"]
         kwargs = {k: v for k, v in step.items() if k != "function"}
-        fn = dispatch[fn_name]
-        df = fn(df, **kwargs)
+        fn = DISPATCH[fn_name]
+        df = fn(df, error_log=error_log, **kwargs)
     return df
+
+
+def build_error_map(error_log: list[dict]) -> dict[str, Any]:
+    """Convert the flat error log into the nested error_map schema."""
+    cell_errors: dict[str, dict] = {}
+    spurious_rows: dict[str, dict] = {}
+
+    for entry in error_log:
+        if entry["type"] == "cell":
+            key = f"{entry['row']},{entry['col']}"
+            # If same cell corrupted multiple times, keep highest severity
+            if key not in cell_errors or entry["severity"] > cell_errors[key]["severity"]:
+                error_entry = {
+                    "severity": entry["severity"],
+                    "clean_value": entry["clean_value"],
+                    "corruption": entry["corruption"],
+                }
+                if "accepted_fill" in entry:
+                    error_entry["accepted_fill"] = entry["accepted_fill"]
+                cell_errors[key] = error_entry
+        elif entry["type"] == "spurious_row":
+            row_str = str(entry["row"])
+            spurious_rows[row_str] = {"severity": entry["severity"]}
+
+    return {
+        "cell_errors": cell_errors,
+        "spurious_rows": spurious_rows,
+        "missing_rows": {},  # reserved for future use
+    }
+
+
+def build_severity_map(error_map: dict[str, Any]) -> dict[str, Any]:
+    """Compute severity totals from error_map."""
+    cell_errors = error_map.get("cell_errors", {})
+    spurious_rows = error_map.get("spurious_rows", {})
+    missing_rows = error_map.get("missing_rows", {})
+
+    by_corruption: dict[str, float] = {}
+    for info in cell_errors.values():
+        c = info["corruption"]
+        by_corruption[c] = by_corruption.get(c, 0.0) + info["severity"]
+    for info in spurious_rows.values():
+        by_corruption["duplicate_rows"] = by_corruption.get("duplicate_rows", 0.0) + info["severity"]
+    for info in missing_rows.values():
+        by_corruption["missing_rows"] = by_corruption.get("missing_rows", 0.0) + info["severity"]
+
+    total = sum(
+        list(by_corruption.values())
+    )
+
+    return {
+        "total_severity": total,
+        "total_cell_errors": len(cell_errors),
+        "total_spurious_rows": len(spurious_rows),
+        "total_missing_rows": len(missing_rows),
+        "by_corruption": by_corruption,
+    }
 
 
 # ── Dataset Loaders ──────────────────────────────────────────────────────────
@@ -143,7 +332,6 @@ def load_titanic() -> pd.DataFrame:
     clean_path = Path("data/clean/titanic.csv")
     if clean_path.exists():
         return pd.read_csv(clean_path)
-    # Download from a reliable source
     url = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv"
     df = pd.read_csv(url)
     clean_path.parent.mkdir(parents=True, exist_ok=True)
@@ -164,163 +352,186 @@ def load_wine() -> pd.DataFrame:
 
 
 # ── Task Corruption Configs ──────────────────────────────────────────────────
+# Each dataset gets easy/medium/hard variants.
+# Difficulty is controlled by corruption fractions and which corruption types are applied.
 
-
-EASY_CONFIG = {
-    "task_id": "easy_titanic",
-    "description": (
-        "Clean the Titanic passenger dataset. Fix null values in Age and Embarked, "
-        "correct type errors in Fare, and remove whitespace from Name and Ticket."
-    ),
-    "base_dataset": "titanic",
-    "corruptions": [
-        {"function": "inject_nulls", "columns": ["Age", "Embarked"], "fraction": 0.15},
-        {"function": "type_mangle", "columns": ["Fare"]},
-        {"function": "whitespace_noise", "columns": ["Name", "Ticket"]},
-    ],
-    "constraints": [
-        {"id": "c1", "type": "no_nulls", "column": "Age", "severity": "high", "description": "No null values in Age"},
-        {"id": "c2", "type": "no_nulls", "column": "Embarked", "severity": "high", "description": "No null values in Embarked"},
-        {"id": "c3", "type": "dtype", "column": "Fare", "dtype": "float64", "severity": "critical", "description": "Fare must be float64"},
-        {"id": "c4", "type": "no_whitespace", "column": "Name", "severity": "medium", "description": "No leading/trailing whitespace in Name"},
-        {"id": "c5", "type": "no_whitespace", "column": "Ticket", "severity": "medium", "description": "No leading/trailing whitespace in Ticket"},
-    ],
-    "min_transform_steps": 2,
-    "max_transform_steps": 8,
-}
-
-MEDIUM_CONFIG = {
-    "task_id": "medium_wine",
-    "description": (
-        "Clean the Wine Quality dataset. Remove duplicates, fix null values, "
-        "correct type errors, normalize column formats, and ensure all values "
-        "are within valid scientific ranges."
-    ),
-    "base_dataset": "wine_quality",
-    "corruptions": [
-        {"function": "inject_nulls", "columns": ["pH", "alcohol", "residual sugar"], "fraction": 0.1},
-        {"function": "type_mangle", "columns": ["fixed acidity", "volatile acidity"]},
-        {"function": "duplicate_rows", "fraction": 0.05},
-        {"function": "whitespace_noise", "columns": ["quality"]},
-        {"function": "outlier_injection", "columns": ["pH"]},
-    ],
-    "constraints": [
-        {"id": "c1", "type": "no_nulls", "column": "pH", "severity": "critical", "description": "No null values in pH"},
-        {"id": "c2", "type": "no_nulls", "column": "alcohol", "severity": "critical", "description": "No null values in alcohol"},
-        {"id": "c3", "type": "no_nulls", "column": "residual sugar", "severity": "high", "description": "No null values in residual sugar"},
-        {"id": "c4", "type": "dtype", "column": "fixed acidity", "dtype": "float64", "severity": "critical", "description": "fixed acidity must be float64"},
-        {"id": "c5", "type": "dtype", "column": "volatile acidity", "dtype": "float64", "severity": "critical", "description": "volatile acidity must be float64"},
-        {"id": "c6", "type": "no_duplicates", "key": None, "severity": "high", "description": "No exact duplicate rows"},
-        {"id": "c7", "type": "value_range", "column": "pH", "min": 2.0, "max": 5.0, "severity": "critical", "description": "pH must be between 2.0 and 5.0"},
-        {"id": "c8", "type": "value_range", "column": "alcohol", "min": 5.0, "max": 20.0, "severity": "high", "description": "alcohol must be between 5.0 and 20.0"},
-        {"id": "c9", "type": "dtype", "column": "quality", "dtype": "int64", "severity": "medium", "description": "quality must be integer"},
-        {"id": "c10", "type": "row_count_range", "min": 1590, "max": 1600, "severity": "high", "description": "Row count should be ~1599 (no duplicates added)"},
-    ],
-    "min_transform_steps": 4,
-    "max_transform_steps": 12,
-}
-
-HARD_CONFIG = {
-    "task_id": "hard_combined",
-    "description": (
-        "Clean a merged Titanic + Wine Quality dataset. This combined dataset has "
-        "complex cross-column dependencies, mixed types, duplicates, outliers, "
-        "format inconsistencies, and encoding issues. You must handle all corruption "
-        "types and ensure cross-column constraints are satisfied."
-    ),
-    "base_dataset": "combined",
-    "corruptions": [
-        {"function": "inject_nulls", "columns": ["Age", "pH", "alcohol", "Embarked"], "fraction": 0.12},
-        {"function": "type_mangle", "columns": ["Fare", "fixed acidity", "volatile acidity"]},
-        {"function": "duplicate_rows", "fraction": 0.08},
-        {"function": "format_inconsistency", "columns": ["Name", "Embarked"]},
-        {"function": "whitespace_noise", "columns": ["Name", "Ticket"]},
-        {"function": "outlier_injection", "columns": ["Age", "pH", "Fare"]},
-    ],
-    "constraints": [
-        {"id": "c1", "type": "no_nulls", "column": "Age", "severity": "critical", "description": "No null values in Age"},
-        {"id": "c2", "type": "no_nulls", "column": "pH", "severity": "critical", "description": "No null values in pH"},
-        {"id": "c3", "type": "no_nulls", "column": "alcohol", "severity": "critical", "description": "No null values in alcohol"},
-        {"id": "c4", "type": "no_nulls", "column": "Embarked", "severity": "high", "description": "No null values in Embarked"},
-        {"id": "c5", "type": "dtype", "column": "Fare", "dtype": "float64", "severity": "critical", "description": "Fare must be float64"},
-        {"id": "c6", "type": "dtype", "column": "fixed acidity", "dtype": "float64", "severity": "critical", "description": "fixed acidity must be float64"},
-        {"id": "c7", "type": "dtype", "column": "volatile acidity", "dtype": "float64", "severity": "critical", "description": "volatile acidity must be float64"},
-        {"id": "c8", "type": "no_duplicates", "key": None, "severity": "critical", "description": "No exact duplicate rows"},
-        {"id": "c9", "type": "value_range", "column": "Age", "min": 0, "max": 120, "severity": "high", "description": "Age must be between 0 and 120"},
-        {"id": "c10", "type": "value_range", "column": "pH", "min": 2.0, "max": 5.0, "severity": "critical", "description": "pH must be between 2.0 and 5.0"},
-        {"id": "c11", "type": "value_range", "column": "Fare", "min": 0, "max": 600, "severity": "high", "description": "Fare must be between 0 and 600"},
-        {"id": "c12", "type": "no_whitespace", "column": "Name", "severity": "medium", "description": "No leading/trailing whitespace in Name"},
-        {"id": "c13", "type": "no_whitespace", "column": "Ticket", "severity": "medium", "description": "No leading/trailing whitespace in Ticket"},
-        {"id": "c14", "type": "consistent_case", "column": "Embarked", "severity": "high", "description": "Embarked values must be consistently cased"},
-        {"id": "c15", "type": "unique_values", "column": "Embarked", "allowed": ["S", "C", "Q"], "severity": "high", "description": "Embarked must be one of S, C, Q"},
-        {"id": "c16", "type": "value_range", "column": "alcohol", "min": 5.0, "max": 20.0, "severity": "high", "description": "alcohol must be between 5.0 and 20.0"},
-        {"id": "c17", "type": "dtype", "column": "quality", "dtype": "int64", "severity": "medium", "description": "quality must be integer"},
-        {"id": "c18", "type": "row_count_range", "min": 800, "max": 920, "severity": "high", "description": "Row count should be ~891 (no duplicates added)"},
-    ],
-    "min_transform_steps": 7,
-    "max_transform_steps": 15,
-}
+TASK_CONFIGS: list[dict[str, Any]] = [
+    # ── Titanic ──────────────────────────────────────────────────────────────
+    {
+        "task_id": "titanic_easy",
+        "description": (
+            "Clean the Titanic passenger dataset (easy). "
+            "Fix a small number of null values in Age and Embarked, "
+            "and remove whitespace from Name."
+        ),
+        "base_dataset": "titanic",
+        "corruptions": [
+            {"function": "inject_nulls", "columns": ["Age"], "fraction": 0.08},
+            {"function": "whitespace_noise", "columns": ["Name"]},
+        ],
+        "min_transform_steps": 1,
+        "max_transform_steps": 6,
+    },
+    {
+        "task_id": "titanic_medium",
+        "description": (
+            "Clean the Titanic passenger dataset (medium). "
+            "Fix nulls in Age and Embarked, correct type errors in Fare, "
+            "and remove whitespace from Name and Ticket."
+        ),
+        "base_dataset": "titanic",
+        "corruptions": [
+            {"function": "inject_nulls", "columns": ["Age", "Embarked"], "fraction": 0.15},
+            {"function": "type_mangle", "columns": ["Fare"]},
+            {"function": "whitespace_noise", "columns": ["Name", "Ticket"]},
+        ],
+        "min_transform_steps": 3,
+        "max_transform_steps": 10,
+    },
+    {
+        "task_id": "titanic_hard",
+        "description": (
+            "Clean the Titanic passenger dataset (hard). "
+            "Fix heavy null injection across multiple columns, type errors, "
+            "outliers in Age and Fare, format inconsistencies in Embarked, "
+            "duplicate rows, and whitespace noise."
+        ),
+        "base_dataset": "titanic",
+        "corruptions": [
+            {"function": "inject_nulls", "columns": ["Age", "Embarked", "Fare"], "fraction": 0.30},
+            {"function": "type_mangle", "columns": ["Fare", "Age"]},
+            {"function": "duplicate_rows", "fraction": 0.08},
+            {"function": "format_inconsistency", "columns": ["Embarked", "Name"]},
+            {"function": "whitespace_noise", "columns": ["Name", "Ticket"]},
+            {"function": "outlier_injection", "columns": ["Age", "Fare"]},
+        ],
+        "min_transform_steps": 6,
+        "max_transform_steps": 15,
+    },
+    # ── Wine ─────────────────────────────────────────────────────────────────
+    {
+        "task_id": "wine_easy",
+        "description": (
+            "Clean the Wine Quality dataset (easy). "
+            "Fix null values in pH and alcohol."
+        ),
+        "base_dataset": "wine_quality",
+        "corruptions": [
+            {"function": "inject_nulls", "columns": ["pH", "alcohol"], "fraction": 0.08},
+        ],
+        "min_transform_steps": 1,
+        "max_transform_steps": 6,
+    },
+    {
+        "task_id": "wine_medium",
+        "description": (
+            "Clean the Wine Quality dataset (medium). "
+            "Remove duplicates, fix null values in pH, alcohol, and residual sugar, "
+            "correct type errors in acidity columns, and fix outliers in pH."
+        ),
+        "base_dataset": "wine_quality",
+        "corruptions": [
+            {"function": "inject_nulls", "columns": ["pH", "alcohol", "residual sugar"], "fraction": 0.12},
+            {"function": "type_mangle", "columns": ["fixed acidity", "volatile acidity"]},
+            {"function": "duplicate_rows", "fraction": 0.05},
+            {"function": "outlier_injection", "columns": ["pH"]},
+        ],
+        "min_transform_steps": 3,
+        "max_transform_steps": 10,
+    },
+    {
+        "task_id": "wine_hard",
+        "description": (
+            "Clean the Wine Quality dataset (hard). "
+            "Heavy nulls across multiple columns, type errors, duplicates, "
+            "outliers in pH and alcohol, and whitespace noise in quality."
+        ),
+        "base_dataset": "wine_quality",
+        "corruptions": [
+            {"function": "inject_nulls", "columns": ["pH", "alcohol", "residual sugar", "fixed acidity"], "fraction": 0.30},
+            {"function": "type_mangle", "columns": ["fixed acidity", "volatile acidity", "citric acid"]},
+            {"function": "duplicate_rows", "fraction": 0.10},
+            {"function": "whitespace_noise", "columns": ["quality"]},
+            {"function": "outlier_injection", "columns": ["pH", "alcohol"]},
+        ],
+        "min_transform_steps": 6,
+        "max_transform_steps": 15,
+    },
+]
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 
-def create_combined_dataset(titanic: pd.DataFrame, wine: pd.DataFrame) -> pd.DataFrame:
-    """Create a combined dataset by sampling from both and joining on index."""
-    # Take all titanic rows, sample matching wine rows
-    wine_sampled = wine.sample(n=len(titanic), replace=True, random_state=SEED).reset_index(drop=True)
-    titanic_reset = titanic.reset_index(drop=True)
-    combined = pd.concat([titanic_reset, wine_sampled], axis=1)
-    # Remove duplicate column names if any
-    combined = combined.loc[:, ~combined.columns.duplicated()]
-    return combined
+def generate_task(config: dict[str, Any], clean_df: pd.DataFrame, data_dir: Path) -> None:
+    """Generate all 4 artifacts for a single task."""
+    task_id = config["task_id"]
+    task_dir = data_dir / task_id
+    task_dir.mkdir(parents=True, exist_ok=True)
+
+    # Save clean data
+    clean_path = task_dir / "clean.csv"
+    clean_df.to_csv(clean_path, index=False)
+
+    # Apply corruptions, tracking errors
+    error_log: list[dict] = []
+    dirty_df = apply_corruptions(clean_df.copy(), config["corruptions"], error_log=error_log)
+
+    # Save dirty data
+    dirty_path = task_dir / "dirty.csv"
+    dirty_df.to_csv(dirty_path, index=False)
+
+    # Build and save error map
+    error_map = build_error_map(error_log)
+    with open(task_dir / "error_map.json", "w") as f:
+        json.dump(error_map, f, indent=2, default=str)
+
+    # Build and save severity map
+    severity_map = build_severity_map(error_map)
+    with open(task_dir / "severity_map.json", "w") as f:
+        json.dump(severity_map, f, indent=2)
+
+    # Save task config (without internal corruptions list)
+    task_config = {
+        "task_id": task_id,
+        "description": config["description"],
+        "base_dataset": config["base_dataset"],
+        "min_transform_steps": config["min_transform_steps"],
+        "max_transform_steps": config["max_transform_steps"],
+        "clean_data_path": str(clean_path),
+        "dirty_data_path": str(dirty_path),
+        "error_map_path": str(task_dir / "error_map.json"),
+        "severity_map_path": str(task_dir / "severity_map.json"),
+    }
+
+    tasks_dir = Path("tasks")
+    tasks_dir.mkdir(exist_ok=True)
+    with open(tasks_dir / f"task_{task_id}.json", "w") as f:
+        json.dump(task_config, f, indent=2)
+
+    print(f"  [{task_id}] clean={clean_df.shape}, dirty={dirty_df.shape}, "
+          f"errors={len(error_map['cell_errors'])} cells + {len(error_map['spurious_rows'])} spurious rows, "
+          f"total_severity={severity_map['total_severity']:.1f}")
 
 
 def generate_all():
-    """Generate all dirty datasets and task configs."""
+    """Generate all task datasets and configs."""
     data_dir = Path("data")
-    tasks_dir = Path("tasks")
-    tasks_dir.mkdir(exist_ok=True)
 
-    # Load clean datasets
     print("Loading clean datasets...")
     titanic = load_titanic()
     wine = load_wine()
-    combined = create_combined_dataset(titanic, wine)
+    print(f"  Titanic: {titanic.shape}, Wine: {wine.shape}")
 
-    # Save combined clean
-    combined.to_csv(data_dir / "clean" / "combined.csv", index=False)
+    loaders = {"titanic": titanic, "wine_quality": wine}
 
-    configs = [
-        ("easy", EASY_CONFIG, titanic),
-        ("medium", MEDIUM_CONFIG, wine),
-        ("hard", HARD_CONFIG, combined),
-    ]
+    print("\nGenerating tasks...")
+    for config in TASK_CONFIGS:
+        base = config["base_dataset"]
+        clean_df = loaders[base].reset_index(drop=True)
+        generate_task(config, clean_df, data_dir)
 
-    for difficulty, config, clean_df in configs:
-        print(f"\nGenerating {difficulty} task: {config['task_id']}...")
-        print(f"  Clean shape: {clean_df.shape}")
-
-        # Apply corruptions
-        dirty_df = apply_corruptions(clean_df.copy(), config["corruptions"])
-        print(f"  Dirty shape: {dirty_df.shape}")
-
-        # Save dirty data
-        dirty_path = data_dir / "dirty" / f"{config['task_id']}.csv"
-        dirty_path.parent.mkdir(parents=True, exist_ok=True)
-        dirty_df.to_csv(dirty_path, index=False)
-        print(f"  Saved: {dirty_path}")
-
-        # Save task config
-        task_path = tasks_dir / f"task_{difficulty}.json"
-        task_config = {k: v for k, v in config.items() if k != "corruptions"}
-        task_config["dirty_data_path"] = str(dirty_path)
-        task_config["clean_data_path"] = str(data_dir / "clean" / f"{config['base_dataset']}.csv")
-        with open(task_path, "w") as f:
-            json.dump(task_config, f, indent=2)
-        print(f"  Task config: {task_path}")
-
-    print("\nDone! Generated 3 tasks.")
+    print(f"\nDone! Generated {len(TASK_CONFIGS)} tasks.")
 
 
 if __name__ == "__main__":
