@@ -23,6 +23,14 @@ OpenEnv environment for the Meta PyTorch Hackathon (deadline: April 8, 2026). AI
 - **Auto-rewrite inplace=True** — worker auto-converts `df['col'].fillna(val, inplace=True)` → `df['col'] = df['col'].fillna(val)` (pandas 2.x broke chained inplace)
 - **Multi-difficulty per dataset** — titanic and wine each have easy/medium/hard variants
 
+## Conventions
+- OpenEnv spec v1: typed models, `reset()`/`step()`/`state()` API
+- Dual-import in server files: `try: from ..models / except: from models`
+- Rewards in 0.0–1.0 range, diff-based grading only
+- Client never imports server
+- Sandbox always on for code execution
+- Generator owns all domain knowledge — grader is a pure diff engine
+
 ## Invariants
 - Rewards always in [0.0, 1.0]
 - Sandbox always on — no code execution without AST scan + persistent worker
