@@ -58,7 +58,10 @@ python inference.py titanic_easy wine_medium
 
   POST /step  {type: "done"}
        |
-  final grade -> return Observation (done=True)
+  if first done AND score < 1.0:
+    -> soft done: return score + remaining errors (done=False, agent continues)
+  else:
+    -> hard done: final grade, return Observation (done=True)
 
 [Client]  client.py
   DataCleaningClient(base_url=ENV_URL)
@@ -90,7 +93,7 @@ python inference.py titanic_easy wine_medium
 2. **Explore**: Agent inspects the data (pandas queries, read-only, 10/cycle budget, small cost per call)
 3. **Transform**: Agent submits Python/pandas code executed in a sandbox
 4. **Grade**: Diff-based grading against ground truth, severity-weighted
-5. **Done**: Agent signals completion or hits max transform steps
+5. **Done**: Agent signals completion — if score < 1.0 on first done, agent gets a second chance (soft done). Second done or perfect score ends the episode
 
 ## Action Space
 
@@ -148,17 +151,39 @@ Agent code runs in a subprocess with:
 - 30s transform timeout, 10s explore timeout
 - 2GB memory limit
 
-## Verified Results (Gemma 4 E2B, 2B params, local)
+## Benchmark Results
 
-| Task | Errors Fixed | Reward |
-|------|-------------|--------|
-| titanic_easy | 59/59 | 1.00 |
-| titanic_medium | 233/277 | 0.67 |
-| titanic_hard | 764/958 | 0.66 |
-| wine_easy | 255/255 | 1.00 |
-| wine_medium | 611/836 | 0.52 |
-| wine_hard | 1418/2312 | 0.49 |
-| **Average** | | **0.64** |
+### Gemma 4 E2B (2B params, local, 8K context)
+
+| Task | Errors Fixed | Steps | Reward | Notes |
+|------|-------------|-------|--------|-------|
+| titanic_easy | 59/59 | 2 | 0.99 | Explore penalty: -0.01 |
+| titanic_medium | 233/277 | 6 | 0.66 | Soft done triggered, context overflow on retry |
+| titanic_hard | 764/958 | 7 | 0.64 | Soft done triggered, context overflow on retry |
+| wine_easy | 255/255 | 2 | 0.99 | Explore penalty: -0.01 |
+| wine_medium | 591/836 | 6 | 0.50 | Soft done triggered, context overflow on retry |
+| wine_hard | 1418/2312 | 8 | 0.48 | Soft done triggered, context overflow on retry |
+| **Average** | | | **0.71** | |
+
+### GPT-4.1 Nano (OpenAI API, with action history + loop detection)
+
+| Task | Errors Fixed | Steps | Reward | Notes |
+|------|-------------|-------|--------|-------|
+| titanic_easy | 59/59 | 4 | 0.97 | 3 explores, auto-done on all fixed |
+| titanic_medium | 233/277 | 5 | 0.66 | Soft done triggered, second done finalizes |
+| titanic_hard | 764/958 | 9 | 0.63 | Auto-done after 3 stale transforms at 764 fixed |
+| wine_easy | 255/255 | 4 | 0.90 | 2 explores, auto-done on all fixed |
+| wine_medium | 566/836 | 13 | 0.40 | Heavy explores (10), soft done + second done |
+| wine_hard | 22/2312 | 7 | 0.00 | Model gives up early — complexity beyond Nano's capability |
+| **Average** | | | **0.53** | |
+
+### Key Observations
+
+- **Gemma 4 E2B (2B, local)** outperforms **GPT-4.1 Nano** despite being much smaller — likely because Gemma writes more comprehensive transforms per step
+- **Action history + loop detection** prevents the worst failure modes: titanic_medium improved from 0.37 to 0.66 (no more repeated transforms), titanic_hard auto-dones at peak instead of spiraling down
+- **Auto-done circuit breakers** work: stale detection (3 transforms, same errors fixed) and regression detection (2 consecutive transforms reducing errors) prevent wasted steps
+- **Soft done** works correctly but the 2B local model hits context limits on retry; larger-context models would benefit more
+- **Explore penalty** is visible: titanic_easy scores 0.97 (not 1.0) due to explore steps costing 0.01 each
 
 ## Environment Variables
 
