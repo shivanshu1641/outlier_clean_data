@@ -1,0 +1,10 @@
+spec_version: 1
+name: data_cleaning_env
+description: "An OpenEnv environment where AI agents clean dirty CSV data by writing Python/pandas code, graded on constraint satisfaction and efficiency."
+type: environment
+runtime:
+  framework: fastapi
+  port: 8000
+app:
+  module: server.app
+  factory: app
