@@ -1,0 +1,89 @@
+{
+  "task_id": "medium_wine",
+  "description": "Clean the Wine Quality dataset. Remove duplicates, fix null values, correct type errors, normalize column formats, and ensure all values are within valid scientific ranges.",
+  "base_dataset": "wine_quality",
+  "constraints": [
+    {
+      "id": "c1",
+      "type": "no_nulls",
+      "column": "pH",
+      "severity": "critical",
+      "description": "No null values in pH"
+    },
+    {
+      "id": "c2",
+      "type": "no_nulls",
+      "column": "alcohol",
+      "severity": "critical",
+      "description": "No null values in alcohol"
+    },
+    {
+      "id": "c3",
+      "type": "no_nulls",
+      "column": "residual sugar",
+      "severity": "high",
+      "description": "No null values in residual sugar"
+    },
+    {
+      "id": "c4",
+      "type": "dtype",
+      "column": "fixed acidity",
+      "dtype": "float64",
+      "severity": "critical",
+      "description": "fixed acidity must be float64"
+    },
+    {
+      "id": "c5",
+      "type": "dtype",
+      "column": "volatile acidity",
+      "dtype": "float64",
+      "severity": "critical",
+      "description": "volatile acidity must be float64"
+    },
+    {
+      "id": "c6",
+      "type": "no_duplicates",
+      "key": null,
+      "severity": "high",
+      "description": "No exact duplicate rows"
+    },
+    {
+      "id": "c7",
+      "type": "value_range",
+      "column": "pH",
+      "min": 2.0,
+      "max": 5.0,
+      "severity": "critical",
+      "description": "pH must be between 2.0 and 5.0"
+    },
+    {
+      "id": "c8",
+      "type": "value_range",
+      "column": "alcohol",
+      "min": 5.0,
+      "max": 20.0,
+      "severity": "high",
+      "description": "alcohol must be between 5.0 and 20.0"
+    },
+    {
+      "id": "c9",
+      "type": "dtype",
+      "column": "quality",
+      "dtype": "int64",
+      "severity": "medium",
+      "description": "quality must be integer"
+    },
+    {
+      "id": "c10",
+      "type": "row_count_range",
+      "min": 1590,
+      "max": 1600,
+      "severity": "high",
+      "description": "Row count should be ~1599 (no duplicates added)"
+    }
+  ],
+  "min_transform_steps": 4,
+  "max_transform_steps": 12,
+  "dirty_data_path": "data/dirty/medium_wine.csv",
+  "clean_data_path": "data/clean/wine_quality.csv"
+}

@@ -1,0 +1,47 @@
+{
+  "task_id": "easy_titanic",
+  "description": "Clean the Titanic passenger dataset. Fix null values in Age and Embarked, correct type errors in Fare, and remove whitespace from Name and Ticket.",
+  "base_dataset": "titanic",
+  "constraints": [
+    {
+      "id": "c1",
+      "type": "no_nulls",
+      "column": "Age",
+      "severity": "high",
+      "description": "No null values in Age"
+    },
+    {
+      "id": "c2",
+      "type": "no_nulls",
+      "column": "Embarked",
+      "severity": "high",
+      "description": "No null values in Embarked"
+    },
+    {
+      "id": "c3",
+      "type": "dtype",
+      "column": "Fare",
+      "dtype": "float64",
+      "severity": "critical",
+      "description": "Fare must be float64"
+    },
+    {
+      "id": "c4",
+      "type": "no_whitespace",
+      "column": "Name",
+      "severity": "medium",
+      "description": "No leading/trailing whitespace in Name"
+    },
+    {
+      "id": "c5",
+      "type": "no_whitespace",
+      "column": "Ticket",
+      "severity": "medium",
+      "description": "No leading/trailing whitespace in Ticket"
+    }
+  ],
+  "min_transform_steps": 2,
+  "max_transform_steps": 8,
+  "dirty_data_path": "data/dirty/easy_titanic.csv",
+  "clean_data_path": "data/clean/titanic.csv"
+}

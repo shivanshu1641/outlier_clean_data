@@ -1,0 +1,155 @@
+{
+  "task_id": "hard_combined",
+  "description": "Clean a merged Titanic + Wine Quality dataset. This combined dataset has complex cross-column dependencies, mixed types, duplicates, outliers, format inconsistencies, and encoding issues. You must handle all corruption types and ensure cross-column constraints are satisfied.",
+  "base_dataset": "combined",
+  "constraints": [
+    {
+      "id": "c1",
+      "type": "no_nulls",
+      "column": "Age",
+      "severity": "critical",
+      "description": "No null values in Age"
+    },
+    {
+      "id": "c2",
+      "type": "no_nulls",
+      "column": "pH",
+      "severity": "critical",
+      "description": "No null values in pH"
+    },
+    {
+      "id": "c3",
+      "type": "no_nulls",
+      "column": "alcohol",
+      "severity": "critical",
+      "description": "No null values in alcohol"
+    },
+    {
+      "id": "c4",
+      "type": "no_nulls",
+      "column": "Embarked",
+      "severity": "high",
+      "description": "No null values in Embarked"
+    },
+    {
+      "id": "c5",
+      "type": "dtype",
+      "column": "Fare",
+      "dtype": "float64",
+      "severity": "critical",
+      "description": "Fare must be float64"
+    },
+    {
+      "id": "c6",
+      "type": "dtype",
+      "column": "fixed acidity",
+      "dtype": "float64",
+      "severity": "critical",
+      "description": "fixed acidity must be float64"
+    },
+    {
+      "id": "c7",
+      "type": "dtype",
+      "column": "volatile acidity",
+      "dtype": "float64",
+      "severity": "critical",
+      "description": "volatile acidity must be float64"
+    },
+    {
+      "id": "c8",
+      "type": "no_duplicates",
+      "key": null,
+      "severity": "critical",
+      "description": "No exact duplicate rows"
+    },
+    {
+      "id": "c9",
+      "type": "value_range",
+      "column": "Age",
+      "min": 0,
+      "max": 120,
+      "severity": "high",
+      "description": "Age must be between 0 and 120"
+    },
+    {
+      "id": "c10",
+      "type": "value_range",
+      "column": "pH",
+      "min": 2.0,
+      "max": 5.0,
+      "severity": "critical",
+      "description": "pH must be between 2.0 and 5.0"
+    },
+    {
+      "id": "c11",
+      "type": "value_range",
+      "column": "Fare",
+      "min": 0,
+      "max": 600,
+      "severity": "high",
+      "description": "Fare must be between 0 and 600"
+    },
+    {
+      "id": "c12",
+      "type": "no_whitespace",
+      "column": "Name",
+      "severity": "medium",
+      "description": "No leading/trailing whitespace in Name"
+    },
+    {
+      "id": "c13",
+      "type": "no_whitespace",
+      "column": "Ticket",
+      "severity": "medium",
+      "description": "No leading/trailing whitespace in Ticket"
+    },
+    {
+      "id": "c14",
+      "type": "consistent_case",
+      "column": "Embarked",
+      "severity": "high",
+      "description": "Embarked values must be consistently cased"
+    },
+    {
+      "id": "c15",
+      "type": "unique_values",
+      "column": "Embarked",
+      "allowed": [
+        "S",
+        "C",
+        "Q"
+      ],
+      "severity": "high",
+      "description": "Embarked must be one of S, C, Q"
+    },
+    {
+      "id": "c16",
+      "type": "value_range",
+      "column": "alcohol",
+      "min": 5.0,
+      "max": 20.0,
+      "severity": "high",
+      "description": "alcohol must be between 5.0 and 20.0"
+    },
+    {
+      "id": "c17",
+      "type": "dtype",
+      "column": "quality",
+      "dtype": "int64",
+      "severity": "medium",
+      "description": "quality must be integer"
+    },
+    {
+      "id": "c18",
+      "type": "row_count_range",
+      "min": 800,
+      "max": 920,
+      "severity": "high",
+      "description": "Row count should be ~891 (no duplicates added)"
+    }
+  ],
+  "min_transform_steps": 7,
+  "max_transform_steps": 15,
+  "dirty_data_path": "data/dirty/hard_combined.csv",
+  "clean_data_path": "data/clean/combined.csv"
+}
