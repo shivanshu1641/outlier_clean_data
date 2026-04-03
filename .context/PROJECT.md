@@ -18,6 +18,7 @@ OpenEnv environment for the Meta PyTorch Hackathon (deadline: April 8, 2026). AI
 - **Code generation over structured transforms** — agents write real pandas code
 - **Diff-based grading over constraint checkers** — compares result to ground truth using a pre-built error map; generator owns all domain knowledge, grader is a pure diff engine
 - **Wrong-value penalty** — changing a cell to an incorrect value is penalized 1.5× more than leaving it dirty
+- **Explore cost** — each explore action incurs a small efficiency penalty (0.01/step, 0.03 for timeouts), discouraging excessive or wasteful exploration
 - **Null fill tolerance** — `accepted_fill` field per null error: "any" accepts any reasonable imputation (mean, median, mode, ffill, bfill), "exact" requires the clean value, "mean"/"median"/"mode" accept only that specific statistic
 - **Persistent worker** — pandas/numpy loaded once per episode, CSV re-read each step (avoids cold-start AND the pandas Copy-on-Write `inplace=True` pitfall)
 - **Auto-rewrite inplace=True** — worker auto-converts `df['col'].fillna(val, inplace=True)` → `df['col'] = df['col'].fillna(val)` (pandas 2.x broke chained inplace)
@@ -35,7 +36,7 @@ OpenEnv environment for the Meta PyTorch Hackathon (deadline: April 8, 2026). AI
 - Rewards always in [0.0, 1.0]
 - Sandbox always on — no code execution without AST scan + persistent worker
 - Grader never knows about corruption types — only compares values
-- Generator always produces 4 artifacts: clean.csv, dirty.csv, error_map.json, severity_map.json
+- Generator always produces 4 artifacts + task config: clean.csv, dirty.csv, error_map.json, severity_map.json, task_*.json
 - CSV is the source of truth between steps, not in-memory df
 - Client never imports server
 - Dual-import pattern in server files: `try: from ..models / except: from models`
@@ -83,8 +84,8 @@ python tools/corruption/engine.py
 - `data/<task_id>/dirty.csv` — Corrupted input
 - `data/<task_id>/error_map.json` — Cell/row errors with severity, clean values, accepted_fill
 - `data/<task_id>/severity_map.json` — Severity totals per corruption type
-- `tools/corruption/engine.py` — Standalone corruption generator
-- `docs/` — Architecture, ADRs, runbooks
+- `tools/corruption/engine.py` — Standalone corruption generator (also writes explore cost configs)
+- `architecture.md` — System diagram, agent loop, data flow, grading details
 
 ## Task IDs
 - `titanic_easy`, `titanic_medium`, `titanic_hard`
@@ -100,7 +101,9 @@ constraint_score = 1 - (remaining_severity / total_severity)
     whitespace/format cell (stripped match)    → 0 severity (fixed)
     spurious row still present                → full severity remaining
 
-efficiency_factor = max(0.5, 1.0 - max(0, steps - min_steps) / (max_steps × 2))
+transform_penalty = max(0, transform_steps - min_steps) / (max_steps × 2)
+explore_penalty   = (successful_explores × 0.01) + (timed_out_explores × 0.03)
+efficiency_factor = max(0.5, 1.0 - transform_penalty - explore_penalty)
 reward = constraint_score × efficiency_factor   [clamped to 0.0–1.0]
 ```
 

@@ -106,6 +106,10 @@ def grade(
     transform_steps: int,
     min_transform_steps: int,
     max_transform_steps: int,
+    explore_steps: int = 0,
+    explore_timeouts: int = 0,
+    explore_cost_per_step: float = 0.01,
+    explore_timeout_cost: float = 0.03,
 ) -> tuple[dict[str, str], float]:
     """Grade the agent's result against the clean reference using the error map.
 
@@ -116,6 +120,10 @@ def grade(
         transform_steps: Number of transform steps the agent used.
         min_transform_steps: Minimum expected steps (efficiency baseline).
         max_transform_steps: Maximum allowed steps.
+        explore_steps: Total number of explore actions taken.
+        explore_timeouts: Number of explore actions that timed out or failed.
+        explore_cost_per_step: Penalty per successful explore action.
+        explore_timeout_cost: Penalty per timed-out/failed explore action.
 
     Returns:
         (error_status, reward) where error_status maps each error key to one of
@@ -261,8 +269,15 @@ def grade(
     # Clamp remaining_severity (wrong_value penalty can push it above total)
     constraint_score = max(0.0, 1.0 - remaining_severity / total_severity)
 
-    excess_steps = max(0, transform_steps - min_transform_steps)
-    efficiency_factor = max(0.5, 1.0 - excess_steps / (max_transform_steps * 2))
+    # Transform penalty
+    transform_excess = max(0, transform_steps - min_transform_steps)
+    transform_penalty = transform_excess / (max_transform_steps * 2)
+
+    # Explore penalty: normal explores cost a little, timed-out ones cost more
+    normal_explores = explore_steps - explore_timeouts
+    explore_penalty = (normal_explores * explore_cost_per_step) + (explore_timeouts * explore_timeout_cost)
+
+    efficiency_factor = max(0.5, 1.0 - transform_penalty - explore_penalty)
 
     reward = round(min(1.0, constraint_score * efficiency_factor), 4)
     return error_status, reward
