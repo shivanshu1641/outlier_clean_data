@@ -231,13 +231,13 @@ def get_agent_action(messages: list[dict]) -> tuple[dict, float, dict | None]:
             err_str = str(e).lower()
             if "rate limit" in err_str or "429" in err_str or "too many" in err_str:
                 wait = backoff * (2 ** attempt)
-                logger.warning("Rate limit hit — waiting %.0fs before retry %d/%d", wait, attempt + 1, max_retries)
+                logger.warning("Rate limit hit — waiting %.0fs before retry %d/%d | error: %s", wait, attempt + 1, max_retries, str(e)[:300])
                 _jlog("rate_limit_retry", attempt=attempt + 1, wait_s=wait)
                 time.sleep(wait)
                 if attempt == max_retries - 1:
                     raise
             elif "context" in err_str or "exceed" in err_str or "400" in err_str:
-                logger.warning("Context size exceeded — auto-submitting done")
+                logger.warning("Context size exceeded or bad request — auto-submitting done | error: %s", str(e)[:300])
                 _jlog("context_exceeded", error=str(e)[:200])
                 return {"type": "done"}, latency, None
             else:
