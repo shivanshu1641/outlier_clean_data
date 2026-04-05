@@ -17,6 +17,6 @@ COPY __init__.py .
 # Create outputs directory
 RUN mkdir -p outputs/sandbox outputs/logs outputs/evals
 
-EXPOSE 8000
+EXPOSE 7860
 
-CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "8000", "--ws-ping-interval", "60", "--ws-ping-timeout", "120"]
+CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "7860", "--ws-ping-interval", "60", "--ws-ping-timeout", "120"]
