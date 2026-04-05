@@ -177,6 +177,18 @@ Agent code runs in a subprocess with:
 | wine_hard | 22/2312 | 7 | 0.00 | Model gives up early — complexity beyond Nano's capability |
 | **Average** | | | **0.53** | |
 
+### GPT-OSS 120B (OpenRouter, free tier)
+
+| Task | Errors Fixed | Steps | Reward | Notes |
+|------|-------------|-------|--------|-------|
+| titanic_easy | 59/59 | 2 | 0.99 | 1 explore + 1 transform, auto-done on all fixed |
+| titanic_medium | 233/277 | 4 | 0.66 | Auto-done after 3 stale transforms |
+| titanic_hard | 764/958 | 18 | 0.57 | Heavy explores (12), auto-done after stale transforms |
+| wine_easy | 255/255 | 2 | 0.99 | 1 explore + 1 transform, auto-done on all fixed |
+| wine_medium | 546/836 | 10 | 0.39 | Auto-done after 3 stale transforms |
+| wine_hard | 1995/2312 | 12* | 0.67* | *Rate limited mid-run — partial result |
+| **Average** | | | **0.55*** | *wine_hard incomplete |
+
 ### Key Observations
 
 - **Gemma 4 E2B (2B, local)** outperforms **GPT-4.1 Nano** despite being much smaller — likely because Gemma writes more comprehensive transforms per step

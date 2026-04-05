@@ -12,12 +12,15 @@ from __future__ import annotations
 import math
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
 WRONG_VALUE_MULTIPLIER = 1.5  # penalty for changing a cell to the wrong value
+COLLATERAL_DAMAGE_WEIGHT = 0.5  # severity per incorrectly changed clean cell
+NEAR_MISS_THRESHOLD = 0.05  # relative tolerance for partial credit on numeric
 
 
 # ── Core Grading ─────────────────────────────────────────────────────────────
@@ -26,9 +29,15 @@ WRONG_VALUE_MULTIPLIER = 1.5  # penalty for changing a cell to the wrong value
 def _values_equal(a: Any, b: Any) -> bool:
     """Compare two cell values with tolerance for numeric types and NaN."""
     try:
-        if pd.isna(a) and pd.isna(b):
+        a_na, b_na = pd.isna(a), pd.isna(b)
+        if a_na and b_na:
+            # Both missing — but reject cross-type NaN (NaT vs NaN)
+            a_is_nat = isinstance(a, pd.Timestamp) or type(a).__name__ == "NaTType"
+            b_is_nat = isinstance(b, pd.Timestamp) or type(b).__name__ == "NaTType"
+            if a_is_nat != b_is_nat:
+                return False
             return True
-        if pd.isna(a) or pd.isna(b):
+        if a_na or b_na:
             return False
     except (TypeError, ValueError):
         pass
@@ -40,6 +49,18 @@ def _values_equal(a: Any, b: Any) -> bool:
         pass
     # Exact string comparison — do NOT strip, whitespace corruption is intentional
     return str(a) == str(b)
+
+
+def _numeric_distance(a: Any, b: Any) -> float | None:
+    """Return relative distance between two numeric values, or None if non-numeric."""
+    try:
+        fa, fb = float(a), float(b)
+        if math.isinf(fa) or math.isinf(fb) or math.isnan(fa) or math.isnan(fb):
+            return None
+        denom = max(abs(fb), 1e-9)
+        return abs(fa - fb) / denom
+    except (TypeError, ValueError):
+        return None
 
 
 def _is_reasonable_fill(clean_df: pd.DataFrame, col: str, result_val: Any) -> bool:
@@ -55,14 +76,15 @@ def _is_reasonable_fill(clean_df: pd.DataFrame, col: str, result_val: Any) -> bo
     if len(series) == 0:
         return True
 
-    # Numeric column: accept if within [min - 10% range, max + 10% range]
+    # Numeric column: accept if within [min - margin, max + margin]
+    # Use stddev-based margin instead of fixed 10% of range
     try:
         fval = float(result_val)
         numeric = pd.to_numeric(series, errors="coerce").dropna()
         if len(numeric) > 0:
             col_min, col_max = numeric.min(), numeric.max()
-            col_range = col_max - col_min if col_max != col_min else abs(col_max) * 0.1 or 1.0
-            margin = col_range * 0.1
+            col_std = numeric.std()
+            margin = max(col_std * 0.5, 1e-6) if col_std > 0 else max(abs(col_max) * 0.1, 1.0)
             return (col_min - margin) <= fval <= (col_max + margin)
     except (TypeError, ValueError):
         pass
@@ -97,6 +119,123 @@ def _check_stat_fill(clean_df: pd.DataFrame, col: str, result_val: Any, stat: st
         return _values_equal(result_val, expected)
     except Exception:
         return False
+
+
+def _parse_error_key(key: str) -> tuple[str, str]:
+    """Parse 'row,col' error key. Handles column names containing commas."""
+    # The key format is "row_index,column_name" — row_index is always an integer,
+    # so split on the first comma only
+    idx = key.index(",")
+    return key[:idx], key[idx + 1 :]
+
+
+def _detect_collateral_damage(
+    clean_df: pd.DataFrame,
+    result_df: pd.DataFrame,
+    error_map: dict[str, Any],
+) -> float:
+    """Detect cells that were correct in dirty data but got corrupted by the agent.
+
+    Returns total collateral severity to add to remaining_severity.
+    """
+    cell_errors = error_map.get("cell_errors", {})
+    # Build set of (row, col) that are known errors — skip these
+    error_cells: set[tuple[int, str]] = set()
+    for key in cell_errors:
+        try:
+            row_str, col = _parse_error_key(key)
+            error_cells.add((int(row_str), col))
+        except (ValueError, IndexError):
+            pass
+
+    collateral = 0.0
+    # Only check columns and rows present in both clean and result
+    shared_cols = set(clean_df.columns) & set(result_df.columns)
+    shared_idx = set(clean_df.index) & set(result_df.index)
+
+    for col in shared_cols:
+        clean_col = clean_df[col]
+        result_col = result_df[col]
+        for idx in shared_idx:
+            if (idx, col) in error_cells:
+                continue
+            clean_val = clean_col.at[idx]
+            try:
+                result_val = result_col.at[idx]
+            except KeyError:
+                continue
+            if not _values_equal(clean_val, result_val):
+                collateral += COLLATERAL_DAMAGE_WEIGHT
+
+    return collateral
+
+
+def _check_spurious_row(
+    clean_df: pd.DataFrame,
+    result_df: pd.DataFrame,
+    row_str: str,
+) -> bool:
+    """Check if a spurious (duplicate) row is still present in the result.
+
+    Spurious rows are extra rows appended beyond the clean data length.
+    Fixed = result doesn't have that row index, OR result is same length as clean.
+    """
+    try:
+        row_idx = int(row_str)
+    except ValueError:
+        return False  # can't parse → assume still present
+
+    # If the row index doesn't exist in result, it's been removed
+    if row_idx not in result_df.index:
+        return True  # fixed
+
+    # If result has been trimmed to clean length or shorter, spurious rows are gone
+    if len(result_df) <= len(clean_df):
+        return True  # fixed
+
+    return False  # still present
+
+
+def _check_missing_row(
+    clean_df: pd.DataFrame,
+    result_df: pd.DataFrame,
+    row_str: str,
+) -> str:
+    """Check if a missing row has been restored with correct content.
+
+    Returns: 'fixed', 'wrong_value', or 'unfixed'.
+    """
+    try:
+        row_idx = int(row_str)
+    except ValueError:
+        return "unfixed"
+
+    if row_idx not in result_df.index:
+        return "unfixed"
+
+    # Row exists — verify content matches clean data
+    if row_idx not in clean_df.index:
+        return "fixed"  # can't verify, benefit of doubt
+
+    clean_row = clean_df.loc[row_idx]
+    result_row = result_df.loc[row_idx]
+    matches = 0
+    total = 0
+    for col in clean_df.columns:
+        if col not in result_df.columns:
+            continue
+        total += 1
+        if _values_equal(clean_row.get(col), result_row.get(col)):
+            matches += 1
+
+    if total == 0:
+        return "fixed"
+    match_ratio = matches / total
+    if match_ratio >= 0.8:
+        return "fixed"
+    elif match_ratio >= 0.3:
+        return "wrong_value"  # partially restored
+    return "unfixed"
 
 
 def grade(
@@ -141,7 +280,7 @@ def grade(
     result_index = set(result_df.index.astype(str))
 
     for key, info in cell_errors.items():
-        row_str, col = key.rsplit(",", 1)
+        row_str, col = _parse_error_key(key)
         severity = float(info["severity"])
         clean_val = info["clean_value"]
         total_severity += severity
@@ -149,13 +288,11 @@ def grade(
         try:
             row_idx = int(row_str)
         except ValueError:
-            # Can't match row — treat as unfixed
             error_status[key] = "unfixed"
             remaining_severity += severity
             continue
 
         if row_str not in result_index:
-            # Row missing from result entirely
             error_status[key] = "unfixed"
             remaining_severity += severity
             continue
@@ -189,19 +326,15 @@ def grade(
                     error_status[key] = "unfixed"
                     remaining_severity += severity
                 elif accepted_fill == "any":
-                    # Any reasonable imputation is acceptable (mean, median, mode,
-                    # ffill, bfill, interpolate). Reject obvious garbage.
                     if _is_reasonable_fill(clean_df, col, result_val):
                         error_status[key] = "fixed"
                     else:
                         error_status[key] = "wrong_value"
                         remaining_severity += severity * WRONG_VALUE_MULTIPLIER
                 elif accepted_fill == "exact":
-                    # Must match clean value exactly — already failed above
                     error_status[key] = "wrong_value"
                     remaining_severity += severity * WRONG_VALUE_MULTIPLIER
                 elif accepted_fill in ("mean", "median", "mode"):
-                    # Validate against the column statistic
                     if _check_stat_fill(clean_df, col, result_val, accepted_fill):
                         error_status[key] = "fixed"
                     else:
@@ -211,7 +344,6 @@ def grade(
                     # Unknown accepted_fill or None — default to "any"
                     error_status[key] = "fixed"
             elif corruption_type in ("whitespace_noise", "format_inconsistency"):
-                # Whitespace/format: accept if stripped version matches clean value
                 try:
                     result_stripped = str(result_val).strip()
                     clean_stripped = str(clean_val).strip()
@@ -224,26 +356,30 @@ def grade(
                     error_status[key] = "wrong_value"
                     remaining_severity += severity * WRONG_VALUE_MULTIPLIER
             else:
-                # Other corruptions (type_mangle, outlier)
-                # Changed to wrong value → penalized
-                error_status[key] = "wrong_value"
-                remaining_severity += severity * WRONG_VALUE_MULTIPLIER
+                # Other corruptions (type_mangle, outlier, etc.)
+                # Graduated penalty: near-miss gets partial credit
+                dist = _numeric_distance(result_val, clean_val)
+                if dist is not None and dist <= NEAR_MISS_THRESHOLD:
+                    # Close enough — partial penalty instead of full wrong_value
+                    # Scale: 0 distance = 0 penalty, threshold = full wrong penalty
+                    fraction = dist / NEAR_MISS_THRESHOLD
+                    error_status[key] = "wrong_value"
+                    remaining_severity += severity * fraction * WRONG_VALUE_MULTIPLIER
+                else:
+                    error_status[key] = "wrong_value"
+                    remaining_severity += severity * WRONG_VALUE_MULTIPLIER
 
     # ── Spurious rows (duplicates) ───────────────────────────────────────────
-    clean_len = len(clean_df)
-    result_len = len(result_df)
-
     for row_str, info in spurious_rows.items():
         severity = float(info["severity"])
         total_severity += severity
         key = f"spurious_{row_str}"
 
-        # Heuristic: if result has more rows than clean, spurious rows remain
-        if result_len > clean_len:
+        if _check_spurious_row(clean_df, result_df, row_str):
+            error_status[key] = "fixed"
+        else:
             error_status[key] = "unfixed"
             remaining_severity += severity
-        else:
-            error_status[key] = "fixed"
 
     # ── Missing rows ─────────────────────────────────────────────────────────
     for row_str, info in missing_rows.items():
@@ -251,16 +387,17 @@ def grade(
         total_severity += severity
         key = f"missing_{row_str}"
 
-        try:
-            row_idx = int(row_str)
-            if row_idx in result_df.index:
-                error_status[key] = "fixed"
-            else:
-                error_status[key] = "unfixed"
-                remaining_severity += severity
-        except (ValueError, KeyError):
-            error_status[key] = "unfixed"
+        status = _check_missing_row(clean_df, result_df, row_str)
+        error_status[key] = status
+        if status == "unfixed":
             remaining_severity += severity
+        elif status == "wrong_value":
+            remaining_severity += severity * 0.5  # partial credit for attempt
+
+    # ── Collateral damage ────────────────────────────────────────────────────
+    collateral_severity = _detect_collateral_damage(clean_df, result_df, error_map)
+    total_severity += collateral_severity
+    remaining_severity += collateral_severity
 
     # ── Compute reward ───────────────────────────────────────────────────────
     if total_severity == 0.0:
