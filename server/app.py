@@ -23,3 +23,12 @@ app = create_app(
 @app.get("/")
 def health():
     return {"status": "ok", "environment": "data_cleaning_env"}
+
+
+def main():
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000, ws_ping_interval=60, ws_ping_timeout=120)
+
+
+if __name__ == "__main__":
+    main()
