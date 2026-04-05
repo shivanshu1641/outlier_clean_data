@@ -18,3 +18,8 @@ app = create_app(
     observation_cls=DataCleaningObservation,
     env_name="data_cleaning_env",
 )
+
+
+@app.get("/")
+def health():
+    return {"status": "ok", "environment": "data_cleaning_env"}

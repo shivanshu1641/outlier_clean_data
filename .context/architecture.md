@@ -10,7 +10,9 @@ A data cleaning RL environment where an AI agent receives dirty CSV data and mus
 [Generator]
   load_titanic() / load_wine()
        ↓
-  apply_corruptions(df, config, error_log)
+  apply_corruptions(df, config, error_log, clean_df)  ← per-task RNG via _make_rng(task_id)
+       ↓
+  validate_artifacts(clean_df, dirty_df, error_map)   ← round-trip check
        ↓
   4 artifacts per task:
     clean.csv       ← ground truth
@@ -61,7 +63,7 @@ A data cleaning RL environment where an AI agent receives dirty CSV data and mus
 
 | Component | Owns |
 |-----------|------|
-| `tools/corruption/engine.py` | All domain knowledge: what corruptions exist, their severity, how to track them |
+| `tools/corruption/engine.py` | All domain knowledge: 10 corruption types, configurable fractions, per-task RNG, overlap-safe clean_value capture, round-trip validation |
 | `server/grader.py` | Pure diff engine: compare result vs clean using error_map, compute reward |
 | `server/environment.py` | Episode lifecycle, sandbox management, observation building |
 | `server/sandbox.py` | Code safety (AST scan), subprocess isolation, timeout/memory limits |

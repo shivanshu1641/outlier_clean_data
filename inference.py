@@ -56,7 +56,7 @@ def _jlog(event: str, **fields):
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:11434/v1")
-API_KEY = os.environ.get("API_KEY", "")
+API_KEY = os.environ.get("HF_TOKEN") or os.environ.get("API_KEY", "")
 MODEL_NAME = os.environ.get("MODEL_NAME", "qwen3")
 ENV_URL = os.environ.get("ENV_URL", "http://localhost:8000")
 
@@ -80,29 +80,22 @@ llm_client = OpenAI(
 # ── Structured stdout logging (machine-readable) ──────────────────────────────
 
 
+ENV_NAME = "data_cleaning_env"
+
+
 def log_start(task_id: str):
-    payload = {
-        "type": "[START]",
-        "task_id": task_id,
-        "model": MODEL_NAME,
-        "timestamp": time.time(),
-    }
-    print(json.dumps(payload))
+    print(f"[START] task={task_id} env={ENV_NAME} model={MODEL_NAME}", flush=True)
     _jlog("task_start", task_id=task_id, model=MODEL_NAME, api_base=API_BASE_URL)
 
 
-def log_step(step_num: int, action_type: str, reward: float, errors_fixed: int, errors_total: int,
-             action_content: str = "", latency: float = 0.0, usage: dict | None = None):
-    payload = {
-        "type": "[STEP]",
-        "step": step_num,
-        "action_type": action_type,
-        "reward": reward,
-        "errors_fixed": errors_fixed,
-        "errors_total": errors_total,
-        "timestamp": time.time(),
-    }
-    print(json.dumps(payload))
+def log_step(step_num: int, action_type: str, reward: float, done: bool,
+             action_content: str = "", error: str | None = None,
+             latency: float = 0.0, usage: dict | None = None,
+             errors_fixed: int = 0, errors_total: int = 0):
+    action_summary = f"{action_type}()" if action_type == "done" else f"{action_type}('{action_content[:80]}')"
+    error_val = error if error else "null"
+    done_val = str(done).lower()
+    print(f"[STEP] step={step_num} action={action_summary} reward={reward:.2f} done={done_val} error={error_val}", flush=True)
     _jlog(
         "step",
         step=step_num,
@@ -116,16 +109,10 @@ def log_step(step_num: int, action_type: str, reward: float, errors_fixed: int, 
     )
 
 
-def log_end(task_id: str, final_reward: float, total_steps: int, elapsed: float):
-    payload = {
-        "type": "[END]",
-        "task_id": task_id,
-        "final_reward": final_reward,
-        "total_steps": total_steps,
-        "elapsed_s": round(elapsed, 2),
-        "timestamp": time.time(),
-    }
-    print(json.dumps(payload))
+def log_end(task_id: str, final_reward: float, total_steps: int, elapsed: float, rewards: list[float]):
+    success = str(final_reward > 0).lower()
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    print(f"[END] success={success} steps={total_steps} score={final_reward:.2f} rewards={rewards_str}", flush=True)
     _jlog("task_end", task_id=task_id, final_reward=final_reward,
           total_steps=total_steps, elapsed_s=round(elapsed, 2))
 
@@ -339,6 +326,7 @@ async def run_task(task_id: str) -> float:
         logger.info("Reset complete — %d/%d errors fixed, reward=%.4f", fixed, total, current_reward)
 
         action_history: list[dict] = []
+        step_rewards: list[float] = []
 
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -395,8 +383,10 @@ async def run_task(task_id: str) -> float:
                 logger.debug("Transform result:\n%s", obs.transform_result[:500])
 
             action_content = action_dict.get("query") or action_dict.get("code") or ""
-            log_step(step_num, action_type, current_reward, fixed, total,
-                     action_content=action_content, latency=latency, usage=usage)
+            step_rewards.append(current_reward)
+            log_step(step_num, action_type, current_reward, done=step_result.done,
+                     action_content=action_content, latency=latency, usage=usage,
+                     errors_fixed=fixed, errors_total=total)
 
             # Track action history
             action_history.append({
@@ -460,7 +450,9 @@ async def run_task(task_id: str) -> float:
                 _jlog("auto_done_stuck", step=step_num, reward=current_reward)
                 done_result = await env.step(DoneAction())
                 current_reward = done_result.reward if done_result.reward is not None else current_reward
-                log_step(step_num + 1, "done", current_reward, fixed, total)
+                step_rewards.append(current_reward)
+                log_step(step_num + 1, "done", current_reward, done=True,
+                         errors_fixed=fixed, errors_total=total)
                 break
 
             messages.append({"role": "assistant", "content": json.dumps(action_dict)})
@@ -479,13 +471,15 @@ async def run_task(task_id: str) -> float:
             if total > 0 and fixed == total:
                 done_result = await env.step(DoneAction())
                 current_reward = done_result.reward if done_result.reward is not None else current_reward
-                log_step(step_num + 1, "done", current_reward, fixed, total)
+                step_rewards.append(current_reward)
+                log_step(step_num + 1, "done", current_reward, done=True,
+                         errors_fixed=fixed, errors_total=total)
                 _jlog("auto_done", step=step_num + 1, reward=current_reward)
                 logger.info("All errors fixed — submitted done action")
                 break
 
     elapsed = time.time() - task_start
-    log_end(task_id, current_reward, step_num, elapsed)
+    log_end(task_id, current_reward, step_num, elapsed, step_rewards)
     logger.info(
         "Task %s complete | reward=%.4f | steps=%d | elapsed=%.1fs",
         task_id, current_reward, step_num, elapsed,
