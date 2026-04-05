@@ -1,3 +1,12 @@
+---
+title: Data Cleaning OpenEnv
+emoji: 🧹
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+---
+
 # Data Cleaning OpenEnv Environment
 
 An [OpenEnv](https://github.com/meta-pytorch/OpenEnv) environment where AI agents learn to clean dirty CSV data by writing Python/pandas code, graded on severity-weighted constraint satisfaction and step efficiency.
