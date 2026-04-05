@@ -4,45 +4,31 @@
 
 ### Prerequisites
 - Python 3.11+
-- pip or uv
+- pip
 
 ### Setup
 
 ```bash
-# Clone and enter repo
 git clone https://github.com/shivanshu1641/outlier_clean_data.git
 cd outlier_clean_data
-
-# Create virtual environment
 python -m venv .venv
 source .venv/bin/activate
-
-# Install dependencies
 pip install -r server/requirements.txt
-
-# (Optional) Regenerate dirty data
-python tools/corruption/engine.py
 ```
 
 ### Run Server
 
 ```bash
-uvicorn server.app:app --port 8000
+uvicorn server.app:app --port 8000 --ws-ping-interval 60 --ws-ping-timeout 120
 ```
-
-Verify: `curl http://localhost:8000/health` → `{"status": "healthy"}`
 
 ### Run Inference
 
 ```bash
-# With a local LLM (e.g., Ollama)
-API_BASE_URL=http://localhost:11434/v1 MODEL_NAME=qwen3 ENV_URL=http://localhost:8000 python inference.py
-
-# With OpenAI
-API_BASE_URL=https://api.openai.com/v1 MODEL_NAME=gpt-4 HF_TOKEN=sk-xxx ENV_URL=http://localhost:8000 python inference.py
-
-# Run a single task
-python inference.py easy_titanic
+# Configure .env (see .env.example), then:
+source .venv/bin/activate
+python inference.py                    # all 6 tasks
+python inference.py titanic_easy       # specific task
 ```
 
 ### Environment Variables
@@ -51,79 +37,84 @@ python inference.py easy_titanic
 |----------|-------------|---------|
 | `API_BASE_URL` | LLM API endpoint | `http://localhost:11434/v1` |
 | `MODEL_NAME` | LLM model name | `qwen3` |
-| `HF_TOKEN` | Hugging Face / API token | (empty) |
+| `HF_TOKEN` / `API_KEY` | API token | (empty) |
 | `ENV_URL` | Environment server URL | `http://localhost:8000` |
-| `TASKS_DIR` | Tasks config directory | `tasks` |
-| `DATA_DIR` | Data directory | `data` |
-| `SANDBOX_BASE` | Sandbox output directory | `outputs/sandbox` |
+| `MIN_CALL_INTERVAL` | Seconds between LLM calls | `2.5` |
 
-## Docker
-
-### Build
+## Docker (Local)
 
 ```bash
-docker build -f server/Dockerfile -t data-cleaning-env .
+docker build -t data-cleaning-env .
+docker run -p 8000:7860 data-cleaning-env
 ```
 
-### Run
+Note: Dockerfile uses port 7860 (HF Spaces default). Map to any local port.
+
+## HF Spaces
+
+**Space**: https://huggingface.co/spaces/shivshri/openenv_dataclean
+**App**: https://shivshri-openenv-dataclean.hf.space
+
+### Push updates
 
 ```bash
-docker run -p 8000:8000 data-cleaning-env
+source .venv/bin/activate
+
+# Validate first
+openenv validate
+
+# Option 1: openenv CLI (recommended — handles frontmatter + Dockerfile tweaks)
+openenv push --repo-id shivshri/openenv_dataclean
+
+# Option 2: git push directly
+git push hf main --force
 ```
 
-### Verify
+### Git remote setup (one-time)
 
 ```bash
-curl http://localhost:8000/health
-curl http://localhost:8000/schema | python -m json.tool
+git remote add hf https://shivshri:<HF_TOKEN>@huggingface.co/spaces/shivshri/openenv_dataclean
 ```
 
-## Hugging Face Spaces
+Get your token at https://huggingface.co/settings/tokens
 
-### Option 1: openenv push
+### Test deployed endpoints
 
 ```bash
-pip install openenv-core
-openenv push --repo-id YOUR_USERNAME/data-cleaning-env
+# Health
+curl https://shivshri-openenv-dataclean.hf.space/
+
+# Reset
+curl -X POST https://shivshri-openenv-dataclean.hf.space/reset \
+  -H "Content-Type: application/json" -d '{}'
 ```
 
-### Option 2: Manual
+### Important notes
 
-1. Create a new Space on huggingface.co (Docker type)
-2. Upload all files (models.py, server/, tasks/, data/, openenv.yaml, etc.)
-3. Ensure the Dockerfile is at `server/Dockerfile`
-4. Space should auto-build and deploy
+- HF Spaces expects port **7860** (set in Dockerfile and server/app.py)
+- `tasks/` and `data/` must be tracked in git (not gitignored)
+- Binary files need Git LFS or should be removed
+- `openenv push` is preferred over raw git push — it auto-adjusts README frontmatter
+- Build logs: https://huggingface.co/spaces/shivshri/openenv_dataclean/logs/build
 
-### Verify Deployment
+## Pre-Submission Checklist
 
-```bash
-# Health check
-curl https://YOUR_USERNAME-data-cleaning-env.hf.space/health
-
-# Reset test
-curl -X POST https://YOUR_USERNAME-data-cleaning-env.hf.space/reset \
-  -H "Content-Type: application/json" \
-  -d '{"task_id": "easy_titanic"}'
-```
-
-## Pre-Submission Validation Checklist
-
-- [ ] `docker build -f server/Dockerfile -t test .` succeeds
-- [ ] `docker run -p 8000:8000 test` starts without errors
-- [ ] `curl http://localhost:8000/health` returns 200
-- [ ] `/reset` with each task_id returns valid observation
-- [ ] `/ws` WebSocket connection works
-- [ ] `openenv.yaml` has spec_version: 1
-- [ ] `inference.py` runs end-to-end and produces [START]/[STEP]/[END] logs
-- [ ] All 3 tasks produce rewards in [0.0, 1.0]
-- [ ] Runtime < 20 minutes on 2 vCPU / 8GB
+- [x] `openenv validate` passes
+- [x] `docker build .` succeeds
+- [x] HF Space returns 200 on `GET /`
+- [x] `POST /reset` with `{}` returns valid observation
+- [x] `inference.py` at repo root with `[START]/[STEP]/[END]` stdout logs
+- [x] Uses `from openai import OpenAI` for LLM calls
+- [x] Supports `API_BASE_URL`, `MODEL_NAME`, `HF_TOKEN` env vars
+- [x] All 6 tasks produce rewards in [0.0, 1.0]
+- [x] Runtime < 20 min on 2 vCPU / 8GB
 
 ## Troubleshooting
 
-**Server won't start**: Check that `data/dirty/*.csv` and `tasks/*.json` exist. Run `python tools/corruption/engine.py` if missing.
+**Server won't start**: Check that `data/` and `tasks/` exist. Run `python tools/corruption/engine.py` to regenerate.
 
-**Sandbox errors**: The subprocess uses `sys.executable` — make sure you're running from the venv. Check `outputs/sandbox/{episode}/scripts/` for saved scripts.
+**Sandbox errors**: Make sure you're running from the venv. Check `outputs/sandbox/{episode}/scripts/` for saved scripts.
 
-**Memory issues**: Large datasets + many episodes can fill `outputs/sandbox/`. Clean up old episodes periodically.
+**HF Space stuck on "Building"**: Check build logs. Common issues: binary files rejected (use LFS), missing files in git.
 
-**WebSocket timeout**: Increase `message_timeout_s` in the client constructor if transforms take long.
+**WebSocket timeout**: Increase ping interval/timeout in the uvicorn command or Dockerfile.
