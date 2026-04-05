@@ -78,14 +78,14 @@ python inference.py titanic_easy wine_medium
 
 ## Component Responsibilities
 
-| Component | Owns |
-|-----------|------|
+| Component                    | Owns                                                                            |
+| ---------------------------- | ------------------------------------------------------------------------------- |
 | `tools/corruption/engine.py` | All domain knowledge: what corruptions exist, their severity, how to track them |
-| `server/grader.py` | Pure diff engine: compare result vs clean using error_map, compute reward |
-| `server/environment.py` | Episode lifecycle, sandbox management, observation building |
-| `server/sandbox.py` | Code safety (AST scan), subprocess isolation, timeout/memory limits |
-| `server/worker.py` | Worker process: exec/eval agent code, auto-rewrite `inplace=True` patterns |
-| `inference.py` | LLM orchestration, prompt building, action parsing |
+| `server/grader.py`           | Pure diff engine: compare result vs clean using error_map, compute reward       |
+| `server/environment.py`      | Episode lifecycle, sandbox management, observation building                     |
+| `server/sandbox.py`          | Code safety (AST scan), subprocess isolation, timeout/memory limits             |
+| `server/worker.py`           | Worker process: exec/eval agent code, auto-rewrite `inplace=True` patterns      |
+| `inference.py`               | LLM orchestration, prompt building, action parsing                              |
 
 ## How It Works
 
@@ -97,11 +97,11 @@ python inference.py titanic_easy wine_medium
 
 ## Action Space
 
-| Action | Description |
-|--------|-------------|
-| `ExploreAction(query="df.isnull().sum()")` | Read-only data inspection |
+| Action                                                    | Description                    |
+| --------------------------------------------------------- | ------------------------------ |
+| `ExploreAction(query="df.isnull().sum()")`                | Read-only data inspection      |
 | `TransformAction(code="df['Age'] = df['Age'].fillna(0)")` | Execute pandas code in sandbox |
-| `DoneAction()` | End the episode |
+| `DoneAction()`                                            | End the episode                |
 
 ## Grading
 
@@ -125,14 +125,14 @@ Explores are cheap but not free. Timed-out explores cost 3x a successful one. Th
 
 ## Tasks
 
-| Task | Dataset | Errors | Difficulty |
-|------|---------|--------|------------|
-| `titanic_easy` | Titanic (891 rows) | 59 | Easy -- nulls, whitespace |
-| `titanic_medium` | Titanic (891 rows) | 277 | Medium -- + type errors |
-| `titanic_hard` | Titanic (891 rows) | 958 | Hard -- + outliers, dupes, format |
-| `wine_easy` | Wine Quality (1599 rows) | 255 | Easy -- nulls |
-| `wine_medium` | Wine Quality (1599 rows) | 836 | Medium -- + dupes, types, outliers |
-| `wine_hard` | Wine Quality (1599 rows) | 2312 | Hard -- + heavy nulls, whitespace |
+| Task             | Dataset                  | Errors | Difficulty                         |
+| ---------------- | ------------------------ | ------ | ---------------------------------- |
+| `titanic_easy`   | Titanic (891 rows)       | 59     | Easy -- nulls, whitespace          |
+| `titanic_medium` | Titanic (891 rows)       | 277    | Medium -- + type errors            |
+| `titanic_hard`   | Titanic (891 rows)       | 958    | Hard -- + outliers, dupes, format  |
+| `wine_easy`      | Wine Quality (1599 rows) | 255    | Easy -- nulls                      |
+| `wine_medium`    | Wine Quality (1599 rows) | 836    | Medium -- + dupes, types, outliers |
+| `wine_hard`      | Wine Quality (1599 rows) | 2312   | Hard -- + heavy nulls, whitespace  |
 
 ## Sandbox Isolation
 
@@ -147,6 +147,7 @@ outputs/sandbox/{episode_id}/
 ```
 
 Agent code runs in a subprocess with:
+
 - AST-level import/call blocking (no os, sys, subprocess, open, eval, etc.)
 - 30s transform timeout, 10s explore timeout
 - 2GB memory limit
@@ -155,39 +156,39 @@ Agent code runs in a subprocess with:
 
 ### Gemma 4 E2B (2B params, local, 8K context)
 
-| Task | Errors Fixed | Steps | Reward | Notes |
-|------|-------------|-------|--------|-------|
-| titanic_easy | 59/59 | 2 | 0.99 | Explore penalty: -0.01 |
-| titanic_medium | 233/277 | 6 | 0.66 | Soft done triggered, context overflow on retry |
-| titanic_hard | 764/958 | 7 | 0.64 | Soft done triggered, context overflow on retry |
-| wine_easy | 255/255 | 2 | 0.99 | Explore penalty: -0.01 |
-| wine_medium | 591/836 | 6 | 0.50 | Soft done triggered, context overflow on retry |
-| wine_hard | 1418/2312 | 8 | 0.48 | Soft done triggered, context overflow on retry |
-| **Average** | | | **0.71** | |
+| Task           | Errors Fixed | Steps | Reward   | Notes                                          |
+| -------------- | ------------ | ----- | -------- | ---------------------------------------------- |
+| titanic_easy   | 59/59        | 2     | 0.99     | Explore penalty: -0.01                         |
+| titanic_medium | 233/277      | 6     | 0.66     | Soft done triggered, context overflow on retry |
+| titanic_hard   | 764/958      | 7     | 0.64     | Soft done triggered, context overflow on retry |
+| wine_easy      | 255/255      | 2     | 0.99     | Explore penalty: -0.01                         |
+| wine_medium    | 591/836      | 6     | 0.50     | Soft done triggered, context overflow on retry |
+| wine_hard      | 1418/2312    | 8     | 0.48     | Soft done triggered, context overflow on retry |
+| **Average**    |              |       | **0.71** |                                                |
 
 ### GPT-4.1 Nano (OpenAI API, with action history + loop detection)
 
-| Task | Errors Fixed | Steps | Reward | Notes |
-|------|-------------|-------|--------|-------|
-| titanic_easy | 59/59 | 4 | 0.97 | 3 explores, auto-done on all fixed |
-| titanic_medium | 233/277 | 5 | 0.66 | Soft done triggered, second done finalizes |
-| titanic_hard | 764/958 | 9 | 0.63 | Auto-done after 3 stale transforms at 764 fixed |
-| wine_easy | 255/255 | 4 | 0.90 | 2 explores, auto-done on all fixed |
-| wine_medium | 566/836 | 13 | 0.40 | Heavy explores (10), soft done + second done |
-| wine_hard | 22/2312 | 7 | 0.00 | Model gives up early — complexity beyond Nano's capability |
-| **Average** | | | **0.53** | |
+| Task           | Errors Fixed | Steps | Reward   | Notes                                                      |
+| -------------- | ------------ | ----- | -------- | ---------------------------------------------------------- |
+| titanic_easy   | 59/59        | 4     | 0.97     | 3 explores, auto-done on all fixed                         |
+| titanic_medium | 233/277      | 5     | 0.66     | Soft done triggered, second done finalizes                 |
+| titanic_hard   | 764/958      | 9     | 0.63     | Auto-done after 3 stale transforms at 764 fixed            |
+| wine_easy      | 255/255      | 4     | 0.90     | 2 explores, auto-done on all fixed                         |
+| wine_medium    | 566/836      | 13    | 0.40     | Heavy explores (10), soft done + second done               |
+| wine_hard      | 22/2312      | 7     | 0.00     | Model gives up early — complexity beyond Nano's capability |
+| **Average**    |              |       | **0.53** |                                                            |
 
 ### GPT-OSS 120B (OpenRouter, free tier)
 
-| Task | Errors Fixed | Steps | Reward | Notes |
-|------|-------------|-------|--------|-------|
-| titanic_easy | 59/59 | 2 | 0.99 | 1 explore + 1 transform, auto-done on all fixed |
-| titanic_medium | 233/277 | 4 | 0.66 | Auto-done after 3 stale transforms |
-| titanic_hard | 764/958 | 18 | 0.57 | Heavy explores (12), auto-done after stale transforms |
-| wine_easy | 255/255 | 2 | 0.99 | 1 explore + 1 transform, auto-done on all fixed |
-| wine_medium | 546/836 | 10 | 0.39 | Auto-done after 3 stale transforms |
-| wine_hard | 1995/2312 | 12* | 0.67* | *Rate limited mid-run — partial result |
-| **Average** | | | **0.55*** | *wine_hard incomplete |
+| Task           | Errors Fixed | Steps | Reward     | Notes                                                 |
+| -------------- | ------------ | ----- | ---------- | ----------------------------------------------------- |
+| titanic_easy   | 59/59        | 2     | 0.99       | 1 explore + 1 transform, auto-done on all fixed       |
+| titanic_medium | 233/277      | 4     | 0.66       | Auto-done after 3 stale transforms                    |
+| titanic_hard   | 764/958      | 18    | 0.57       | Heavy explores (12), auto-done after stale transforms |
+| wine_easy      | 255/255      | 2     | 0.99       | 1 explore + 1 transform, auto-done on all fixed       |
+| wine_medium    | 546/836      | 10    | 0.39       | Auto-done after 3 stale transforms                    |
+| wine_hard      | 1995/2312    | 12\*  | 0.67\*     | \*Rate limited mid-run — partial result               |
+| **Average**    |              |       | **0.55\*** | \*wine_hard incomplete                                |
 
 ### Key Observations
 
@@ -199,15 +200,15 @@ Agent code runs in a subprocess with:
 
 ## Environment Variables
 
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `API_BASE_URL` | `http://localhost:11434/v1` | LLM endpoint (any OpenAI-compatible) |
-| `API_KEY` | `` | API key (empty for local) |
-| `MODEL_NAME` | `qwen3` | Model name |
-| `ENV_URL` | `http://localhost:8000` | OpenEnv server URL |
-| `LOG_LEVEL` | `INFO` | `INFO` for actions/timing, `DEBUG` for full LLM I/O |
-| `LOG_DIR` | `outputs/logs` | JSONL log directory |
-| `MIN_CALL_INTERVAL` | `2.5` | Min seconds between LLM calls (0 for local) |
+| Variable            | Default                     | Purpose                                             |
+| ------------------- | --------------------------- | --------------------------------------------------- |
+| `API_BASE_URL`      | `http://localhost:11434/v1` | LLM endpoint (any OpenAI-compatible)                |
+| `API_KEY`           | ``                          | API key (empty for local)                           |
+| `MODEL_NAME`        | `qwen3`                     | Model name                                          |
+| `ENV_URL`           | `http://localhost:8000`     | OpenEnv server URL                                  |
+| `LOG_LEVEL`         | `INFO`                      | `INFO` for actions/timing, `DEBUG` for full LLM I/O |
+| `LOG_DIR`           | `outputs/logs`              | JSONL log directory                                 |
+| `MIN_CALL_INTERVAL` | `2.5`                       | Min seconds between LLM calls (0 for local)         |
 
 ## Project Structure
 
