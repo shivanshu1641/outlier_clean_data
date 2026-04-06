@@ -65,6 +65,33 @@ TASK_IDS = [
     "wine_easy", "wine_medium", "wine_hard",
 ]
 
+# ── Few-shot examples from dataset.parquet ────────────────────────────────────
+# Load once at startup. Maps task_id → one representative chosen_code example.
+# Used to inject concrete correct fixes into the system prompt per task.
+
+def _load_few_shot_examples() -> dict[str, str]:
+    """Read dataset.parquet and return {task_id: chosen_code} for one seed per task."""
+    parquet_path = Path("data/dataset.parquet")
+    if not parquet_path.exists():
+        return {}
+    try:
+        import pandas as _pd
+        df = _pd.read_parquet(parquet_path)
+        # Pick the seed with the highest reward_gap — strongest training signal
+        best = (
+            df.sort_values("reward_gap", ascending=False)
+              .drop_duplicates(subset="task_id", keep="first")
+              .set_index("task_id")["chosen"]
+              .to_dict()
+        )
+        logger.info("Loaded few-shot examples for %d tasks from dataset.parquet", len(best))
+        return best
+    except Exception as e:
+        logger.warning("Could not load dataset.parquet for few-shot examples: %s", e)
+        return {}
+
+FEW_SHOT_EXAMPLES: dict[str, str] = _load_few_shot_examples()
+
 # Minimum seconds between LLM calls to avoid rate limits (Groq free: 30 req/min)
 MIN_CALL_INTERVAL = float(os.environ.get("MIN_CALL_INTERVAL", "2.5"))
 _last_call_time = 0.0
@@ -132,7 +159,7 @@ def log_end(task_id: str, final_reward: float, total_steps: int, elapsed: float)
 
 # ── Agent Logic ───────────────────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """\
+BASE_SYSTEM_PROMPT = """\
 You are a data cleaning agent. You receive a dirty CSV dataset and information
 about what errors exist. Your goal is to fix all errors using as few transform
 steps as possible.
@@ -154,6 +181,9 @@ Strategy:
 - Submit 'done' when all errors are fixed or you can't improve further
 - Be efficient: fewer transform steps = higher reward
 - Warning: changing a cell to the wrong value is penalized MORE than leaving it dirty
+- NEVER drop rows with dropna() unless you are specifically removing duplicate rows
+- Only fix columns mentioned in the error summary — do not touch other columns
+- For whitespace errors: use str.replace(r'\\s+', ' ', regex=True).str.strip() not just str.strip()
 
 Important rules:
 - Do NOT repeat the same explore query — check your action history below
@@ -161,6 +191,32 @@ Important rules:
 - Your action history is shown in every observation — use it to avoid repeating mistakes
 - If you're stuck, submit 'done' rather than repeating the same failing transform
 """
+
+
+def build_system_prompt(task_id: str) -> str:
+    """Build a task-specific system prompt with a few-shot example injected.
+
+    The few-shot example is the highest-reward-gap `chosen_code` for this task
+    from dataset.parquet. Seeing one concrete correct example dramatically
+    reduces random guessing — the model knows the exact pattern to follow.
+    """
+    if os.environ.get("NO_FEW_SHOT"):
+        return BASE_SYSTEM_PROMPT
+
+    example = FEW_SHOT_EXAMPLES.get(task_id)
+    if not example:
+        return BASE_SYSTEM_PROMPT
+
+    few_shot_section = (
+        "\n\nHere is a verified correct solution for a similar version of this "
+        "task (different rows affected, same corruption types). Use this as a "
+        "template — adapt column names and values to the actual data you see:\n"
+        "```python\n"
+        + example +
+        "\n```\n"
+        "Study this pattern. Apply the same logic to the current dirty data."
+    )
+    return BASE_SYSTEM_PROMPT + few_shot_section
 
 
 def build_user_prompt(
@@ -341,7 +397,7 @@ async def run_task(task_id: str) -> float:
         action_history: list[dict] = []
 
         messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": build_system_prompt(task_id)},
             {"role": "user", "content": build_user_prompt(obs, current_reward, action_history=action_history)},
         ]
 

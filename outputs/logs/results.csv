@@ -17,3 +17,12 @@ nano_v2_loop_detect,gpt-4.1-nano,titanic_hard,0.6277,2026-04-03 21:14:00
 nano_v2_loop_detect,gpt-4.1-nano,wine_easy,0.8967,2026-04-03 21:13:00
 nano_v2_loop_detect,gpt-4.1-nano,wine_medium,0.4039,2026-04-03 21:13:00
 nano_v2_loop_detect,gpt-4.1-nano,wine_hard,0.0,2026-04-03 21:15:00
+20260404_002105,gemma4,titanic_easy,1.0,2026-04-04 00:21:14
+20260404_002125,gemma4,titanic_medium,0.7193,2026-04-04 00:22:43
+20260404_012135,gemma4,titanic_hard,0.6456,2026-04-04 01:22:29
+20260404_012501,gemma4,titanic_easy,0.99,2026-04-04 01:28:39
+20260404_012501,gemma4,titanic_medium,0.7267,2026-04-04 01:28:39
+20260404_012501,gemma4,titanic_hard,0.6166,2026-04-04 01:28:39
+20260404_012501,gemma4,wine_easy,0.99,2026-04-04 01:28:39
+20260404_012501,gemma4,wine_medium,0.498,2026-04-04 01:28:39
+20260404_012501,gemma4,wine_hard,0.7085,2026-04-04 01:28:39
