@@ -18,3 +18,18 @@ app = create_app(
     observation_cls=DataCleaningObservation,
     env_name="data_cleaning_env",
 )
+
+
+@app.get("/")
+def health():
+    return {"status": "ok", "environment": "data_cleaning_env"}
+
+
+def main():
+    import uvicorn
+    port = int(os.environ.get("PORT", "7860"))
+    uvicorn.run(app, host="0.0.0.0", port=port, ws_ping_interval=60, ws_ping_timeout=120)
+
+
+if __name__ == "__main__":
+    main()
