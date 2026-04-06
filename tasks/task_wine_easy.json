@@ -1,0 +1,13 @@
+{
+  "task_id": "wine_easy",
+  "description": "Clean the Wine Quality dataset (easy). Fix null values in pH and alcohol.",
+  "base_dataset": "wine_quality",
+  "min_transform_steps": 1,
+  "max_transform_steps": 6,
+  "explore_cost_per_step": 0.01,
+  "explore_timeout_cost": 0.03,
+  "clean_data_path": "data/wine_easy/clean.csv",
+  "dirty_data_path": "data/wine_easy/dirty.csv",
+  "error_map_path": "data/wine_easy/error_map.json",
+  "severity_map_path": "data/wine_easy/severity_map.json"
+}

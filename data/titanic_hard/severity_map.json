@@ -1,0 +1,13 @@
+{
+  "total_severity": 2025.0,
+  "total_cell_errors": 869,
+  "total_spurious_rows": 71,
+  "total_missing_rows": 0,
+  "by_corruption": {
+    "null_injected": 1448.0,
+    "type_mangled": 264.0,
+    "outlier_injected": 93.0,
+    "decimal_shift": 78.0,
+    "duplicate_rows": 142.0
+  }
+}

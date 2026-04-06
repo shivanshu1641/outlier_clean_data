@@ -1,0 +1,13 @@
+{
+  "task_id": "wine_medium",
+  "description": "Clean the Wine Quality dataset (medium). Remove duplicates, fix null values in pH, alcohol, and residual sugar, correct type errors in acidity columns, fix outliers in pH, and correct decimal shifts in alcohol.",
+  "base_dataset": "wine_quality",
+  "min_transform_steps": 3,
+  "max_transform_steps": 12,
+  "explore_cost_per_step": 0.01,
+  "explore_timeout_cost": 0.03,
+  "clean_data_path": "data/wine_medium/clean.csv",
+  "dirty_data_path": "data/wine_medium/dirty.csv",
+  "error_map_path": "data/wine_medium/error_map.json",
+  "severity_map_path": "data/wine_medium/severity_map.json"
+}
