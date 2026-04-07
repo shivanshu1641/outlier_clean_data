@@ -56,7 +56,7 @@ def _jlog(event: str, **fields):
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:11434/v1")
-API_KEY = os.environ.get("HF_TOKEN") or os.environ.get("API_KEY", "")
+API_KEY = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN", "")
 MODEL_NAME = os.environ.get("MODEL_NAME", "qwen3")
 ENV_URL = os.environ.get("ENV_URL", "http://localhost:8000")
 
