@@ -56,7 +56,7 @@ def _jlog(event: str, **fields):
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:11434/v1")
-API_KEY = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN", "")
+API_KEY = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN") or ""
 MODEL_NAME = os.environ.get("MODEL_NAME", "qwen3")
 ENV_URL = os.environ.get("ENV_URL", "http://localhost:8000")
 
@@ -73,7 +73,7 @@ _last_call_time = 0.0
 
 llm_client = OpenAI(
     base_url=API_BASE_URL,
-    api_key=API_KEY or "not-needed",
+    api_key=API_KEY or "not-needed",  # fallback only for local endpoints without auth
     max_retries=0,  # we handle retries ourselves with pacing
 )
 
