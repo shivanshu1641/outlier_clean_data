@@ -27,7 +27,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from openai import OpenAI
 
-load_dotenv()
+load_dotenv(override=False)  # never override system/injected env vars
 
 from client import DataCleaningClient
 from models import DoneAction, ExploreAction, TransformAction
@@ -55,9 +55,9 @@ def _jlog(event: str, **fields):
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:11434/v1")
-API_KEY = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN") or ""
-MODEL_NAME = os.environ.get("MODEL_NAME", "qwen3")
+API_BASE_URL = os.environ["API_BASE_URL"]
+API_KEY = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN", "")
+MODEL_NAME = os.environ["MODEL_NAME"]
 ENV_URL = os.environ.get("ENV_URL", "http://localhost:8000")
 
 TASK_IDS = [
@@ -96,7 +96,7 @@ _last_call_time = 0.0
 
 llm_client = OpenAI(
     base_url=API_BASE_URL,
-    api_key=API_KEY or "not-needed",  # fallback only for local endpoints without auth
+    api_key=API_KEY or "not-needed",
     max_retries=0,  # we handle retries ourselves with pacing
 )
 
