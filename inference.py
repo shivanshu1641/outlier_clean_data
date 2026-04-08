@@ -24,10 +24,7 @@ import sys
 import time
 from pathlib import Path
 
-from dotenv import load_dotenv
 from openai import OpenAI
-
-load_dotenv(override=False)  # never override system/injected env vars
 
 from client import DataCleaningClient
 from models import DoneAction, ExploreAction, TransformAction
@@ -55,9 +52,9 @@ def _jlog(event: str, **fields):
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-API_BASE_URL = os.environ["API_BASE_URL"]
-API_KEY = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN", "")
-MODEL_NAME = os.environ["MODEL_NAME"]
+API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
+MODEL_NAME = os.getenv("MODEL_NAME") or "Qwen/Qwen2.5-72B-Instruct"
+API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
 ENV_URL = os.environ.get("ENV_URL", "http://localhost:8000")
 
 TASK_IDS = [
@@ -96,8 +93,7 @@ _last_call_time = 0.0
 
 llm_client = OpenAI(
     base_url=API_BASE_URL,
-    api_key=API_KEY or "not-needed",
-    max_retries=0,  # we handle retries ourselves with pacing
+    api_key=API_KEY,
 )
 
 # ── Structured stdout logging (machine-readable) ──────────────────────────────
@@ -355,6 +351,9 @@ async def run_task(task_id: str) -> float:
     """Run the agent on a single task via WebSocket. Returns final reward."""
     log_start(task_id)
     task_start = time.time()
+    current_reward = 0.0
+    step_num = 0
+    step_rewards: list[float] = []
     logger.info("Starting task: %s | model: %s | endpoint: %s", task_id, MODEL_NAME, API_BASE_URL)
 
     async with DataCleaningClient(base_url=ENV_URL) as env:
@@ -540,12 +539,16 @@ async def amain():
         print(f"\n{'='*60}", file=sys.stderr)
         print(f"Running task: {task_id}", file=sys.stderr)
         print(f"{'='*60}", file=sys.stderr)
+        task_start = time.time()
         try:
             reward = await run_task(task_id)
             results[task_id] = reward
         except Exception as e:
             import traceback
             traceback.print_exc(file=sys.stderr)
+            # Ensure [END] is emitted even on crash
+            elapsed = time.time() - task_start
+            log_end(task_id, 0.0, 0, elapsed, [])
             results[task_id] = 0.0
 
     print(f"\n{'='*60}", file=sys.stderr)
