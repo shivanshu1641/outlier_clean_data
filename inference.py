@@ -94,10 +94,14 @@ _last_call_time = 0.0
 
 # ── OpenAI Client ─────────────────────────────────────────────────────────────
 
-llm_client = OpenAI(
-    base_url=API_BASE_URL,
-    api_key=API_KEY,
-)
+llm_client: OpenAI | None = None
+
+
+def get_llm_client() -> OpenAI:
+    global llm_client
+    if llm_client is None:
+        llm_client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+    return llm_client
 
 # ── Structured stdout logging (machine-readable) ──────────────────────────────
 
@@ -166,7 +170,7 @@ Strategy:
 - Warning: changing a cell to the wrong value is penalized MORE than leaving it dirty
 - NEVER drop rows with dropna() unless you are specifically removing duplicate rows
 - Only fix columns mentioned in the error summary — do not touch other columns
-- For whitespace errors: use str.replace(r'\s+', ' ', regex=True).str.strip() not just str.strip()
+- For whitespace errors: use str.replace(r'\\s+', ' ', regex=True).str.strip() not just str.strip()
 
 Important rules:
 - Do NOT repeat the same explore query — check your action history below
@@ -270,7 +274,7 @@ def get_agent_action(messages: list[dict]) -> tuple[dict, float, dict | None]:
     for attempt in range(max_retries):
         t0 = time.time()
         try:
-            response = llm_client.chat.completions.create(
+            response = get_llm_client().chat.completions.create(
                 model=MODEL_NAME,
                 messages=messages,
                 temperature=0.1,
