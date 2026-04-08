@@ -2,10 +2,11 @@
 Baseline inference script for the Data Cleaning OpenEnv environment.
 
 Uses any OpenAI-compatible API endpoint. Configure via .env:
-  API_BASE_URL  — e.g. http://localhost:11434/v1 or https://integrate.api.nvidia.com/v1
-  API_KEY       — leave empty for local endpoints that don't require auth
+  API_BASE_URL  — defaults to the active hosted endpoint if unset
+  API_KEY       — required via `API_KEY` or `HF_TOKEN`
   MODEL_NAME    — e.g. qwen3, nvidia/nemotron-super-49b-v1, gpt-4o
   ENV_URL       — http://localhost:8000
+  LOCAL_IMAGE_NAME / IMAGE_NAME — optional docker image name for local env startup
   LOG_LEVEL     — INFO (default) or DEBUG for full LLM I/O
   LOG_DIR       — directory for JSONL log files (default: outputs/logs)
 
@@ -55,10 +56,10 @@ def _jlog(event: str, **fields):
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
-MODEL_NAME = os.getenv("MODEL_NAME") or "Qwen/Qwen2.5-72B-Instruct"
-API_KEY = os.getenv("API_KEY") or os.getenv("HF_TOKEN")
-ENV_URL = os.environ.get("ENV_URL", "http://localhost:8000")
+DEFAULT_API_BASE_URL = "https://router.huggingface.co/v1"
+DEFAULT_MODEL_NAME = "Qwen/Qwen2.5-72B-Instruct"
+ENV_URL = os.getenv("ENV_BASE_URL") or os.getenv("ENV_URL") or "http://localhost:8000"
+IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME") or os.getenv("IMAGE_NAME")
 
 TASK_IDS = [
     "titanic_easy", "titanic_medium", "titanic_hard",
@@ -97,10 +98,30 @@ _last_call_time = 0.0
 llm_client: OpenAI | None = None
 
 
+def get_api_base_url() -> str:
+    return os.getenv("API_BASE_URL") or DEFAULT_API_BASE_URL
+
+
+def get_api_key() -> str:
+    api_key = os.getenv("API_KEY") or os.getenv("HF_TOKEN")
+    if api_key is None:
+        raise RuntimeError(
+            "Missing required environment variable: API_KEY or HF_TOKEN. "
+            "Set one in your environment or .env before running inference.py."
+        )
+    return api_key
+
+
+def get_model_name() -> str:
+    return os.getenv("MODEL_NAME") or DEFAULT_MODEL_NAME
+
+
 def get_llm_client() -> OpenAI:
     global llm_client
     if llm_client is None:
-        llm_client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+        api_base_url = get_api_base_url()
+        api_key = get_api_key()
+        llm_client = OpenAI(base_url=api_base_url, api_key=api_key)
     return llm_client
 
 # ── Structured stdout logging (machine-readable) ──────────────────────────────
@@ -110,8 +131,10 @@ ENV_NAME = "data_cleaning_env"
 
 
 def log_start(task_id: str):
-    print(f"[START] task={task_id} env={ENV_NAME} model={MODEL_NAME}", flush=True)
-    _jlog("task_start", task_id=task_id, model=MODEL_NAME, api_base=API_BASE_URL)
+    model_name = get_model_name()
+    api_base_url = get_api_base_url()
+    print(f"[START] task={task_id} env={ENV_NAME} model={model_name}", flush=True)
+    _jlog("task_start", task_id=task_id, model=model_name, api_base=api_base_url)
 
 
 def log_step(step_num: int, action_type: str, reward: float, done: bool,
@@ -275,7 +298,7 @@ def get_agent_action(messages: list[dict]) -> tuple[dict, float, dict | None]:
         t0 = time.time()
         try:
             response = get_llm_client().chat.completions.create(
-                model=MODEL_NAME,
+                model=get_model_name(),
                 messages=messages,
                 temperature=0.1,
                 max_tokens=2048,
@@ -362,9 +385,14 @@ async def run_task(task_id: str) -> float:
     current_reward = 0.0
     step_num = 0
     step_rewards: list[float] = []
-    logger.info("Starting task: %s | model: %s | endpoint: %s", task_id, MODEL_NAME, API_BASE_URL)
+    logger.info("Starting task: %s | model: %s | endpoint: %s", task_id, get_model_name(), get_api_base_url())
 
-    async with DataCleaningClient(base_url=ENV_URL) as env:
+    if IMAGE_NAME:
+        env_client = DataCleaningClient.from_docker_image(IMAGE_NAME)
+    else:
+        env_client = DataCleaningClient(base_url=ENV_URL)
+
+    async with env_client as env:
         step_result = await env.reset(task_id=task_id)
         obs = step_result.observation
         current_reward = step_result.reward or 0.0
@@ -576,7 +604,7 @@ async def amain():
             writer.writerow(["run_id", "model", "task_id", "reward", "timestamp"])
         run_ts = time.strftime("%Y-%m-%d %H:%M:%S")
         for tid, reward in results.items():
-            writer.writerow([_RUN_ID, MODEL_NAME, tid, round(reward, 4), run_ts])
+            writer.writerow([_RUN_ID, get_model_name(), tid, round(reward, 4), run_ts])
 
 
 def main():

@@ -51,6 +51,8 @@ A data cleaning RL environment where an AI agent receives dirty CSV data and mus
     .step(action)       → StepResult
 
 [Inference]
+  llm_client = OpenAI(base_url=os.environ["API_BASE_URL"], api_key=os.environ["API_KEY"])
+      ↑ validator/deployed runs must use injected proxy env vars directly
   for task in task_ids:
     obs = env.reset(task_id)
     while not done:

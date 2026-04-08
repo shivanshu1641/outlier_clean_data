@@ -24,7 +24,7 @@ pip install -r server/requirements.txt
 uvicorn server.app:app --port 8000 --ws-ping-interval 60 --ws-ping-timeout 120
 
 # Run the baseline agent (in another terminal)
-API_BASE_URL=http://localhost:11434/v1 MODEL_NAME=qwen3 ENV_URL=http://localhost:8000 python inference.py
+API_BASE_URL=https://router.huggingface.co/v1 API_KEY=... MODEL_NAME=Qwen/Qwen2.5-72B-Instruct ENV_URL=http://localhost:8000 python inference.py
 
 # Run specific tasks
 python inference.py titanic_easy wine_medium
@@ -211,9 +211,9 @@ Agent code runs in a subprocess with:
 
 | Variable            | Default                     | Purpose                                             |
 | ------------------- | --------------------------- | --------------------------------------------------- |
-| `API_BASE_URL`      | `http://localhost:11434/v1` | LLM endpoint (any OpenAI-compatible)                |
-| `API_KEY`           | ``                          | API key (empty for local)                           |
-| `MODEL_NAME`        | `qwen3`                     | Model name                                          |
+| `API_BASE_URL`      | `https://router.huggingface.co/v1` | LLM endpoint; env value takes precedence       |
+| `API_KEY`           | none                        | API token from `API_KEY` or `HF_TOKEN`              |
+| `MODEL_NAME`        | `Qwen/Qwen2.5-72B-Instruct` | Model name                                          |
 | `ENV_URL`           | `http://localhost:8000`     | OpenEnv server URL                                  |
 | `LOG_LEVEL`         | `INFO`                      | `INFO` for actions/timing, `DEBUG` for full LLM I/O |
 | `LOG_DIR`           | `outputs/logs`              | JSONL log directory                                 |

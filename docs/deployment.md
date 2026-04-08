@@ -35,9 +35,9 @@ python inference.py titanic_easy       # specific task
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `API_BASE_URL` | LLM API endpoint | `http://localhost:11434/v1` |
-| `MODEL_NAME` | LLM model name | `qwen3` |
-| `HF_TOKEN` / `API_KEY` | API token | (empty) |
+| `API_BASE_URL` | LLM API endpoint | `https://router.huggingface.co/v1` |
+| `MODEL_NAME` | LLM model name | `Qwen/Qwen2.5-72B-Instruct` |
+| `API_KEY` / `HF_TOKEN` | API token env var | (required) |
 | `ENV_URL` | Environment server URL | `http://localhost:8000` |
 | `MIN_CALL_INTERVAL` | Seconds between LLM calls | `2.5` |
 
@@ -105,7 +105,7 @@ curl -X POST https://shivshri-openenv-dataclean.hf.space/reset \
 - [x] `POST /reset` with `{}` returns valid observation
 - [x] `inference.py` at repo root with `[START]/[STEP]/[END]` stdout logs
 - [x] Uses `from openai import OpenAI` for LLM calls
-- [x] Supports `API_BASE_URL`, `MODEL_NAME`, `HF_TOKEN` env vars
+- [x] Uses `OpenAI(base_url=..., api_key=...)` with env-configured LLM settings
 - [x] All 6 tasks produce rewards in [0.0, 1.0]
 - [x] Runtime < 20 min on 2 vCPU / 8GB
 
