@@ -25,10 +25,7 @@ import sys
 import time
 from pathlib import Path
 
-from dotenv import load_dotenv
 from openai import OpenAI
-
-load_dotenv()
 
 from client import DataCleaningClient
 from models import DoneAction, ExploreAction, TransformAction
