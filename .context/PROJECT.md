@@ -14,7 +14,7 @@ OpenEnv environment for the Meta PyTorch Hackathon (deadline: April 8, 2026). AI
 - **Dockerfile** (root) — HF Spaces deployment, 2 vCPU / 8GB compatible
 - **models.py** — Pydantic types: ExploreAction, TransformAction, DoneAction, Observation, State
 - **client.py** — EnvClient subclass (WebSocket)
-- **inference.py** — Baseline agent using any OpenAI-compatible API with hackathon-spec structured stdout logs ([START]/[STEP]/[END]) + JSONL persistence; defaults mirror the dummy inference pattern for `API_BASE_URL`, `MODEL_NAME`, and credential lookup
+- **inference.py** — Baseline agent using any OpenAI-compatible API with hackathon-spec structured stdout logs ([START]/[STEP]/[END]) + JSONL persistence; uses validator-injected `API_BASE_URL`/`API_KEY` env vars, defaults to OpenAI
 - **tools/corruption/engine.py** — Standalone generator: 10 corruption types, per-task RNG, configurable fractions, round-trip validation; produces 4 artifacts per task
 
 ## Key Decisions
@@ -32,14 +32,14 @@ OpenEnv environment for the Meta PyTorch Hackathon (deadline: April 8, 2026). AI
 - **Per-task RNG** — each task gets its own deterministic seed via `_make_rng(task_id)`, so tasks can be regenerated independently without affecting others
 - **Corruption overlap safety** — `_get_clean_val()` always reads clean values from the original clean_df (not the in-progress corrupted df); `build_error_map` filters cell errors on spurious rows to avoid conflicting entries
 - **Round-trip validation** — `validate_artifacts()` verifies clean_value correctness and detects phantom errors after generation
-- **Inference config parity** — `inference.py` follows the dummy inference pattern: defaults for `API_BASE_URL` and `MODEL_NAME`, `API_KEY` lookup via `API_KEY` then `HF_TOKEN`, and `OpenAI(base_url=..., api_key=...)` for all LLM calls
+- **Inference config** — `inference.py` reads `API_BASE_URL`, `MODEL_NAME`, and `API_KEY` (from `HF_TOKEN`/`OPENAI_API_KEY`) at import time via `os.environ.get`; validator injects LiteLLM proxy values which take precedence
 
 ## Conventions
 
 - OpenEnv spec v1: typed models, `reset()`/`step()`/`state()` API
 - Dual-import in server files: `try: from ..models / except: from models`
 - Rewards in 0.0–1.0 range, diff-based grading only
-- `inference.py` LLM calls use `OpenAI(base_url=..., api_key=...)`
+- `inference.py` LLM calls use `OpenAI(base_url=API_BASE_URL, api_key=API_KEY)` — env vars read once at import
 - Client never imports server
 - Sandbox always on for code execution
 - Generator owns all domain knowledge — grader is a pure diff engine
@@ -172,10 +172,10 @@ reward = constraint_score × efficiency_factor   [clamped to 0.0–1.0]
 
 | Var                 | Default                     | Purpose                                             |
 | ------------------- | --------------------------- | --------------------------------------------------- |
-| `API_BASE_URL`      | `https://router.huggingface.co/v1` | LLM endpoint; injected value is preferred in deployed runs |
-| `API_KEY`           | none                        | API token from `API_KEY` or `HF_TOKEN`              |
-| `MODEL_NAME`        | `Qwen/Qwen2.5-72B-Instruct` | Model name                                          |
-| `ENV_URL`           | `http://localhost:8000`     | OpenEnv server URL                                  |
+| `API_BASE_URL`      | `https://api.openai.com/v1`  | LLM endpoint; validator injects LiteLLM proxy here  |
+| `API_KEY`           | from `HF_TOKEN` or `OPENAI_API_KEY` | API token (read at import time)              |
+| `MODEL_NAME`        | `gpt-4o`                     | Model name                                          |
+| `ENV_URL`           | `http://localhost:7860`      | OpenEnv server URL                                  |
 | `LOG_LEVEL`         | `INFO`                      | `INFO` for actions/timing, `DEBUG` for full LLM I/O |
 | `LOG_DIR`           | `outputs/logs`              | JSONL log directory                                 |
 | `MIN_CALL_INTERVAL` | `2.5`                       | Min seconds between LLM calls (0 for local)         |
@@ -186,5 +186,5 @@ reward = constraint_score × efficiency_factor   [clamped to 0.0–1.0]
 ## Deployment Notes
 
 - Validator/deployed runs should rely on the injected LiteLLM proxy values when they are present.
-- The current script defaults `API_BASE_URL` to `https://router.huggingface.co/v1` and `MODEL_NAME` to `Qwen/Qwen2.5-72B-Instruct` when unset.
-- `API_KEY` has no default; the script reads `API_KEY` first and falls back to `HF_TOKEN`.
+- The current script defaults `API_BASE_URL` to `https://api.openai.com/v1` and `MODEL_NAME` to `gpt-4o` when unset.
+- `API_KEY` is read from `HF_TOKEN` then `OPENAI_API_KEY` at import time (empty string if neither set).

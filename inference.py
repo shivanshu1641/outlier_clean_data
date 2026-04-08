@@ -54,14 +54,10 @@ def _jlog(event: str, **fields):
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-DEFAULT_API_BASE_URL = "https://router.huggingface.co/v1"
-DEFAULT_MODEL_NAME = "Qwen/Qwen2.5-72B-Instruct"
-ENV_URL = (
-    os.getenv("ENV_BASE_URL")
-    or os.getenv("ENV_URL")
-    or "https://shivshri-openenv-dataclean.hf.space"
-)
-IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME") or os.getenv("IMAGE_NAME")
+API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
+MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o")
+API_KEY = os.environ.get("HF_TOKEN", os.environ.get("OPENAI_API_KEY", ""))
+ENV_URL = os.environ.get("ENV_URL", "http://localhost:7860")
 
 TASK_IDS = [
     "titanic_easy",
@@ -110,21 +106,15 @@ llm_client: OpenAI | None = None
 
 
 def get_api_base_url() -> str:
-    return os.getenv("API_BASE_URL") or DEFAULT_API_BASE_URL
+    return API_BASE_URL
 
 
 def get_api_key() -> str:
-    api_key = os.getenv("API_KEY") or os.getenv("HF_TOKEN")
-    if api_key is None:
-        raise RuntimeError(
-            "Missing required environment variable: API_KEY or HF_TOKEN. "
-            "Set one in your environment or .env before running inference.py."
-        )
-    return api_key
+    return API_KEY
 
 
 def get_model_name() -> str:
-    return os.getenv("MODEL_NAME") or DEFAULT_MODEL_NAME
+    return MODEL_NAME
 
 
 def get_llm_client() -> OpenAI:
@@ -455,10 +445,7 @@ async def run_task(task_id: str) -> float:
         get_api_base_url(),
     )
 
-    if IMAGE_NAME:
-        env_client = DataCleaningClient.from_docker_image(IMAGE_NAME)
-    else:
-        env_client = DataCleaningClient(base_url=ENV_URL)
+    env_client = DataCleaningClient(base_url=ENV_URL)
 
     async with env_client as env:
         step_result = await env.reset(task_id=task_id)
