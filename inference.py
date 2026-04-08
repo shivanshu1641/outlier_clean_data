@@ -24,7 +24,10 @@ import sys
 import time
 from pathlib import Path
 
+from dotenv import load_dotenv
 from openai import OpenAI
+
+load_dotenv()
 
 from client import DataCleaningClient
 from models import DoneAction, ExploreAction, TransformAction
@@ -54,7 +57,7 @@ def _jlog(event: str, **fields):
 
 API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
 MODEL_NAME = os.getenv("MODEL_NAME") or "Qwen/Qwen2.5-72B-Instruct"
-API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
+API_KEY = os.getenv("API_KEY") or os.getenv("HF_TOKEN")
 ENV_URL = os.environ.get("ENV_URL", "http://localhost:8000")
 
 TASK_IDS = [
@@ -129,9 +132,10 @@ def log_step(step_num: int, action_type: str, reward: float, done: bool,
 
 
 def log_end(task_id: str, final_reward: float, total_steps: int, elapsed: float, rewards: list[float]):
-    success = str(final_reward > 0).lower()
+    score = max(1e-6, min(final_reward, 1 - 1e-6))
+    success = str(score >= 0.5).lower()
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
-    print(f"[END] success={success} steps={total_steps} score={final_reward:.2f} rewards={rewards_str}", flush=True)
+    print(f"[END] success={success} steps={total_steps} score={score:.3f} rewards={rewards_str}", flush=True)
     _jlog("task_end", task_id=task_id, final_reward=final_reward,
           total_steps=total_steps, elapsed_s=round(elapsed, 2))
 
