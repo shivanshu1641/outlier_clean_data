@@ -51,19 +51,29 @@ def _jlog(event: str, **fields):
     entry = {"event": event, "timestamp": time.time(), **fields}
     _jsonl_file.write(json.dumps(entry) + "\n")
 
+
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 DEFAULT_API_BASE_URL = "https://router.huggingface.co/v1"
 DEFAULT_MODEL_NAME = "Qwen/Qwen2.5-72B-Instruct"
-ENV_URL = os.getenv("ENV_BASE_URL") or os.getenv("ENV_URL") or "http://localhost:8000"
+ENV_URL = (
+    os.getenv("ENV_BASE_URL")
+    or os.getenv("ENV_URL")
+    or "https://shivshri-openenv-dataclean.hf.space"
+)
 IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME") or os.getenv("IMAGE_NAME")
 
 TASK_IDS = [
-    "titanic_easy", "titanic_medium", "titanic_hard",
-    "wine_easy", "wine_medium", "wine_hard",
+    "titanic_easy",
+    "titanic_medium",
+    "titanic_hard",
+    "wine_easy",
+    "wine_medium",
+    "wine_hard",
 ]
 
 # ── Few-shot examples from dataset.parquet ────────────────────────────────────
+
 
 def _load_few_shot_examples() -> dict[str, str]:
     parquet_path = Path("data/dataset.parquet")
@@ -71,18 +81,22 @@ def _load_few_shot_examples() -> dict[str, str]:
         return {}
     try:
         import pandas as _pd
+
         df = _pd.read_parquet(parquet_path)
         best = (
             df.sort_values("reward_gap", ascending=False)
-              .drop_duplicates(subset="task_id", keep="first")
-              .set_index("task_id")["chosen"]
-              .to_dict()
+            .drop_duplicates(subset="task_id", keep="first")
+            .set_index("task_id")["chosen"]
+            .to_dict()
         )
-        logger.info("Loaded few-shot examples for %d tasks from dataset.parquet", len(best))
+        logger.info(
+            "Loaded few-shot examples for %d tasks from dataset.parquet", len(best)
+        )
         return best
     except Exception as e:
         logger.warning("Could not load dataset.parquet for few-shot examples: %s", e)
         return {}
+
 
 FEW_SHOT_EXAMPLES: dict[str, str] = _load_few_shot_examples()
 
@@ -121,6 +135,7 @@ def get_llm_client() -> OpenAI:
         llm_client = OpenAI(base_url=api_base_url, api_key=api_key)
     return llm_client
 
+
 # ── Structured stdout logging (machine-readable) ──────────────────────────────
 
 
@@ -134,14 +149,29 @@ def log_start(task_id: str):
     _jlog("task_start", task_id=task_id, model=model_name, api_base=api_base_url)
 
 
-def log_step(step_num: int, action_type: str, reward: float, done: bool,
-             action_content: str = "", error: str | None = None,
-             latency: float = 0.0, usage: dict | None = None,
-             errors_fixed: int = 0, errors_total: int = 0):
-    action_summary = f"{action_type}()" if action_type == "done" else f"{action_type}('{action_content[:80]}')"
+def log_step(
+    step_num: int,
+    action_type: str,
+    reward: float,
+    done: bool,
+    action_content: str = "",
+    error: str | None = None,
+    latency: float = 0.0,
+    usage: dict | None = None,
+    errors_fixed: int = 0,
+    errors_total: int = 0,
+):
+    action_summary = (
+        f"{action_type}()"
+        if action_type == "done"
+        else f"{action_type}('{action_content[:80]}')"
+    )
     error_val = error if error else "null"
     done_val = str(done).lower()
-    print(f"[STEP] step={step_num} action={action_summary} reward={reward:.2f} done={done_val} error={error_val}", flush=True)
+    print(
+        f"[STEP] step={step_num} action={action_summary} reward={reward:.2f} done={done_val} error={error_val}",
+        flush=True,
+    )
     _jlog(
         "step",
         step=step_num,
@@ -155,13 +185,27 @@ def log_step(step_num: int, action_type: str, reward: float, done: bool,
     )
 
 
-def log_end(task_id: str, final_reward: float, total_steps: int, elapsed: float, rewards: list[float]):
+def log_end(
+    task_id: str,
+    final_reward: float,
+    total_steps: int,
+    elapsed: float,
+    rewards: list[float],
+):
     score = max(1e-6, min(final_reward, 1 - 1e-6))
     success = str(score >= 0.5).lower()
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
-    print(f"[END] success={success} steps={total_steps} score={score:.3f} rewards={rewards_str}", flush=True)
-    _jlog("task_end", task_id=task_id, final_reward=final_reward,
-          total_steps=total_steps, elapsed_s=round(elapsed, 2))
+    print(
+        f"[END] success={success} steps={total_steps} score={score:.3f} rewards={rewards_str}",
+        flush=True,
+    )
+    _jlog(
+        "task_end",
+        task_id=task_id,
+        final_reward=final_reward,
+        total_steps=total_steps,
+        elapsed_s=round(elapsed, 2),
+    )
 
 
 # ── Agent Logic ───────────────────────────────────────────────────────────────
@@ -228,21 +272,23 @@ def build_user_prompt(
         "",
         "Current status:",
     ]
-    for desc in (obs.constraints or []):
+    for desc in obs.constraints or []:
         parts.append(f"  {desc}")
 
     constraint_status = obs.constraint_status or {}
     fixed = sum(1 for v in constraint_status.values() if v)
     total = len(constraint_status)
     reward = result_reward if result_reward is not None else (obs.reward or 0.0)
-    parts.extend([
-        "",
-        f"Errors fixed: {fixed}/{total}",
-        f"Current reward: {reward}",
-        "",
-        "Data summary:",
-        obs.data_summary,
-    ])
+    parts.extend(
+        [
+            "",
+            f"Errors fixed: {fixed}/{total}",
+            f"Current reward: {reward}",
+            "",
+            "Data summary:",
+            obs.data_summary,
+        ]
+    )
 
     if obs.explore_result:
         parts.extend(["", "Last explore result:", obs.explore_result])
@@ -251,18 +297,22 @@ def build_user_prompt(
 
     step_info = obs.step_info
     if step_info:
-        parts.extend([
-            "",
-            f"Explore budget: {step_info.explore_steps_used}/{step_info.explore_budget}",
-            f"Transform steps: {step_info.transform_steps_used}/{step_info.max_transform_steps}",
-        ])
+        parts.extend(
+            [
+                "",
+                f"Explore budget: {step_info.explore_steps_used}/{step_info.explore_budget}",
+                f"Transform steps: {step_info.transform_steps_used}/{step_info.max_transform_steps}",
+            ]
+        )
 
     # Action history — survives message truncation
     if action_history:
         parts.extend(["", "Action history:"])
         for h in action_history:
             summary = h["summary"][:80]
-            parts.append(f'  Step {h["step"]}: {h["type"]} "{summary}" -> reward={h["reward_after"]:.4f}')
+            parts.append(
+                f'  Step {h["step"]}: {h["type"]} "{summary}" -> reward={h["reward_after"]:.4f}'
+            )
 
     # Warnings about repeated/stale actions
     if warnings:
@@ -278,7 +328,9 @@ def get_agent_action(messages: list[dict]) -> tuple[dict, float, dict | None]:
 
     Retries on rate limit errors with exponential backoff.
     """
-    logger.debug("LLM request — %d messages, last role=%s", len(messages), messages[-1]["role"])
+    logger.debug(
+        "LLM request — %d messages, last role=%s", len(messages), messages[-1]["role"]
+    )
     logger.debug("Full messages:\n%s", json.dumps(messages, indent=2)[:3000])
     _jlog("llm_request", num_messages=len(messages))
 
@@ -307,14 +359,23 @@ def get_agent_action(messages: list[dict]) -> tuple[dict, float, dict | None]:
             latency = time.time() - t0
             err_str = str(e).lower()
             if "rate limit" in err_str or "429" in err_str or "too many" in err_str:
-                wait = backoff * (2 ** attempt)
-                logger.warning("Rate limit hit — waiting %.0fs before retry %d/%d | error: %s", wait, attempt + 1, max_retries, str(e)[:300])
+                wait = backoff * (2**attempt)
+                logger.warning(
+                    "Rate limit hit — waiting %.0fs before retry %d/%d | error: %s",
+                    wait,
+                    attempt + 1,
+                    max_retries,
+                    str(e)[:300],
+                )
                 _jlog("rate_limit_retry", attempt=attempt + 1, wait_s=wait)
                 time.sleep(wait)
                 if attempt == max_retries - 1:
                     raise
             elif "context" in err_str or "exceed" in err_str or "400" in err_str:
-                logger.warning("Context size exceeded or bad request — auto-submitting done | error: %s", str(e)[:300])
+                logger.warning(
+                    "Context size exceeded or bad request — auto-submitting done | error: %s",
+                    str(e)[:300],
+                )
                 _jlog("context_exceeded", error=str(e)[:200])
                 return {"type": "done"}, latency, None
             else:
@@ -330,7 +391,12 @@ def get_agent_action(messages: list[dict]) -> tuple[dict, float, dict | None]:
         }
 
     logger.debug("LLM response (%.2fs):\n%s", latency, content[:2000])
-    _jlog("llm_response", latency_s=round(latency, 3), **(usage or {}), response_preview=content[:500])
+    _jlog(
+        "llm_response",
+        latency_s=round(latency, 3),
+        **(usage or {}),
+        response_preview=content[:500],
+    )
 
     # Strip markdown code blocks if present
     if "```" in content:
@@ -382,7 +448,12 @@ async def run_task(task_id: str) -> float:
     current_reward = 0.0
     step_num = 0
     step_rewards: list[float] = []
-    logger.info("Starting task: %s | model: %s | endpoint: %s", task_id, get_model_name(), get_api_base_url())
+    logger.info(
+        "Starting task: %s | model: %s | endpoint: %s",
+        task_id,
+        get_model_name(),
+        get_api_base_url(),
+    )
 
     if IMAGE_NAME:
         env_client = DataCleaningClient.from_docker_image(IMAGE_NAME)
@@ -397,14 +468,24 @@ async def run_task(task_id: str) -> float:
         constraint_status = obs.constraint_status or {}
         fixed = sum(1 for v in constraint_status.values() if v)
         total = len(constraint_status)
-        logger.info("Reset complete — %d/%d errors fixed, reward=%.4f", fixed, total, current_reward)
+        logger.info(
+            "Reset complete — %d/%d errors fixed, reward=%.4f",
+            fixed,
+            total,
+            current_reward,
+        )
 
         action_history: list[dict] = []
         step_rewards: list[float] = []
 
         messages = [
             {"role": "system", "content": build_system_prompt(task_id)},
-            {"role": "user", "content": build_user_prompt(obs, current_reward, action_history=action_history)},
+            {
+                "role": "user",
+                "content": build_user_prompt(
+                    obs, current_reward, action_history=action_history
+                ),
+            },
         ]
 
         step_num = 0
@@ -440,7 +521,9 @@ async def run_task(task_id: str) -> float:
 
             step_result = await env.step(action)
             obs = step_result.observation
-            current_reward = step_result.reward if step_result.reward is not None else current_reward
+            current_reward = (
+                step_result.reward if step_result.reward is not None else current_reward
+            )
 
             constraint_status = obs.constraint_status or {}
             fixed = sum(1 for v in constraint_status.values() if v)
@@ -448,9 +531,15 @@ async def run_task(task_id: str) -> float:
 
             logger.info(
                 "Step %d result | reward=%.4f | %d/%d errors fixed",
-                step_num, current_reward, fixed, total,
+                step_num,
+                current_reward,
+                fixed,
+                total,
             )
-            logger.debug("Observation data_summary:\n%s", obs.data_summary[:1000] if obs.data_summary else "")
+            logger.debug(
+                "Observation data_summary:\n%s",
+                obs.data_summary[:1000] if obs.data_summary else "",
+            )
             if obs.explore_result:
                 logger.debug("Explore result:\n%s", obs.explore_result[:1000])
             if obs.transform_result:
@@ -458,28 +547,48 @@ async def run_task(task_id: str) -> float:
 
             action_content = action_dict.get("query") or action_dict.get("code") or ""
             step_rewards.append(current_reward)
-            log_step(step_num, action_type, current_reward, done=step_result.done,
-                     action_content=action_content, latency=latency, usage=usage,
-                     errors_fixed=fixed, errors_total=total)
+            log_step(
+                step_num,
+                action_type,
+                current_reward,
+                done=step_result.done,
+                action_content=action_content,
+                latency=latency,
+                usage=usage,
+                errors_fixed=fixed,
+                errors_total=total,
+            )
 
             # Track action history
-            action_history.append({
-                "step": step_num,
-                "type": action_type,
-                "summary": (action_dict.get("query") or action_dict.get("code", ""))[:100],
-                "reward_after": current_reward,
-                "errors_fixed": fixed,
-            })
+            action_history.append(
+                {
+                    "step": step_num,
+                    "type": action_type,
+                    "summary": (
+                        action_dict.get("query") or action_dict.get("code", "")
+                    )[:100],
+                    "reward_after": current_reward,
+                    "errors_fixed": fixed,
+                }
+            )
 
             # Generate warnings for repeated/stale actions
             warnings: list[str] = []
             if action_type == "explore":
                 query = action_dict.get("query", "")
-                recent_explores = [h["summary"] for h in action_history[:-1] if h["type"] == "explore"][-3:]
+                recent_explores = [
+                    h["summary"] for h in action_history[:-1] if h["type"] == "explore"
+                ][-3:]
                 if query[:100] in recent_explores:
-                    warnings.append("You already ran this exact explore query. Try a different query or submit a transform.")
+                    warnings.append(
+                        "You already ran this exact explore query. Try a different query or submit a transform."
+                    )
             if action_type == "transform":
-                recent_transform_fixed = [h["errors_fixed"] for h in action_history if h["type"] == "transform"]
+                recent_transform_fixed = [
+                    h["errors_fixed"]
+                    for h in action_history
+                    if h["type"] == "transform"
+                ]
                 if len(recent_transform_fixed) >= 2:
                     prev = recent_transform_fixed[-2]
                     curr = recent_transform_fixed[-1]
@@ -502,52 +611,93 @@ async def run_task(task_id: str) -> float:
                         )
 
             # Auto-done circuit breakers
-            recent_transform_fixed = [h["errors_fixed"] for h in action_history if h["type"] == "transform"]
+            recent_transform_fixed = [
+                h["errors_fixed"] for h in action_history if h["type"] == "transform"
+            ]
             should_auto_done = False
 
             # Stale: 3 consecutive transforms with same errors_fixed
             last3 = recent_transform_fixed[-3:]
             if len(last3) == 3 and len(set(last3)) == 1:
-                logger.warning("No improvement in last 3 transforms (%d/%d fixed) — auto-submitting done",
-                               last3[-1], total)
+                logger.warning(
+                    "No improvement in last 3 transforms (%d/%d fixed) — auto-submitting done",
+                    last3[-1],
+                    total,
+                )
                 should_auto_done = True
 
             # Regression: 2 consecutive transforms that both reduced errors_fixed
             if not should_auto_done and len(recent_transform_fixed) >= 3:
-                if recent_transform_fixed[-1] < recent_transform_fixed[-2] < recent_transform_fixed[-3]:
-                    logger.warning("2 consecutive regressions (%d -> %d -> %d/%d) — auto-submitting done",
-                                   recent_transform_fixed[-3], recent_transform_fixed[-2],
-                                   recent_transform_fixed[-1], total)
+                if (
+                    recent_transform_fixed[-1]
+                    < recent_transform_fixed[-2]
+                    < recent_transform_fixed[-3]
+                ):
+                    logger.warning(
+                        "2 consecutive regressions (%d -> %d -> %d/%d) — auto-submitting done",
+                        recent_transform_fixed[-3],
+                        recent_transform_fixed[-2],
+                        recent_transform_fixed[-1],
+                        total,
+                    )
                     should_auto_done = True
 
             if should_auto_done:
                 _jlog("auto_done_stuck", step=step_num, reward=current_reward)
                 done_result = await env.step(DoneAction())
-                current_reward = done_result.reward if done_result.reward is not None else current_reward
+                current_reward = (
+                    done_result.reward
+                    if done_result.reward is not None
+                    else current_reward
+                )
                 step_rewards.append(current_reward)
-                log_step(step_num + 1, "done", current_reward, done=True,
-                         errors_fixed=fixed, errors_total=total)
+                log_step(
+                    step_num + 1,
+                    "done",
+                    current_reward,
+                    done=True,
+                    errors_fixed=fixed,
+                    errors_total=total,
+                )
                 break
 
             messages.append({"role": "assistant", "content": json.dumps(action_dict)})
-            messages.append({"role": "user", "content": build_user_prompt(
-                obs, current_reward, action_history=action_history, warnings=warnings,
-            )})
+            messages.append(
+                {
+                    "role": "user",
+                    "content": build_user_prompt(
+                        obs,
+                        current_reward,
+                        action_history=action_history,
+                        warnings=warnings,
+                    ),
+                }
+            )
 
             # Keep message history bounded — retain system + last N exchanges
             MAX_HISTORY_MESSAGES = 20  # system + 10 exchanges (assistant+user pairs)
             if len(messages) > MAX_HISTORY_MESSAGES:
-                messages = [messages[0]] + messages[-(MAX_HISTORY_MESSAGES - 1):]
+                messages = [messages[0]] + messages[-(MAX_HISTORY_MESSAGES - 1) :]
 
             if step_result.done:
                 break
 
             if total > 0 and fixed == total:
                 done_result = await env.step(DoneAction())
-                current_reward = done_result.reward if done_result.reward is not None else current_reward
+                current_reward = (
+                    done_result.reward
+                    if done_result.reward is not None
+                    else current_reward
+                )
                 step_rewards.append(current_reward)
-                log_step(step_num + 1, "done", current_reward, done=True,
-                         errors_fixed=fixed, errors_total=total)
+                log_step(
+                    step_num + 1,
+                    "done",
+                    current_reward,
+                    done=True,
+                    errors_fixed=fixed,
+                    errors_total=total,
+                )
                 _jlog("auto_done", step=step_num + 1, reward=current_reward)
                 logger.info("All errors fixed — submitted done action")
                 break
@@ -556,7 +706,10 @@ async def run_task(task_id: str) -> float:
     log_end(task_id, current_reward, step_num, elapsed, step_rewards)
     logger.info(
         "Task %s complete | reward=%.4f | steps=%d | elapsed=%.1fs",
-        task_id, current_reward, step_num, elapsed,
+        task_id,
+        current_reward,
+        step_num,
+        elapsed,
     )
     return current_reward
 
@@ -578,6 +731,7 @@ async def amain():
             results[task_id] = reward
         except Exception as e:
             import traceback
+
             traceback.print_exc(file=sys.stderr)
             # Ensure [END] is emitted even on crash
             elapsed = time.time() - task_start
@@ -593,6 +747,7 @@ async def amain():
 
     # Append results to CSV for cross-run comparison
     import csv as csv_mod
+
     csv_path = LOG_DIR / "results.csv"
     write_header = not csv_path.exists()
     with open(csv_path, "a", newline="") as f:
