@@ -182,7 +182,7 @@ def log_end(
     elapsed: float,
     rewards: list[float],
 ):
-    score = max(1e-6, min(final_reward, 1 - 1e-6))
+    score = max(0.001, min(final_reward, 0.999))
     success = str(score >= 0.5).lower()
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     print(
