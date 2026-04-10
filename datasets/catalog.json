@@ -1,0 +1,1139 @@
+{
+  "titanic": {
+    "source_url": "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv",
+    "filename": "titanic.csv",
+    "domain": "transportation",
+    "rows": 891,
+    "cols": 12,
+    "dtypes": {"numeric": 5, "categorical": 5, "datetime": 0, "text": 2},
+    "size_class": "small"
+  },
+  "adult_income": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data",
+    "filename": "adult_income.csv",
+    "domain": "census",
+    "rows": 32561,
+    "cols": 15,
+    "dtypes": {"numeric": 6, "categorical": 8, "datetime": 0, "text": 1},
+    "size_class": "large",
+    "csv_params": {"header": null, "names": ["age","workclass","fnlwgt","education","education_num","marital_status","occupation","relationship","race","sex","capital_gain","capital_loss","hours_per_week","native_country","income"]},
+    "max_rows": 20000
+  },
+  "heart_disease": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data",
+    "filename": "heart_disease.csv",
+    "domain": "health",
+    "rows": 303,
+    "cols": 14,
+    "dtypes": {"numeric": 13, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "names": ["age","sex","cp","trestbps","chol","fbs","restecg","thalach","exang","oldpeak","slope","ca","thal","target"]}
+  },
+  "iris": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data",
+    "filename": "iris.csv",
+    "domain": "biology",
+    "rows": 150,
+    "cols": 5,
+    "dtypes": {"numeric": 4, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "names": ["sepal_length","sepal_width","petal_length","petal_width","species"]}
+  },
+  "wine_quality": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv",
+    "filename": "wine_quality.csv",
+    "domain": "food_science",
+    "rows": 1599,
+    "cols": 12,
+    "dtypes": {"numeric": 12, "categorical": 0, "datetime": 0, "text": 0},
+    "size_class": "medium",
+    "csv_params": {"sep": ";"}
+  },
+  "auto_mpg": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data",
+    "filename": "auto_mpg.csv",
+    "domain": "transportation",
+    "rows": 398,
+    "cols": 9,
+    "dtypes": {"numeric": 7, "categorical": 1, "datetime": 0, "text": 1},
+    "size_class": "small",
+    "csv_params": {"header": null, "sep": "\\s+", "names": ["mpg","cylinders","displacement","horsepower","weight","acceleration","model_year","origin","car_name"]}
+  },
+  "abalone": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/abalone/abalone.data",
+    "filename": "abalone.csv",
+    "domain": "biology",
+    "rows": 4177,
+    "cols": 9,
+    "dtypes": {"numeric": 8, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "medium",
+    "csv_params": {"header": null, "names": ["sex","length","diameter","height","whole_weight","shucked_weight","viscera_weight","shell_weight","rings"]}
+  },
+  "mushroom": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/mushroom/agaricus-lepiota.data",
+    "filename": "mushroom.csv",
+    "domain": "biology",
+    "rows": 8124,
+    "cols": 23,
+    "dtypes": {"numeric": 0, "categorical": 23, "datetime": 0, "text": 0},
+    "size_class": "medium",
+    "csv_params": {"header": null, "names": ["class","cap_shape","cap_surface","cap_color","bruises","odor","gill_attachment","gill_spacing","gill_size","gill_color","stalk_shape","stalk_root","stalk_surface_above_ring","stalk_surface_below_ring","stalk_color_above_ring","stalk_color_below_ring","veil_type","veil_color","ring_number","ring_type","spore_print_color","population","habitat"]}
+  },
+  "breast_cancer": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wdbc.data",
+    "filename": "breast_cancer.csv",
+    "domain": "health",
+    "rows": 569,
+    "cols": 32,
+    "dtypes": {"numeric": 30, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "names": ["id","diagnosis","radius_mean","texture_mean","perimeter_mean","area_mean","smoothness_mean","compactness_mean","concavity_mean","concave_points_mean","symmetry_mean","fractal_dimension_mean","radius_se","texture_se","perimeter_se","area_se","smoothness_se","compactness_se","concavity_se","concave_points_se","symmetry_se","fractal_dimension_se","radius_worst","texture_worst","perimeter_worst","area_worst","smoothness_worst","compactness_worst","concavity_worst","concave_points_worst","symmetry_worst","fractal_dimension_worst"]},
+    "max_rows": 20000
+  },
+  "boston_housing": {
+    "source_url": "https://raw.githubusercontent.com/selva86/datasets/master/BostonHousing.csv",
+    "filename": "boston_housing.csv",
+    "domain": "housing",
+    "rows": 506,
+    "cols": 14,
+    "dtypes": {"numeric": 13, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small"
+  },
+  "diabetes": {
+    "source_url": "https://raw.githubusercontent.com/jbrownlee/Datasets/master/pima-indians-diabetes.data.csv",
+    "filename": "diabetes.csv",
+    "domain": "health",
+    "rows": 768,
+    "cols": 9,
+    "dtypes": {"numeric": 9, "categorical": 0, "datetime": 0, "text": 0},
+    "size_class": "small"
+  },
+  "wine_white": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv",
+    "filename": "wine_white.csv",
+    "domain": "food_science",
+    "rows": 4898,
+    "cols": 12,
+    "dtypes": {"numeric": 12, "categorical": 0, "datetime": 0, "text": 0},
+    "size_class": "medium",
+    "csv_params": {"sep": ";"}
+  },
+  "glass": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/glass/glass.data",
+    "filename": "glass.csv",
+    "domain": "materials",
+    "rows": 214,
+    "cols": 11,
+    "dtypes": {"numeric": 10, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "names": ["id","ri","na","mg","al","si","k","ca","ba","fe","glass_type"]}
+  },
+  "ecoli": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/ecoli/ecoli.data",
+    "filename": "ecoli.csv",
+    "domain": "biology",
+    "rows": 336,
+    "cols": 8,
+    "dtypes": {"numeric": 7, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "sep": "\\s+", "names": ["sequence_name","mcg","gvh","lip","chg","aac","alm1","alm2"]}
+  },
+  "seeds": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00236/seeds_dataset.txt",
+    "filename": "seeds.csv",
+    "domain": "agriculture",
+    "rows": 210,
+    "cols": 8,
+    "dtypes": {"numeric": 7, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "sep": "\\s+", "names": ["area","perimeter","compactness","kernel_length","kernel_width","asymmetry","groove_length","variety"]}
+  },
+  "banknote": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00267/data_banknote_authentication.txt",
+    "filename": "banknote.csv",
+    "domain": "finance",
+    "rows": 1372,
+    "cols": 5,
+    "dtypes": {"numeric": 4, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "medium",
+    "csv_params": {"header": null, "names": ["variance","skewness","curtosis","entropy","class"]}
+  },
+  "car_evaluation": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/car/car.data",
+    "filename": "car_evaluation.csv",
+    "domain": "transportation",
+    "rows": 1728,
+    "cols": 7,
+    "dtypes": {"numeric": 0, "categorical": 7, "datetime": 0, "text": 0},
+    "size_class": "medium",
+    "csv_params": {"header": null, "names": ["buying","maint","doors","persons","lug_boot","safety","class"]}
+  },
+  "yeast": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/yeast/yeast.data",
+    "filename": "yeast.csv",
+    "domain": "biology",
+    "rows": 1484,
+    "cols": 10,
+    "dtypes": {"numeric": 8, "categorical": 1, "datetime": 0, "text": 1},
+    "size_class": "medium",
+    "csv_params": {"header": null, "sep": "\\s+", "names": ["sequence_name","mcg","gvh","alm","mit","erl","pox","vac","nuc","class"]}
+  },
+  "haberman": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/haberman/haberman.data",
+    "filename": "haberman.csv",
+    "domain": "health",
+    "rows": 306,
+    "cols": 4,
+    "dtypes": {"numeric": 3, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "names": ["age","year_of_operation","positive_nodes","survival_status"]}
+  },
+  "balance_scale": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/balance-scale/balance-scale.data",
+    "filename": "balance_scale.csv",
+    "domain": "education",
+    "rows": 625,
+    "cols": 5,
+    "dtypes": {"numeric": 4, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "names": ["class","left_weight","left_distance","right_weight","right_distance"]}
+  },
+  "ionosphere": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/ionosphere/ionosphere.data",
+    "filename": "ionosphere.csv",
+    "domain": "environment",
+    "rows": 351,
+    "cols": 35,
+    "dtypes": {"numeric": 34, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "max_cols": 30}
+  },
+  "sonar": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/undocumented/connectionist-bench/sonar/sonar.all-data",
+    "filename": "sonar.csv",
+    "domain": "technology",
+    "rows": 208,
+    "cols": 61,
+    "dtypes": {"numeric": 60, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "max_cols": 30}
+  },
+  "dermatology": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/dermatology/dermatology.data",
+    "filename": "dermatology.csv",
+    "domain": "health",
+    "rows": 366,
+    "cols": 35,
+    "dtypes": {"numeric": 33, "categorical": 1, "datetime": 1, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "max_cols": 30}
+  },
+  "student_performance": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/student-mat.csv",
+    "filename": "student_performance.csv",
+    "domain": "education",
+    "rows": 395,
+    "cols": 33,
+    "dtypes": {"numeric": 16, "categorical": 13, "datetime": 0, "text": 4},
+    "size_class": "small",
+    "csv_params": {"sep": ";"},
+    "max_rows": 20000
+  },
+  "concrete": {
+    "source_url": "https://raw.githubusercontent.com/stedy/Machine-Learning-with-R-datasets/master/concrete.csv",
+    "filename": "concrete.csv",
+    "domain": "materials",
+    "rows": 1030,
+    "cols": 9,
+    "dtypes": {"numeric": 9, "categorical": 0, "datetime": 0, "text": 0},
+    "size_class": "medium"
+  },
+  "energy_efficiency": {
+    "source_url": "https://raw.githubusercontent.com/selva86/datasets/master/ENB2012_data.csv",
+    "filename": "energy_efficiency.csv",
+    "domain": "environment",
+    "rows": 768,
+    "cols": 10,
+    "dtypes": {"numeric": 10, "categorical": 0, "datetime": 0, "text": 0},
+    "size_class": "small"
+  },
+  "parkinsons": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/parkinsons/parkinsons.data",
+    "filename": "parkinsons.csv",
+    "domain": "health",
+    "rows": 195,
+    "cols": 24,
+    "dtypes": {"numeric": 23, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small"
+  },
+  "liver_disorders": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/liver-disorders/bupa.data",
+    "filename": "liver_disorders.csv",
+    "domain": "health",
+    "rows": 345,
+    "cols": 7,
+    "dtypes": {"numeric": 6, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "names": ["mcv","alkphos","sgpt","sgot","gammagt","drinks","selector"]}
+  },
+  "fertility": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00244/fertility_Diagnosis.txt",
+    "filename": "fertility.csv",
+    "domain": "health",
+    "rows": 100,
+    "cols": 10,
+    "dtypes": {"numeric": 9, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "names": ["season","age","childhood_diseases","accident","surgical_intervention","high_fevers","alcohol","smoking","sitting_hours","diagnosis"]}
+  },
+  "acute_inflammation": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/acute/diagnosis.data",
+    "filename": "acute_inflammation.csv",
+    "domain": "health",
+    "rows": 120,
+    "cols": 8,
+    "dtypes": {"numeric": 1, "categorical": 7, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "sep": "\t", "names": ["temperature","nausea","lumbar_pain","urine_pushing","micturition_pain","burning_urethra","inflammation","nephritis"]}
+  },
+  "wholesale_customers": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00292/Wholesale%20customers%20data.csv",
+    "filename": "wholesale_customers.csv",
+    "domain": "finance",
+    "rows": 440,
+    "cols": 8,
+    "dtypes": {"numeric": 6, "categorical": 2, "datetime": 0, "text": 0},
+    "size_class": "small"
+  },
+  "letter_recognition": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/letter-recognition/letter-recognition.data",
+    "filename": "letter_recognition.csv",
+    "domain": "technology",
+    "rows": 20000,
+    "cols": 17,
+    "dtypes": {"numeric": 16, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "large",
+    "csv_params": {"header": null, "names": ["letter","x_box","y_box","width","height","onpix","x_bar","y_bar","x2bar","y2bar","xybar","x2ybr","xy2br","x_ege","xegvy","y_ege","yegvx"]},
+    "max_rows": 20000
+  },
+  "magic_telescope": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/magic/magic04.data",
+    "filename": "magic_telescope.csv",
+    "domain": "environment",
+    "rows": 19020,
+    "cols": 11,
+    "dtypes": {"numeric": 10, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "large",
+    "csv_params": {"header": null, "names": ["flength","fwidth","fsize","fconc","fconc1","fasym","fm3long","fm3trans","falpha","fdist","class"]},
+    "max_rows": 20000
+  },
+  "page_blocks": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/page-blocks/page-blocks.data",
+    "filename": "page_blocks.csv",
+    "domain": "technology",
+    "rows": 5473,
+    "cols": 11,
+    "dtypes": {"numeric": 10, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "medium",
+    "csv_params": {"header": null, "sep": "\\s+", "names": ["height","length","area","eccen","p_black","p_and","mean_tr","blackpix","blackand","wb_trans","class"]}
+  },
+  "statlog_shuttle": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/statlog/shuttle/shuttle.trn",
+    "filename": "statlog_shuttle.csv",
+    "domain": "transportation",
+    "rows": 43500,
+    "cols": 10,
+    "dtypes": {"numeric": 9, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "large",
+    "csv_params": {"header": null, "sep": " ", "names": ["a1","a2","a3","a4","a5","a6","a7","a8","a9","class"]},
+    "max_rows": 20000
+  },
+  "wine_recognition": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/wine/wine.data",
+    "filename": "wine_recognition.csv",
+    "domain": "food_science",
+    "rows": 178,
+    "cols": 14,
+    "dtypes": {"numeric": 13, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "names": ["class","alcohol","malic_acid","ash","alcalinity_of_ash","magnesium","total_phenols","flavanoids","nonflavanoid_phenols","proanthocyanins","color_intensity","hue","od280_od315","proline"]}
+  },
+  "pendigits": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/pendigits/pendigits.tra",
+    "filename": "pendigits.csv",
+    "domain": "technology",
+    "rows": 7494,
+    "cols": 17,
+    "dtypes": {"numeric": 16, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "medium",
+    "csv_params": {"header": null, "names": ["a1","a2","a3","a4","a5","a6","a7","a8","a9","a10","a11","a12","a13","a14","a15","a16","digit"]}
+  },
+  "segmentation": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/image/segmentation.data",
+    "filename": "segmentation.csv",
+    "domain": "technology",
+    "rows": 210,
+    "cols": 20,
+    "dtypes": {"numeric": 19, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small"
+  },
+  "optdigits": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/optdigits/optdigits.tra",
+    "filename": "optdigits.csv",
+    "domain": "technology",
+    "rows": 3823,
+    "cols": 65,
+    "dtypes": {"numeric": 64, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "medium",
+    "csv_params": {"header": null, "max_cols": 30}
+  },
+  "spambase": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/spambase/spambase.data",
+    "filename": "spambase.csv",
+    "domain": "technology",
+    "rows": 4601,
+    "cols": 58,
+    "dtypes": {"numeric": 57, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "medium",
+    "csv_params": {"header": null, "max_cols": 30}
+  },
+  "tic_tac_toe": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/tic-tac-toe/tic-tac-toe.data",
+    "filename": "tic_tac_toe.csv",
+    "domain": "education",
+    "rows": 958,
+    "cols": 10,
+    "dtypes": {"numeric": 0, "categorical": 10, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "names": ["tl","tm","tr","ml","mm","mr","bl","bm","br","class"]}
+  },
+  "congressional_voting": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/voting-records/house-votes-84.data",
+    "filename": "congressional_voting.csv",
+    "domain": "social",
+    "rows": 435,
+    "cols": 17,
+    "dtypes": {"numeric": 0, "categorical": 17, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "names": ["party","handicapped_infants","water_project","budget_resolution","physician_fee_freeze","el_salvador_aid","religious_groups","anti_satellite","nicaraguan_contras","mx_missile","immigration","synfuels","education_spending","superfund","crime","duty_free","south_africa"]}
+  },
+  "mammographic_mass": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/mammographic-masses/mammographic_masses.data",
+    "filename": "mammographic_mass.csv",
+    "domain": "health",
+    "rows": 961,
+    "cols": 6,
+    "dtypes": {"numeric": 5, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "names": ["bi_rads","age","shape","margin","density","severity"]}
+  },
+  "blood_transfusion": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/blood-transfusion/transfusion.data",
+    "filename": "blood_transfusion.csv",
+    "domain": "health",
+    "rows": 748,
+    "cols": 5,
+    "dtypes": {"numeric": 5, "categorical": 0, "datetime": 0, "text": 0},
+    "size_class": "small"
+  },
+  "climate_crashes": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00252/pop_failures.dat",
+    "filename": "climate_crashes.csv",
+    "domain": "environment",
+    "rows": 540,
+    "cols": 21,
+    "dtypes": {"numeric": 20, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"sep": "\\s+"}
+  },
+  "planning_relax": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00230/plrx.txt",
+    "filename": "planning_relax.csv",
+    "domain": "social",
+    "rows": 182,
+    "cols": 13,
+    "dtypes": {"numeric": 12, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "sep": "\\s+", "names": ["a1","a2","a3","a4","a5","a6","a7","a8","a9","a10","a11","a12","class"]}
+  },
+  "connectionist_vowel": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/undocumented/connectionist-bench/vowel/vowel-context.data",
+    "filename": "connectionist_vowel.csv",
+    "domain": "technology",
+    "rows": 990,
+    "cols": 14,
+    "dtypes": {"numeric": 10, "categorical": 3, "datetime": 0, "text": 1},
+    "size_class": "small",
+    "csv_params": {"header": null, "sep": "\\s+"}
+  },
+  "hepatitis": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/hepatitis/hepatitis.data",
+    "filename": "hepatitis.csv",
+    "domain": "health",
+    "rows": 155,
+    "cols": 20,
+    "dtypes": {"numeric": 6, "categorical": 14, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "names": ["class","age","sex","steroid","antivirals","fatigue","malaise","anorexia","liver_big","liver_firm","spleen_palpable","spiders","ascites","varices","bilirubin","alk_phosphate","sgot","albumin","protime","histology"]}
+  },
+  "horse_colic": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/horse-colic/horse-colic.data",
+    "filename": "horse_colic.csv",
+    "domain": "health",
+    "rows": 300,
+    "cols": 28,
+    "dtypes": {"numeric": 7, "categorical": 21, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "sep": "\\s+", "names": ["surgery","age","hospital_number","rectal_temp","pulse","respiratory_rate","extremities_temp","peripheral_pulse","mucous_membranes","capillary_refill","pain","peristalsis","abdominal_distension","nasogastric_tube","nasogastric_reflux","nasogastric_reflux_ph","rectal_exam","abdomen","packed_cell_volume","total_protein","abdominocentesis_appearance","abdominocentesis_total_protein","outcome","surgical_lesion","type_of_lesion1","type_of_lesion2","type_of_lesion3","cp_data"]}
+  },
+  "poker_hand": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/poker/poker-hand-training-true.data",
+    "filename": "poker_hand.csv",
+    "domain": "social",
+    "rows": 25010,
+    "cols": 11,
+    "dtypes": {"numeric": 11, "categorical": 0, "datetime": 0, "text": 0},
+    "size_class": "large",
+    "csv_params": {"header": null, "names": ["s1","r1","s2","r2","s3","r3","s4","r4","s5","r5","class"]},
+    "max_rows": 20000
+  },
+  "waveform": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/waveform/waveform.data",
+    "filename": "waveform.csv",
+    "domain": "technology",
+    "rows": 5000,
+    "cols": 22,
+    "dtypes": {"numeric": 21, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "medium",
+    "csv_params": {"header": null}
+  },
+  "thyroid_disease": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/thyroid-disease/new-thyroid.data",
+    "filename": "thyroid_disease.csv",
+    "domain": "health",
+    "rows": 215,
+    "cols": 6,
+    "dtypes": {"numeric": 5, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "names": ["class","t3_resin","total_thyroxin","total_triiodothyronine","tsh","max_diff_tsh"]}
+  },
+  "statlog_heart": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/statlog/heart/heart.dat",
+    "filename": "statlog_heart.csv",
+    "domain": "health",
+    "rows": 270,
+    "cols": 14,
+    "dtypes": {"numeric": 13, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "sep": " ", "names": ["age","sex","chest_pain","resting_bp","cholesterol","fasting_bs","resting_ecg","max_hr","exercise_angina","oldpeak","slope","major_vessels","thal","target"]}
+  },
+  "vehicle_silhouettes": {
+    "source_url": "https://raw.githubusercontent.com/selva86/datasets/master/vehicle.csv",
+    "filename": "vehicle_silhouettes.csv",
+    "domain": "transportation",
+    "rows": 846,
+    "cols": 19,
+    "dtypes": {"numeric": 18, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small"
+  },
+  "indian_liver": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/indian_liver_patient.csv",
+    "filename": "indian_liver.csv",
+    "domain": "health",
+    "rows": 583,
+    "cols": 11,
+    "dtypes": {"numeric": 9, "categorical": 2, "datetime": 0, "text": 0},
+    "size_class": "small"
+  },
+  "chronic_kidney": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/chronic_kidney_disease.csv",
+    "filename": "chronic_kidney.csv",
+    "domain": "health",
+    "rows": 400,
+    "cols": 25,
+    "dtypes": {"numeric": 11, "categorical": 14, "datetime": 0, "text": 0},
+    "size_class": "small"
+  },
+  "german_credit": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/statlog/german/german.data",
+    "filename": "german_credit.csv",
+    "domain": "finance",
+    "rows": 1000,
+    "cols": 21,
+    "dtypes": {"numeric": 7, "categorical": 13, "datetime": 0, "text": 1},
+    "size_class": "medium",
+    "csv_params": {"header": null, "sep": " "}
+  },
+  "aust_credit": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/credit-screening/crx.data",
+    "filename": "aust_credit.csv",
+    "domain": "finance",
+    "rows": 690,
+    "cols": 16,
+    "dtypes": {"numeric": 6, "categorical": 10, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "names": ["a1","a2","a3","a4","a5","a6","a7","a8","a9","a10","a11","a12","a13","a14","a15","class"]}
+  },
+  "monks1": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/monks-problems/monks-1.train",
+    "filename": "monks1.csv",
+    "domain": "education",
+    "rows": 124,
+    "cols": 7,
+    "dtypes": {"numeric": 6, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "sep": "\\s+"}
+  },
+  "heart_failure": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/heart_failure_clinical_records_dataset.csv",
+    "filename": "heart_failure.csv",
+    "domain": "health",
+    "rows": 299,
+    "cols": 13,
+    "dtypes": {"numeric": 11, "categorical": 2, "datetime": 0, "text": 0},
+    "size_class": "small"
+  },
+  "telecom_churn": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/WA_Fn-UseC_-Telco-Customer-Churn.csv",
+    "filename": "telecom_churn.csv",
+    "domain": "technology",
+    "rows": 7043,
+    "cols": 21,
+    "dtypes": {"numeric": 3, "categorical": 17, "datetime": 0, "text": 1},
+    "size_class": "medium"
+  },
+  "mall_customers": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/Mall_Customers.csv",
+    "filename": "mall_customers.csv",
+    "domain": "finance",
+    "rows": 200,
+    "cols": 5,
+    "dtypes": {"numeric": 3, "categorical": 2, "datetime": 0, "text": 0},
+    "size_class": "small"
+  },
+  "spam_sms": {
+    "source_url": "https://raw.githubusercontent.com/stedy/Machine-Learning-with-R-datasets/master/sms_spam.csv",
+    "filename": "spam_sms.csv",
+    "domain": "technology",
+    "rows": 5559,
+    "cols": 2,
+    "dtypes": {"numeric": 0, "categorical": 1, "datetime": 0, "text": 1},
+    "size_class": "medium"
+  },
+  "mushroom_clean": {
+    "source_url": "https://raw.githubusercontent.com/stedy/Machine-Learning-with-R-datasets/master/mushrooms.csv",
+    "filename": "mushroom_clean.csv",
+    "domain": "biology",
+    "rows": 8124,
+    "cols": 23,
+    "dtypes": {"numeric": 0, "categorical": 23, "datetime": 0, "text": 0},
+    "size_class": "medium"
+  },
+  "water_potability": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/water_potability.csv",
+    "filename": "water_potability.csv",
+    "domain": "environment",
+    "rows": 3276,
+    "cols": 10,
+    "dtypes": {"numeric": 9, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "medium"
+  },
+  "insurance_charges": {
+    "source_url": "https://raw.githubusercontent.com/stedy/Machine-Learning-with-R-datasets/master/insurance.csv",
+    "filename": "insurance_charges.csv",
+    "domain": "finance",
+    "rows": 1338,
+    "cols": 7,
+    "dtypes": {"numeric": 4, "categorical": 3, "datetime": 0, "text": 0},
+    "size_class": "medium"
+  },
+  "air_quality": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/AirQualityUCI.csv",
+    "filename": "air_quality.csv",
+    "domain": "environment",
+    "rows": 9357,
+    "cols": 15,
+    "dtypes": {"numeric": 13, "categorical": 0, "datetime": 2, "text": 0},
+    "size_class": "medium",
+    "csv_params": {"sep": ";"}
+  },
+  "bike_sharing": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/hour.csv",
+    "filename": "bike_sharing.csv",
+    "domain": "transportation",
+    "rows": 17379,
+    "cols": 17,
+    "dtypes": {"numeric": 12, "categorical": 4, "datetime": 1, "text": 0},
+    "size_class": "large"
+  },
+  "forest_fires": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/forest-fires/forestfires.csv",
+    "filename": "forest_fires.csv",
+    "domain": "environment",
+    "rows": 517,
+    "cols": 13,
+    "dtypes": {"numeric": 11, "categorical": 2, "datetime": 0, "text": 0},
+    "size_class": "small"
+  },
+  "airfoil_noise": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00291/airfoil_self_noise.dat",
+    "filename": "airfoil_noise.csv",
+    "domain": "technology",
+    "rows": 1503,
+    "cols": 6,
+    "dtypes": {"numeric": 6, "categorical": 0, "datetime": 0, "text": 0},
+    "size_class": "medium",
+    "csv_params": {"header": null, "sep": "\t", "names": ["frequency","angle_of_attack","chord_length","free_stream_velocity","suction_side_thickness","sound_pressure"]}
+  },
+  "combined_cycle_power": {
+    "source_url": "https://raw.githubusercontent.com/selva86/datasets/master/Folds5x2_pp.csv",
+    "filename": "combined_cycle_power.csv",
+    "domain": "environment",
+    "rows": 9568,
+    "cols": 5,
+    "dtypes": {"numeric": 5, "categorical": 0, "datetime": 0, "text": 0},
+    "size_class": "medium"
+  },
+  "slump_test": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/concrete/slump/slump_test.data",
+    "filename": "slump_test.csv",
+    "domain": "materials",
+    "rows": 103,
+    "cols": 11,
+    "dtypes": {"numeric": 11, "categorical": 0, "datetime": 0, "text": 0},
+    "size_class": "small"
+  },
+  "yacht_hydrodynamics": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00243/yacht_hydrodynamics.data",
+    "filename": "yacht_hydrodynamics.csv",
+    "domain": "transportation",
+    "rows": 308,
+    "cols": 7,
+    "dtypes": {"numeric": 7, "categorical": 0, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "sep": "\\s+", "names": ["longitudinal_pos","prismatic_coeff","length_disp","beam_draught","length_beam","froude_number","residuary_resistance"]}
+  },
+  "optical_interconnection": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/optical-interconnection-network/optical_interconnection_network.csv",
+    "filename": "optical_interconnection.csv",
+    "domain": "technology",
+    "rows": 640,
+    "cols": 10,
+    "dtypes": {"numeric": 9, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small"
+  },
+  "turkiye_student": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00262/turkiye-student-evaluation_generic.csv",
+    "filename": "turkiye_student.csv",
+    "domain": "education",
+    "rows": 5820,
+    "cols": 33,
+    "dtypes": {"numeric": 28, "categorical": 5, "datetime": 0, "text": 0},
+    "size_class": "medium",
+    "csv_params": {"sep": ","},
+    "max_rows": 20000
+  },
+  "real_estate": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/real_estate.csv",
+    "filename": "real_estate.csv",
+    "domain": "housing",
+    "rows": 414,
+    "cols": 8,
+    "dtypes": {"numeric": 7, "categorical": 0, "datetime": 1, "text": 0},
+    "size_class": "small"
+  },
+  "daily_demand": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00409/Daily_Demand_Forecasting_Orders.csv",
+    "filename": "daily_demand.csv",
+    "domain": "finance",
+    "rows": 60,
+    "cols": 13,
+    "dtypes": {"numeric": 12, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"sep": ";"}
+  },
+  "qsar_biodegradation": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00254/biodeg.csv",
+    "filename": "qsar_biodegradation.csv",
+    "domain": "environment",
+    "rows": 1055,
+    "cols": 42,
+    "dtypes": {"numeric": 41, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "medium",
+    "csv_params": {"sep": ";", "max_cols": 30}
+  },
+  "seismic_bumps": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00266/seismic-bumps.arff",
+    "filename": "seismic_bumps.csv",
+    "domain": "environment",
+    "rows": 2584,
+    "cols": 19,
+    "dtypes": {"numeric": 15, "categorical": 4, "datetime": 0, "text": 0},
+    "size_class": "medium"
+  },
+  "steel_plates_faults": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00198/Faults.NNA",
+    "filename": "steel_plates_faults.csv",
+    "domain": "materials",
+    "rows": 1941,
+    "cols": 34,
+    "dtypes": {"numeric": 27, "categorical": 7, "datetime": 0, "text": 0},
+    "size_class": "medium",
+    "csv_params": {"header": null, "sep": "\\s+", "max_cols": 30}
+  },
+  "breast_tissue": {
+    "source_url": "https://raw.githubusercontent.com/selva86/datasets/master/BreastTissue.csv",
+    "filename": "breast_tissue.csv",
+    "domain": "health",
+    "rows": 106,
+    "cols": 10,
+    "dtypes": {"numeric": 9, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small"
+  },
+  "vertebral_column": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00212/vertebral_column_data/column_3C.dat",
+    "filename": "vertebral_column.csv",
+    "domain": "health",
+    "rows": 310,
+    "cols": 7,
+    "dtypes": {"numeric": 6, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "sep": " ", "names": ["pelvic_incidence","pelvic_tilt","lumbar_lordosis","sacral_slope","pelvic_radius","degree_spondylolisthesis","class"]}
+  },
+  "user_knowledge": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00257/Data_User_Modeling_Dataset_Hamdi%20Tolga%20KAHRAMAN.xls",
+    "filename": "user_knowledge.csv",
+    "domain": "education",
+    "rows": 403,
+    "cols": 6,
+    "dtypes": {"numeric": 5, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small"
+  },
+  "teaching_assistant": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/tae/tae.data",
+    "filename": "teaching_assistant.csv",
+    "domain": "education",
+    "rows": 151,
+    "cols": 6,
+    "dtypes": {"numeric": 5, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "names": ["english_speaker","course_instructor","course","semester","class_size","performance"]}
+  },
+  "cmc": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/cmc/cmc.data",
+    "filename": "cmc.csv",
+    "domain": "social",
+    "rows": 1473,
+    "cols": 10,
+    "dtypes": {"numeric": 2, "categorical": 8, "datetime": 0, "text": 0},
+    "size_class": "medium",
+    "csv_params": {"header": null, "names": ["wife_age","wife_education","husband_education","num_children","wife_religion","wife_working","husband_occupation","standard_of_living","media_exposure","contraceptive_method"]}
+  },
+  "annealing": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/annealing/anneal.data",
+    "filename": "annealing.csv",
+    "domain": "materials",
+    "rows": 798,
+    "cols": 39,
+    "dtypes": {"numeric": 6, "categorical": 33, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "max_cols": 30}
+  },
+  "hayes_roth": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/hayes-roth/hayes-roth.data",
+    "filename": "hayes_roth.csv",
+    "domain": "social",
+    "rows": 132,
+    "cols": 5,
+    "dtypes": {"numeric": 4, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "csv_params": {"header": null, "names": ["name","hobby","age","educational_level","marital_status"]}
+  },
+  "zoo": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/zoo/zoo.data",
+    "filename": "zoo.csv",
+    "domain": "biology",
+    "rows": 101,
+    "cols": 18,
+    "dtypes": {"numeric": 15, "categorical": 2, "datetime": 0, "text": 1},
+    "size_class": "small",
+    "csv_params": {"header": null, "names": ["animal_name","hair","feathers","eggs","milk","airborne","aquatic","predator","toothed","backbone","breathes","venomous","fins","legs","tail","domestic","catsize","type"]}
+  },
+  "flags": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/flags/flag.data",
+    "filename": "flags.csv",
+    "domain": "social",
+    "rows": 194,
+    "cols": 30,
+    "dtypes": {"numeric": 10, "categorical": 18, "datetime": 0, "text": 2},
+    "size_class": "small",
+    "csv_params": {"header": null, "max_cols": 30}
+  },
+  "labor_relations": {
+    "source_url": "https://raw.githubusercontent.com/renatopp/arff-datasets/master/csv/labor.csv",
+    "filename": "labor_relations.csv",
+    "domain": "social",
+    "rows": 57,
+    "cols": 17,
+    "dtypes": {"numeric": 8, "categorical": 9, "datetime": 0, "text": 0},
+    "size_class": "small"
+  },
+  "cloud": {
+    "source_url": "https://raw.githubusercontent.com/selva86/datasets/master/cloud.csv",
+    "filename": "cloud.csv",
+    "domain": "environment",
+    "rows": 108,
+    "cols": 7,
+    "dtypes": {"numeric": 7, "categorical": 0, "datetime": 0, "text": 0},
+    "size_class": "small"
+  },
+  "cpu_performance": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/cpu-performance/machine.data",
+    "filename": "cpu_performance.csv",
+    "domain": "technology",
+    "rows": 209,
+    "cols": 10,
+    "dtypes": {"numeric": 7, "categorical": 1, "datetime": 0, "text": 2},
+    "size_class": "small",
+    "csv_params": {"header": null, "names": ["vendor","model","myct","mmin","mmax","cach","chmin","chmax","prp","erp"]}
+  },
+  "auto_insurance": {
+    "source_url": "https://raw.githubusercontent.com/selva86/datasets/master/Auto_Insurance_Claims.csv",
+    "filename": "auto_insurance.csv",
+    "domain": "finance",
+    "rows": 1000,
+    "cols": 40,
+    "dtypes": {"numeric": 15, "categorical": 23, "datetime": 2, "text": 0},
+    "size_class": "medium",
+    "max_rows": 20000
+  },
+  "survey_lung_cancer": {
+    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00488/survey%20lung%20cancer.csv",
+    "filename": "survey_lung_cancer.csv",
+    "domain": "health",
+    "rows": 309,
+    "cols": 16,
+    "dtypes": {"numeric": 14, "categorical": 2, "datetime": 0, "text": 0},
+    "size_class": "small"
+  },
+  "avocado": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/avocado.csv",
+    "filename": "avocado.csv",
+    "domain": "food_science",
+    "rows": 18249,
+    "cols": 14,
+    "dtypes": {"numeric": 8, "categorical": 4, "datetime": 1, "text": 1},
+    "size_class": "large",
+    "max_rows": 18249
+  },
+  "supermarket_sales": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/supermarket_sales.csv",
+    "filename": "supermarket_sales.csv",
+    "domain": "finance",
+    "rows": 1000,
+    "cols": 17,
+    "dtypes": {"numeric": 6, "categorical": 8, "datetime": 2, "text": 1},
+    "size_class": "medium"
+  },
+  "fifa_players": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/FIFA19.csv",
+    "filename": "fifa_players.csv",
+    "domain": "sports",
+    "rows": 18207,
+    "cols": 89,
+    "dtypes": {"numeric": 40, "categorical": 30, "datetime": 1, "text": 18},
+    "size_class": "large",
+    "max_rows": 20000
+  },
+  "nba_players": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/nba2021.csv",
+    "filename": "nba_players.csv",
+    "domain": "sports",
+    "rows": 500,
+    "cols": 30,
+    "dtypes": {"numeric": 25, "categorical": 3, "datetime": 0, "text": 2},
+    "size_class": "small"
+  },
+  "fetal_health": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/fetal_health.csv",
+    "filename": "fetal_health.csv",
+    "domain": "health",
+    "rows": 2126,
+    "cols": 22,
+    "dtypes": {"numeric": 21, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "medium"
+  },
+  "stroke_prediction": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/stroke_data.csv",
+    "filename": "stroke_prediction.csv",
+    "domain": "health",
+    "rows": 5110,
+    "cols": 12,
+    "dtypes": {"numeric": 4, "categorical": 7, "datetime": 0, "text": 1},
+    "size_class": "medium"
+  },
+  "dry_bean": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/DryBeanDataset.csv",
+    "filename": "dry_bean.csv",
+    "domain": "agriculture",
+    "rows": 13611,
+    "cols": 17,
+    "dtypes": {"numeric": 16, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "large"
+  },
+  "happiness_2019": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/2019.csv",
+    "filename": "happiness_2019.csv",
+    "domain": "social",
+    "rows": 156,
+    "cols": 9,
+    "dtypes": {"numeric": 8, "categorical": 0, "datetime": 0, "text": 1},
+    "size_class": "small"
+  },
+  "obesity_levels": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/ObesityDataSet_raw_and_data_sinthetic.csv",
+    "filename": "obesity_levels.csv",
+    "domain": "health",
+    "rows": 2111,
+    "cols": 17,
+    "dtypes": {"numeric": 7, "categorical": 9, "datetime": 0, "text": 1},
+    "size_class": "medium"
+  },
+  "e_commerce_shipping": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/E-commerce_Shipping.csv",
+    "filename": "e_commerce_shipping.csv",
+    "domain": "finance",
+    "rows": 10999,
+    "cols": 12,
+    "dtypes": {"numeric": 5, "categorical": 5, "datetime": 0, "text": 2},
+    "size_class": "large"
+  },
+  "drug_classification": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/drug200.csv",
+    "filename": "drug_classification.csv",
+    "domain": "health",
+    "rows": 200,
+    "cols": 6,
+    "dtypes": {"numeric": 2, "categorical": 4, "datetime": 0, "text": 0},
+    "size_class": "small"
+  },
+  "co2_emissions": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/CO2_Emissions_Canada.csv",
+    "filename": "co2_emissions.csv",
+    "domain": "environment",
+    "rows": 7385,
+    "cols": 12,
+    "dtypes": {"numeric": 5, "categorical": 5, "datetime": 0, "text": 2},
+    "size_class": "medium"
+  },
+  "salary_data": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/Salary_Data.csv",
+    "filename": "salary_data.csv",
+    "domain": "finance",
+    "rows": 30,
+    "cols": 2,
+    "dtypes": {"numeric": 2, "categorical": 0, "datetime": 0, "text": 0},
+    "size_class": "small"
+  },
+  "weather_austin": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/austin_weather.csv",
+    "filename": "weather_austin.csv",
+    "domain": "environment",
+    "rows": 1319,
+    "cols": 21,
+    "dtypes": {"numeric": 18, "categorical": 1, "datetime": 1, "text": 1},
+    "size_class": "medium"
+  },
+  "fires_brazil": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/amazon.csv",
+    "filename": "fires_brazil.csv",
+    "domain": "environment",
+    "rows": 6454,
+    "cols": 5,
+    "dtypes": {"numeric": 2, "categorical": 2, "datetime": 1, "text": 0},
+    "size_class": "medium"
+  },
+  "flight_price": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/flight_price.csv",
+    "filename": "flight_price.csv",
+    "domain": "transportation",
+    "rows": 10683,
+    "cols": 11,
+    "dtypes": {"numeric": 2, "categorical": 7, "datetime": 1, "text": 1},
+    "size_class": "large"
+  },
+  "calories": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/calories.csv",
+    "filename": "calories.csv",
+    "domain": "food_science",
+    "rows": 15000,
+    "cols": 2,
+    "dtypes": {"numeric": 2, "categorical": 0, "datetime": 0, "text": 0},
+    "size_class": "large"
+  },
+  "spaceship_titanic": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/spaceship-titanic-train.csv",
+    "filename": "spaceship_titanic.csv",
+    "domain": "transportation",
+    "rows": 8693,
+    "cols": 14,
+    "dtypes": {"numeric": 5, "categorical": 6, "datetime": 0, "text": 3},
+    "size_class": "medium"
+  },
+  "house_prices": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/house_prices_train.csv",
+    "filename": "house_prices.csv",
+    "domain": "housing",
+    "rows": 1460,
+    "cols": 81,
+    "dtypes": {"numeric": 38, "categorical": 43, "datetime": 0, "text": 0},
+    "size_class": "medium",
+    "max_rows": 20000
+  },
+  "laptop_prices": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/laptop_prices.csv",
+    "filename": "laptop_prices.csv",
+    "domain": "technology",
+    "rows": 1303,
+    "cols": 13,
+    "dtypes": {"numeric": 4, "categorical": 7, "datetime": 0, "text": 2},
+    "size_class": "medium"
+  },
+  "world_population": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/world_population.csv",
+    "filename": "world_population.csv",
+    "domain": "census",
+    "rows": 234,
+    "cols": 17,
+    "dtypes": {"numeric": 12, "categorical": 3, "datetime": 0, "text": 2},
+    "size_class": "small"
+  },
+  "rock_mine": {
+    "source_url": "https://raw.githubusercontent.com/selva86/datasets/master/Sonar.csv",
+    "filename": "rock_mine.csv",
+    "domain": "technology",
+    "rows": 208,
+    "cols": 61,
+    "dtypes": {"numeric": 60, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small",
+    "max_rows": 20000
+  },
+  "heart_attack": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/heart_attack.csv",
+    "filename": "heart_attack.csv",
+    "domain": "health",
+    "rows": 303,
+    "cols": 14,
+    "dtypes": {"numeric": 13, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "small"
+  },
+  "mobile_price": {
+    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/mobile_price_train.csv",
+    "filename": "mobile_price.csv",
+    "domain": "technology",
+    "rows": 2000,
+    "cols": 21,
+    "dtypes": {"numeric": 20, "categorical": 1, "datetime": 0, "text": 0},
+    "size_class": "medium"
+  }
+}
