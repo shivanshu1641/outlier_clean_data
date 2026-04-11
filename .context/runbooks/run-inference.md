@@ -9,7 +9,7 @@ python inference.py titanic_easy wine_medium     # multiple legacy task ids
 ```
 
 ## Eval suite
-`inference.py` defines a 15-task eval suite (`EVAL_TASK_IDS`) spanning 5 datasets × 3 difficulties. Legacy IDs like `titanic_easy` are mapped through `LEGACY_TASK_MAP`.
+`inference.py` defines a 14-task eval suite (`EVAL_TASK_IDS`) spanning 5 datasets × 2-3 difficulties. Legacy IDs like `titanic_easy` are mapped through `LEGACY_TASK_MAP` (14 entries covering titanic, iris, boston_housing, diabetes, wine_quality, breast_cancer).
 
 ## Benchmark runner
 For systematic model evaluation across categories:
@@ -37,11 +37,22 @@ API_KEY=
 MODEL_NAME=qwen3
 ```
 
-Tested local models:
-- `qwen3` (Qwen 3 4B) — fast, good for easy/medium tasks
-- `gemma3:4b` (Gemma 3 4B) — comparable to Qwen 3 for data cleaning
-- `llama3.2:3b` — smaller, struggles on hard tasks
-- `phi4-mini` — compact, decent on structured data
+Tested local models (via Ollama):
+
+| Model | Ollama tag | Notes |
+|-------|-----------|-------|
+| Qwen 3 4B | `qwen3` | Fast, good for easy/medium tasks |
+| Qwen 3 8B | `qwen3:8b` | Better on hard tasks, ~2× slower |
+| Gemma 3 4B | `gemma3:4b` | Comparable to Qwen 3 4B on data cleaning |
+| Gemma 3 12B | `gemma3:12b` | Stronger reasoning, higher RAM usage |
+| Llama 3.2 3B | `llama3.2:3b` | Smaller, struggles on hard tasks |
+| Llama 3.1 8B | `llama3.1:8b` | Solid general-purpose, good on SR/SV |
+| Phi-4 Mini | `phi4-mini` | Compact, decent on structured data |
+| Phi-4 | `phi4` | Better than mini, slower |
+| Mistral 7B | `mistral` | Good baseline for benchmarking |
+| DeepSeek-R1 7B | `deepseek-r1:7b` | Chain-of-thought, good on complex tasks |
+
+Pull a model: `ollama pull qwen3`
 
 ### NVIDIA NIM
 ```bash
