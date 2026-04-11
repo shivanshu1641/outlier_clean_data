@@ -20,14 +20,18 @@ Built for the [Meta PyTorch OpenEnv Hackathon x Scaler School of Technology](htt
 python -m venv .venv && source .venv/bin/activate
 pip install -r server/requirements.txt
 
-# Start the environment server
-uvicorn server.app:app --port 8000 --ws-ping-interval 60 --ws-ping-timeout 120
+# Start the environment server locally
+uvicorn server.app:app --port 7860 --ws-ping-interval 60 --ws-ping-timeout 120
+
+# Or run the submission Docker image from the repo root
+docker build -t outlier-clean-data .
+docker run -p 7860:7860 outlier-clean-data
 
 # Run the baseline agent (in another terminal)
-API_BASE_URL=https://router.huggingface.co/v1 API_KEY=... MODEL_NAME=Qwen/Qwen2.5-72B-Instruct ENV_URL=http://localhost:8000 python inference.py
+bash inference.sh
 
 # Run specific tasks
-python inference.py titanic_easy wine_medium
+bash inference.sh titanic easy json
 ```
 
 ## Architecture
@@ -212,9 +216,9 @@ Agent code runs in a subprocess with:
 | Variable            | Default                     | Purpose                                             |
 | ------------------- | --------------------------- | --------------------------------------------------- |
 | `API_BASE_URL`      | `https://router.huggingface.co/v1` | LLM endpoint; env value takes precedence       |
-| `API_KEY`           | none                        | API token from `API_KEY` or `HF_TOKEN`              |
+| `OPENAI_API_KEY` / `HF_TOKEN` | none             | API token env var used by `inference.py`            |
 | `MODEL_NAME`        | `Qwen/Qwen2.5-72B-Instruct` | Model name                                          |
-| `ENV_URL`           | `http://localhost:8000`     | OpenEnv server URL                                  |
+| `ENV_URL`           | `http://localhost:7860`     | OpenEnv server URL                                  |
 | `LOG_LEVEL`         | `INFO`                      | `INFO` for actions/timing, `DEBUG` for full LLM I/O |
 | `LOG_DIR`           | `outputs/logs`              | JSONL log directory                                 |
 | `MIN_CALL_INTERVAL` | `2.5`                       | Min seconds between LLM calls (0 for local)         |

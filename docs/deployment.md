@@ -19,16 +19,15 @@ pip install -r server/requirements.txt
 ### Run Server
 
 ```bash
-uvicorn server.app:app --port 8000 --ws-ping-interval 60 --ws-ping-timeout 120
+uvicorn server.app:app --port 7860 --ws-ping-interval 60 --ws-ping-timeout 120
 ```
 
 ### Run Inference
 
 ```bash
-# Configure .env (see .env.example), then:
 source .venv/bin/activate
-python inference.py                    # all 6 tasks
-python inference.py titanic_easy       # specific task
+bash inference.sh                    # all tasks
+bash inference.sh titanic easy json  # specific task
 ```
 
 ### Environment Variables
@@ -37,18 +36,18 @@ python inference.py titanic_easy       # specific task
 |----------|-------------|---------|
 | `API_BASE_URL` | LLM API endpoint | `https://router.huggingface.co/v1` |
 | `MODEL_NAME` | LLM model name | `Qwen/Qwen2.5-72B-Instruct` |
-| `API_KEY` / `HF_TOKEN` | API token env var | (required) |
-| `ENV_URL` | Environment server URL | `http://localhost:8000` |
+| `OPENAI_API_KEY` / `HF_TOKEN` | API token env var | (required) |
+| `ENV_URL` | Environment server URL | `http://localhost:7860` |
 | `MIN_CALL_INTERVAL` | Seconds between LLM calls | `2.5` |
 
 ## Docker (Local)
 
 ```bash
-docker build -t data-cleaning-env .
-docker run -p 8000:7860 data-cleaning-env
+docker build -t outlier-clean-data .
+docker run -p 7860:7860 outlier-clean-data
 ```
 
-Note: Dockerfile uses port 7860 (HF Spaces default). Map to any local port.
+Use the root `Dockerfile` for submission. It serves the environment on port 7860. Run `inference.py` outside the container.
 
 ## HF Spaces
 

@@ -96,34 +96,6 @@ TASKS = EVAL_TASKS
 # Max agent steps per difficulty — hard tasks get more time
 MAX_STEPS_BY_DIFFICULTY = {"easy": 30, "medium": 60, "hard": 100}
 
-# ── Few-shot examples from dataset.parquet ────────────────────────────────────
-
-
-def _load_few_shot_examples() -> dict[str, str]:
-    parquet_path = Path("data/dataset.parquet")
-    if not parquet_path.exists():
-        return {}
-    try:
-        import pandas as _pd
-
-        df = _pd.read_parquet(parquet_path)
-        best = (
-            df.sort_values("reward_gap", ascending=False)
-            .drop_duplicates(subset="task_id", keep="first")
-            .set_index("task_id")["chosen"]
-            .to_dict()
-        )
-        logger.info(
-            "Loaded few-shot examples for %d tasks from dataset.parquet", len(best)
-        )
-        return best
-    except Exception as e:
-        logger.warning("Could not load dataset.parquet for few-shot examples: %s", e)
-        return {}
-
-
-FEW_SHOT_EXAMPLES: dict[str, str] = _load_few_shot_examples()
-
 # Minimum seconds between LLM calls to avoid rate limits (Groq free: 30 req/min)
 MIN_CALL_INTERVAL = float(os.environ.get("MIN_CALL_INTERVAL", "2.5"))
 _last_call_time = 0.0
@@ -266,20 +238,8 @@ Important rules:
 """
 
 
-def build_system_prompt(task_id: str) -> str:
-    if os.environ.get("NO_FEW_SHOT"):
-        return BASE_SYSTEM_PROMPT
-    example = FEW_SHOT_EXAMPLES.get(task_id)
-    if not example:
-        return BASE_SYSTEM_PROMPT
-    few_shot_section = (
-        "\n\nHere is a verified correct solution for a similar version of this "
-        "task (different rows affected, same corruption types). Use this as a "
-        "template — adapt column names and values to the actual data you see:\n"
-        "```python\n" + example + "\n```\n"
-        "Study this pattern. Apply the same logic to the current dirty data."
-    )
-    return BASE_SYSTEM_PROMPT + few_shot_section
+def build_system_prompt() -> str:
+    return BASE_SYSTEM_PROMPT
 
 
 def build_user_prompt(
@@ -511,7 +471,7 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
         step_rewards: list[float] = []
 
         messages = [
-            {"role": "system", "content": build_system_prompt(task_id)},
+            {"role": "system", "content": build_system_prompt()},
             {
                 "role": "user",
                 "content": build_user_prompt(

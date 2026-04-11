@@ -66,12 +66,13 @@ The server exposes an OpenAI-compatible API at `http://localhost:8080/v1`.
 
 **Note on Metal GPU:** GGUF files are hardware-agnostic — there's no special "Metal-tuned" variant. Metal acceleration comes from llama.cpp itself via the `-ngl 99` flag, which offloads all model layers to the Apple Silicon GPU. Any GGUF file works with Metal.
 
-## Configure .env
+## Configure inference
 
 ```
 API_BASE_URL=http://localhost:8080/v1
-API_KEY=
+OPENAI_API_KEY=dummy
 MODEL_NAME=gemma-4-E2B-it
+ENV_URL=http://localhost:7860
 MIN_CALL_INTERVAL=0
 ```
 
@@ -123,9 +124,10 @@ brew install ollama
 ollama pull gemma3:1b
 ollama serve  # runs on port 11434
 
-# .env
+# inference env
 API_BASE_URL=http://localhost:11434/v1
-API_KEY=
+OPENAI_API_KEY=dummy
 MODEL_NAME=gemma3:1b
+ENV_URL=http://localhost:7860
 MIN_CALL_INTERVAL=0
 ```
