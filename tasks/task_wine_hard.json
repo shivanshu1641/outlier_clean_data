@@ -1,0 +1,13 @@
+{
+  "task_id": "wine_hard",
+  "description": "Clean the Wine Quality dataset (hard). Heavy nulls across multiple columns, type errors, duplicates, outliers in pH and alcohol, decimal shifts, value swaps between acidity columns, and whitespace noise in quality.",
+  "base_dataset": "wine_quality",
+  "min_transform_steps": 6,
+  "max_transform_steps": 18,
+  "explore_cost_per_step": 0.01,
+  "explore_timeout_cost": 0.03,
+  "clean_data_path": "data/wine_hard/clean.csv",
+  "dirty_data_path": "data/wine_hard/dirty.csv",
+  "error_map_path": "data/wine_hard/error_map.json",
+  "severity_map_path": "data/wine_hard/severity_map.json"
+}

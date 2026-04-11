@@ -1,0 +1,342 @@
+============================================
+Multi-model benchmark: tasks=titanic/easy/csv titanic/medium/csv wine_quality/easy/csv wine_quality/medium/csv
+============================================
+
+──────────────────────────────────────────
+Model: Qwen3.5-0.8B-UD-Q4_K_XL
+──────────────────────────────────────────
+  Starting server (pid 66474)...
+  Still loading model (3s)...
+  Server ready (3s)
+
+============================================================
+Running task: titanic_easy_csv
+============================================================
+[START] task=titanic_easy_csv env=data_cleaning_env model=Qwen3.5-0.8B-UD-Q4_K_XL
+[00:02:49] INFO — Starting task: titanic_easy_csv | model: Qwen3.5-0.8B-UD-Q4_K_XL | endpoint: http://localhost:8080/v1
+[00:02:50] INFO — Reset complete — 0/68 errors fixed, reward=0.0000
+[00:02:50] INFO — Diagnostic phase complete — 3 explores, validate=True
+[00:02:51] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:02:51] INFO — Step 1 | validate | latency=1.32s
+[00:02:51] INFO — Step 1 result | reward=0.0000 | 0/68 errors fixed | stale=0
+[STEP] step=1 action=validate('') reward=0.00 done=false error=null
+[00:02:52] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:02:52] WARNING — BLOCKED validate loop (recent_validates=1, budget_left=False, blocks=1)
+[00:02:53] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:02:53] INFO — Step 2 | transform | code: df['Embarked'] = df['Embarked'].str.replace(r'\s+', ' ', regex=True).str.strip() df['Sex'] = df['Sex'].str.replace(r'\s+', ' ', regex=True).str.strip() | latency=1.30s | tokens=4073 | temp=0.1
+[00:02:53] INFO — Step 2 result | reward=0.9001 | 68/68 errors fixed | stale=0
+[STEP] step=2 action=transform('df['Embarked'] = df['Embarked'].str.replace(r'\s+', ' ', regex=True).str.strip()') reward=0.90 done=false error=null
+[STEP] step=3 action=done() reward=0.90 done=true error=null
+[00:02:53] INFO — All errors fixed — submitted done action
+[END] success=true steps=2 score=0.900 rewards=0.00,0.90,0.90
+[00:02:53] INFO — Task titanic_easy_csv complete | reward=0.9001 | steps=2 | elapsed=4.5s
+
+============================================================
+Running task: titanic_medium_csv
+============================================================
+[START] task=titanic_medium_csv env=data_cleaning_env model=Qwen3.5-0.8B-UD-Q4_K_XL
+[00:02:53] INFO — Starting task: titanic_medium_csv | model: Qwen3.5-0.8B-UD-Q4_K_XL | endpoint: http://localhost:8080/v1
+[00:02:54] INFO — Reset complete — 0/360 errors fixed, reward=0.0000
+[00:02:54] INFO — Diagnostic phase complete — 4 explores, validate=True
+[00:02:56] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:02:56] INFO — Step 1 | validate | latency=1.86s
+[00:02:56] INFO — Step 1 result | reward=0.0000 | 0/360 errors fixed | stale=0
+[STEP] step=1 action=validate('') reward=0.00 done=false error=null
+[00:02:57] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:02:57] WARNING — BLOCKED validate loop (recent_validates=1, budget_left=False, blocks=1)
+[00:03:21] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:03:21] WARNING — BLOCKED premature done — 0/360 errors fixed
+[00:03:22] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:03:22] WARNING — BLOCKED validate loop (recent_validates=1, budget_left=False, blocks=3)
+[00:03:24] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:03:24] WARNING — BLOCKED validate loop (recent_validates=1, budget_left=False, blocks=4)
+[00:03:46] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:03:46] WARNING — Model done with 0 fixed and stuck — forcing exit
+[END] success=false steps=2 score=0.001 rewards=0.00
+[00:03:46] INFO — Task titanic_medium_csv complete | reward=0.0000 | steps=2 | elapsed=52.1s
+
+============================================================
+Running task: wine_quality_easy_csv
+============================================================
+[START] task=wine_quality_easy_csv env=data_cleaning_env model=Qwen3.5-0.8B-UD-Q4_K_XL
+[00:03:46] INFO — Starting task: wine_quality_easy_csv | model: Qwen3.5-0.8B-UD-Q4_K_XL | endpoint: http://localhost:8080/v1
+[00:03:47] INFO — Reset complete — 0/59 errors fixed, reward=0.0000
+[00:03:47] INFO — Diagnostic phase complete — 1 explores, validate=True
+[00:03:47] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:03:47] INFO — Step 1 | validate | latency=0.90s
+[00:03:47] INFO — Step 1 result | reward=0.0000 | 0/59 errors fixed | stale=0
+[STEP] step=1 action=validate('') reward=0.00 done=false error=null
+[00:03:48] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:03:48] WARNING — BLOCKED validate loop (recent_validates=1, budget_left=False, blocks=1)
+[00:03:49] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:03:49] INFO — Step 2 | transform | code: df['quality'] = df['quality'].fillna(df['quality'].median()) | latency=0.70s | tokens=2877 | temp=0.1
+[00:03:49] INFO — Step 2 result | reward=0.0000 | 0/59 errors fixed | stale=0
+[STEP] step=2 action=transform('df['quality'] = df['quality'].fillna(df['quality'].median())') reward=0.00 done=false error=null
+[00:03:50] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:03:50] WARNING — BLOCKED duplicate transform — same code as a previous step (blocks=1)
+[00:03:51] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:03:51] WARNING — BLOCKED duplicate transform — same code as a previous step (blocks=2)
+[00:03:51] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:03:51] WARNING — BLOCKED duplicate transform — same code as a previous step (blocks=3)
+[00:03:51] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:03:51] WARNING — BLOCKED duplicate transform — same code as a previous step (blocks=4)
+[00:03:52] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:03:52] WARNING — Model hopelessly stuck (5 blocks) — auto-done
+[END] success=false steps=3 score=0.001 rewards=0.00,0.00
+[00:03:52] INFO — Task wine_quality_easy_csv complete | reward=0.0000 | steps=3 | elapsed=6.2s
+
+============================================================
+Running task: wine_quality_medium_csv
+============================================================
+[START] task=wine_quality_medium_csv env=data_cleaning_env model=Qwen3.5-0.8B-UD-Q4_K_XL
+[00:03:52] INFO — Starting task: wine_quality_medium_csv | model: Qwen3.5-0.8B-UD-Q4_K_XL | endpoint: http://localhost:8080/v1
+[00:03:53] INFO — Reset complete — 0/654 errors fixed, reward=0.0000
+[00:03:53] INFO — Diagnostic phase complete — 4 explores, validate=True
+[00:03:55] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:03:55] INFO — Step 1 | validate | latency=1.80s
+[00:03:55] INFO — Step 1 result | reward=0.0000 | 0/654 errors fixed | stale=0
+[STEP] step=1 action=validate('') reward=0.00 done=false error=null
+[00:03:56] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:03:56] WARNING — BLOCKED validate loop (recent_validates=1, budget_left=False, blocks=1)
+[00:03:57] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:03:57] WARNING — BLOCKED validate loop (recent_validates=1, budget_left=False, blocks=2)
+[00:03:57] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:03:57] WARNING — BLOCKED validate loop (recent_validates=1, budget_left=False, blocks=3)
+[00:03:57] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:03:57] WARNING — BLOCKED validate loop (recent_validates=1, budget_left=False, blocks=4)
+[00:03:57] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:03:57] WARNING — Model hopelessly stuck (5 blocks) — auto-done
+[END] success=false steps=2 score=0.001 rewards=0.00
+[00:03:57] INFO — Task wine_quality_medium_csv complete | reward=0.0000 | steps=2 | elapsed=5.6s
+
+============================================================
+Summary:
+  titanic_easy_csv: 0.9001
+  titanic_medium_csv: 0.0
+  wine_quality_easy_csv: 0.0
+  wine_quality_medium_csv: 0.0
+  Average: 0.2250
+  Server stopped (pid 66474)
+
+──────────────────────────────────────────
+Model: Qwen3.5-2B-UD-Q4_K_XL
+──────────────────────────────────────────
+  Starting server (pid 66864)...
+  Still loading model (3s)...
+  Server ready (3s)
+
+============================================================
+Running task: titanic_easy_csv
+============================================================
+[START] task=titanic_easy_csv env=data_cleaning_env model=Qwen3.5-2B-UD-Q4_K_XL
+[00:04:03] INFO — Starting task: titanic_easy_csv | model: Qwen3.5-2B-UD-Q4_K_XL | endpoint: http://localhost:8080/v1
+[00:04:03] INFO — Reset complete — 0/68 errors fixed, reward=0.0000
+[00:04:03] INFO — Diagnostic phase complete — 3 explores, validate=True
+[00:04:07] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:04:07] INFO — Step 1 | transform | code: df['Embarked'] = df['Embarked'].str.replace(r'\s+', ' ', regex=True).str.strip() df['Sex'] = df['Sex'].str.replace(r'\s+', ' ', regex=True).str.strip() | latency=3.34s | tokens=2673 | temp=0.1
+[00:04:07] INFO — Step 1 result | reward=0.9201 | 68/68 errors fixed | stale=0
+[STEP] step=1 action=transform('df['Embarked'] = df['Embarked'].str.replace(r'\s+', ' ', regex=True).str.strip()') reward=0.92 done=false error=null
+[STEP] step=2 action=done() reward=0.92 done=true error=null
+[00:04:07] INFO — All errors fixed — submitted done action
+[END] success=true steps=1 score=0.920 rewards=0.92,0.92
+[00:04:07] INFO — Task titanic_easy_csv complete | reward=0.9201 | steps=1 | elapsed=4.5s
+
+============================================================
+Running task: titanic_medium_csv
+============================================================
+[START] task=titanic_medium_csv env=data_cleaning_env model=Qwen3.5-2B-UD-Q4_K_XL
+[00:04:07] INFO — Starting task: titanic_medium_csv | model: Qwen3.5-2B-UD-Q4_K_XL | endpoint: http://localhost:8080/v1
+[00:04:08] INFO — Reset complete — 0/360 errors fixed, reward=0.0000
+[00:04:08] INFO — Diagnostic phase complete — 4 explores, validate=True
+[00:04:12] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:04:12] INFO — Step 1 | explore | query: df[['Embarked', 'Survived']].isnull().sum() | latency=4.07s | tokens=4192 | temp=0.1
+[00:04:12] INFO — Step 1 result | reward=0.0000 | 0/360 errors fixed | stale=0
+[STEP] step=1 action=explore('df[['Embarked', 'Survived']].isnull().sum()') reward=0.00 done=false error=null
+[00:04:22] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:04:22] WARNING — BLOCKED premature done — 0/360 errors fixed
+[00:04:25] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:04:25] INFO — Step 2 | explore | query: df['Embarked'].unique()[:20] | latency=2.43s | tokens=6327 | temp=0.1
+[00:04:25] INFO — Step 2 result | reward=0.0000 | 0/360 errors fixed | stale=0
+[STEP] step=2 action=explore('df['Embarked'].unique()[:20]') reward=0.00 done=false error=null
+[00:04:26] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:04:26] INFO — Step 3 | explore | query: df['Survived'].unique()[:20] | latency=1.69s | tokens=7586 | temp=0.1
+[00:04:26] INFO — Step 3 result | reward=0.0000 | 0/360 errors fixed | stale=0
+[STEP] step=3 action=explore('df['Survived'].unique()[:20]') reward=0.00 done=false error=null
+[00:04:36] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:04:36] WARNING — BLOCKED premature done — 0/360 errors fixed
+[00:04:39] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:04:39] INFO — Step 4 | explore | query: df['Survived'].isnull().sum() | latency=2.91s | tokens=10070 | temp=0.1
+[00:04:39] INFO — Step 4 result | reward=0.0000 | 0/360 errors fixed | stale=0
+[STEP] step=4 action=explore('df['Survived'].isnull().sum()') reward=0.00 done=false error=null
+[00:04:39] WARNING — Explore loop — auto-validate (same_query=1 consec=4)
+[STEP] step=5 action=validate('') reward=0.00 done=false error=null
+[00:04:45] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:04:45] WARNING — Model done with 0 fixed and stuck — forcing exit
+[END] success=false steps=5 score=0.001 rewards=0.00,0.00,0.00,0.00,0.00
+[00:04:45] INFO — Task titanic_medium_csv complete | reward=0.0000 | steps=5 | elapsed=38.0s
+
+============================================================
+Running task: wine_quality_easy_csv
+============================================================
+[START] task=wine_quality_easy_csv env=data_cleaning_env model=Qwen3.5-2B-UD-Q4_K_XL
+[00:04:45] INFO — Starting task: wine_quality_easy_csv | model: Qwen3.5-2B-UD-Q4_K_XL | endpoint: http://localhost:8080/v1
+[00:04:46] INFO — Reset complete — 0/59 errors fixed, reward=0.0000
+[00:04:46] INFO — Diagnostic phase complete — 1 explores, validate=True
+[00:04:48] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:04:48] INFO — Step 1 | explore | query: df[df.index == 1599].head(10) | latency=2.15s | tokens=1984 | temp=0.1
+[00:04:48] INFO — Step 1 result | reward=0.0000 | 0/59 errors fixed | stale=0
+[STEP] step=1 action=explore('df[df.index == 1599].head(10)') reward=0.00 done=false error=null
+[00:04:49] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:04:49] INFO — Step 2 | explore | query: df[df.index == 1600].head(10) | latency=1.24s | tokens=2805 | temp=0.1
+[00:04:49] INFO — Step 2 result | reward=0.0000 | 0/59 errors fixed | stale=0
+[STEP] step=2 action=explore('df[df.index == 1600].head(10)') reward=0.00 done=false error=null
+[00:04:51] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:04:51] INFO — Step 3 | explore | query: df[df.index == 1601].head(10) | latency=1.26s | tokens=3658 | temp=0.1
+[00:04:51] INFO — Step 3 result | reward=0.0000 | 0/59 errors fixed | stale=0
+[STEP] step=3 action=explore('df[df.index == 1601].head(10)') reward=0.00 done=false error=null
+[00:04:52] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:04:52] INFO — Step 4 | explore | query: df[df.index == 1602].head(10) | latency=1.33s | tokens=4569 | temp=0.1
+[00:04:52] INFO — Step 4 result | reward=0.0000 | 0/59 errors fixed | stale=0
+[STEP] step=4 action=explore('df[df.index == 1602].head(10)') reward=0.00 done=false error=null
+[00:04:52] WARNING — Explore loop — auto-validate (same_query=1 consec=4)
+[STEP] step=5 action=validate('') reward=0.00 done=false error=null
+[00:04:54] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:04:54] INFO — Step 5 | transform | code: df = df[df.index < 1599].drop_duplicates(subset=['index'], keep='first') | latency=1.59s | tokens=5608 | temp=0.1
+[00:04:54] INFO — Step 5 result | reward=0.0000 | 0/59 errors fixed | stale=0
+[STEP] step=5 action=transform('df = df[df.index < 1599].drop_duplicates(subset=['index'], keep='first')') reward=0.00 done=false error=null
+[00:04:54] WARNING — Step 5 transform FAILED to execute — stale=1
+[00:04:55] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:04:55] WARNING — BLOCKED duplicate transform — same code as a previous step (blocks=1)
+[00:04:57] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:04:57] WARNING — BLOCKED duplicate transform — same code as a previous step (blocks=2)
+[00:04:58] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:04:58] WARNING — BLOCKED duplicate transform — same code as a previous step (blocks=3)
+[00:04:58] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:04:58] WARNING — BLOCKED duplicate transform — same code as a previous step (blocks=4)
+[00:04:59] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:04:59] WARNING — Model hopelessly stuck (5 blocks) — auto-done
+[END] success=false steps=6 score=0.001 rewards=0.00,0.00,0.00,0.00,0.00,0.00
+[00:04:59] INFO — Task wine_quality_easy_csv complete | reward=0.0000 | steps=6 | elapsed=14.1s
+
+============================================================
+Running task: wine_quality_medium_csv
+============================================================
+[START] task=wine_quality_medium_csv env=data_cleaning_env model=Qwen3.5-2B-UD-Q4_K_XL
+[00:04:59] INFO — Starting task: wine_quality_medium_csv | model: Qwen3.5-2B-UD-Q4_K_XL | endpoint: http://localhost:8080/v1
+[00:05:00] INFO — Reset complete — 0/654 errors fixed, reward=0.0000
+[00:05:00] INFO — Diagnostic phase complete — 4 explores, validate=True
+[00:05:04] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:05:04] INFO — Step 1 | explore | query: df[['quality', 'volatile acidity']].isnull().sum() | latency=3.98s | tokens=4094 | temp=0.1
+[00:05:04] INFO — Step 1 result | reward=0.0000 | 0/654 errors fixed | stale=0
+[STEP] step=1 action=explore('df[['quality', 'volatile acidity']].isnull().sum()') reward=0.00 done=false error=null
+[00:05:17] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:05:17] WARNING — BLOCKED premature done — 0/654 errors fixed
+[00:05:26] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:05:26] WARNING — BLOCKED premature done — 0/654 errors fixed
+[00:05:33] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:05:33] WARNING — Model done with 0 fixed and stuck — forcing exit
+[END] success=false steps=2 score=0.001 rewards=0.00
+[00:05:33] INFO — Task wine_quality_medium_csv complete | reward=0.0000 | steps=2 | elapsed=34.0s
+
+============================================================
+Summary:
+  titanic_easy_csv: 0.9201
+  titanic_medium_csv: 0.0
+  wine_quality_easy_csv: 0.0
+  wine_quality_medium_csv: 0.0
+  Average: 0.2300
+  Server stopped (pid 66864)
+
+──────────────────────────────────────────
+Model: gemma-4-E2B-it-Q4_K_M
+──────────────────────────────────────────
+  Starting server (pid 67637)...
+  Still loading model (3s)...
+  Server ready (3s)
+
+============================================================
+Running task: titanic_easy_csv
+============================================================
+[START] task=titanic_easy_csv env=data_cleaning_env model=gemma-4-E2B-it-Q4_K_M
+[00:05:38] INFO — Starting task: titanic_easy_csv | model: gemma-4-E2B-it-Q4_K_M | endpoint: http://localhost:8080/v1
+[00:05:39] INFO — Reset complete — 0/68 errors fixed, reward=0.0000
+[00:05:39] INFO — Diagnostic phase complete — 3 explores, validate=True
+[00:05:49] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:05:49] INFO — Step 1 | transform | code: df['Embarked'] = df['Embarked'].str.replace(r'\s+', ' ', regex=True).str.strip() df['Sex'] = df['Sex'].str.replace(r'\s+', ' ', regex=True).str.strip() | latency=10.85s | tokens=3021 | temp=0.1
+[00:05:50] INFO — Step 1 result | reward=0.9201 | 68/68 errors fixed | stale=0
+[STEP] step=1 action=transform('df['Embarked'] = df['Embarked'].str.replace(r'\s+', ' ', regex=True).str.strip()') reward=0.92 done=false error=null
+[STEP] step=2 action=done() reward=0.92 done=true error=null
+[00:05:50] INFO — All errors fixed — submitted done action
+[END] success=true steps=1 score=0.920 rewards=0.92,0.92
+[00:05:50] INFO — Task titanic_easy_csv complete | reward=0.9201 | steps=1 | elapsed=12.0s
+
+============================================================
+Running task: titanic_medium_csv
+============================================================
+[START] task=titanic_medium_csv env=data_cleaning_env model=gemma-4-E2B-it-Q4_K_M
+[00:05:50] INFO — Starting task: titanic_medium_csv | model: gemma-4-E2B-it-Q4_K_M | endpoint: http://localhost:8080/v1
+[00:05:51] INFO — Reset complete — 0/360 errors fixed, reward=0.0000
+[00:05:51] INFO — Diagnostic phase complete — 4 explores, validate=True
+[00:06:15] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:06:15] INFO — Step 1 | transform | code: mask = df['Fare'].isna() df['Fare'] = df['Fare'].replace(['unknown', '##', '???', '--', 'n/a', 'NA', 'null'], float('nan')) df['Fare'] = pd.to_numeric(df['Fare'], errors='coerce') new_nan_fare = df['F | latency=24.84s | tokens=5294 | temp=0.1
+[00:06:16] INFO — Step 1 result | reward=0.4430 | 233/360 errors fixed | stale=0
+[STEP] step=1 action=transform('mask = df['Fare'].isna()
+df['Fare'] = df['Fare'].replace(['unknown', '##', '???'') reward=0.44 done=false error=null
+[00:06:26] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:06:26] INFO — Step 2 | explore | query: df[['Fare', 'Survived']].head(15) | latency=10.46s | tokens=6376 | temp=0.1
+[00:06:26] INFO — Step 2 result | reward=0.4430 | 233/360 errors fixed | stale=0
+[STEP] step=2 action=explore('df[['Fare', 'Survived']].head(15)') reward=0.44 done=false error=null
+[00:06:35] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:06:35] INFO — Step 3 | explore | query: df['Fare'].unique()[:20] | latency=8.39s | tokens=7597 | temp=0.1
+[00:06:35] INFO — Step 3 result | reward=0.4430 | 233/360 errors fixed | stale=0
+[STEP] step=3 action=explore('df['Fare'].unique()[:20]') reward=0.44 done=false error=null
+[00:06:56] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:06:56] INFO — Step 4 | transform | code: ### Fix type_mangle in Fare mask_fare = df['Fare'].isna() df['Fare'] = df['Fare'].replace(['unknown', '##', '???', '--', 'n/a', 'NA', 'null'], float('nan')) df['Fare'] = pd.to_numeric(df['Fare'], erro | latency=21.61s | tokens=9542 | temp=0.1
+[00:06:57] INFO — Step 4 result | reward=0.4169 | 233/360 errors fixed | stale=0
+[STEP] step=4 action=transform('### Fix type_mangle in Fare
+mask_fare = df['Fare'].isna()
+df['Fare'] = df['Fare'') reward=0.42 done=false error=null
+[00:07:22] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:07:22] WARNING — BLOCKED duplicate transform — same code as a previous step (blocks=1)
+[00:07:42] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:07:42] INFO — Step 5 | transform | code: ### Fix type_mangle in Survived mask_survived = df['Survived'].isna() df['Survived'] = df['Survived'].replace(['unknown', '##', '???', '--', 'n/a', 'NA', 'null'], float('nan')) df['Survived'] = pd.to_ | latency=20.28s | tokens=11986 | temp=0.3
+[00:07:42] INFO — Step 5 result | reward=0.4169 | 233/360 errors fixed | stale=1
+[STEP] step=5 action=transform('### Fix type_mangle in Survived
+mask_survived = df['Survived'].isna()
+df['Surviv') reward=0.42 done=false error=null
+[00:07:42] WARNING — Escalation tier 2: 2 stale transforms — auto-validate
+[STEP] step=6 action=validate('') reward=0.42 done=false error=null
+[00:08:02] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:08:02] INFO — Step 7 | transform | code: ### Fix outlier_injection in Parch Q1_parch = df['Parch'].quantile(0.25) Q3_parch = df['Parch'].quantile(0.75) IQR_parch = Q3_parch - Q1_parch med_parch = df['Parch'].median() df.loc[df['Parch'] > Q3_ | latency=19.78s | tokens=14896 | temp=0.5
+[00:08:03] INFO — Step 7 result | reward=0.4037 | 233/360 errors fixed | stale=2
+[STEP] step=7 action=transform('### Fix outlier_injection in Parch
+Q1_parch = df['Parch'].quantile(0.25)
+Q3_parc') reward=0.40 done=false error=null
+[00:08:03] WARNING — Escalation tier 3: 3 stale transforms — auto-undo to step 1
+[STEP] step=8 action=undo('') reward=0.38 done=false error=null
+[00:08:29] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:08:29] WARNING — BLOCKED duplicate transform — same code as a previous step (blocks=1)
+[00:08:51] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:08:51] INFO — Step 9 | transform | code: ### Fix inject_nulls in Embarked # Embarked has 61 nulls, and 61 were injected. We assume all NaNs are injected. df['Embarked'] = df['Embarked'].fillna(df['Embarked'].mode()[0]) | latency=22.27s | tokens=17645 | temp=0.3
+[00:08:52] INFO — Step 9 result | reward=0.3339 | 233/360 errors fixed | stale=0
+[STEP] step=9 action=transform('### Fix inject_nulls in Embarked
+# Embarked has 61 nulls, and 61 were injected. ') reward=0.33 done=false error=null
+[00:09:08] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:09:08] INFO — Step 10 | explore | query: df[['Parch', 'Survived']].describe(include='all') | latency=16.70s | tokens=19726 | temp=0.3
+[00:09:08] INFO — Step 10 result | reward=0.3339 | 233/360 errors fixed | stale=1
+[STEP] step=10 action=explore('df[['Parch', 'Survived']].describe(include='all')') reward=0.33 done=false error=null
+[00:10:03] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:10:03] INFO — Step 11 | transform | code: ### Re-attempting type_mangle fixes for Fare and Survived  ### Fix Fare # Attempt a different approach for Fare: replace known strings and then coerce, handling resulting NaNs. mask_fare = df['Fare']. | latency=54.43s | tokens=18934 | temp=0.3
+[00:10:03] INFO — Step 11 result | reward=0.2773 | 233/360 errors fixed | stale=1
+[STEP] step=11 action=transform('### Re-attempting type_mangle fixes for Fare and Survived
+
+### Fix Fare
+# Attemp') reward=0.28 done=false error=null
+[00:10:03] WARNING — Auto-undo (wrong values): reward 0.4430→0.2773, fixed 233→233 — reverting to step 1
+[STEP] step=11 action=undo('') reward=0.25 done=false error=null
+[00:11:06] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:11:06] INFO — Step 12 | transform | code: ### Targeted Fix for type_mangle in Fare # Re-attempting type_mangle fix for Fare, focusing on robust replacement and coercion. mask_fare = df['Fare'].isna() df['Fare'] = df['Fare'].replace(['unknown' | latency=62.75s | tokens=20455 | temp=0.5
+[00:11:07] INFO — Step 12 result | reward=0.2076 | 233/360 errors fixed | stale=1
+[STEP] step=12 action=transform('### Targeted Fix for type_mangle in Fare
+# Re-attempting type_mangle fix for Far') reward=0.21 done=false error=null
+  Server stopped (pid 67637)

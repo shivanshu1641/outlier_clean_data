@@ -113,16 +113,12 @@ TRANSFORM_TEMPLATES: dict[str, str] = {
         "df['{col}'] = df['{col}'].str.replace(r'\\s+', ' ', regex=True).str.strip()"
     ),
     "type_mangle": (
-        "# Replace known sentinel strings first, then convert:\n"
         "df['{col}'] = df['{col}'].replace(['unknown', '##', '???', '--', 'n/a', 'NA', 'null'], float('nan'))\n"
         "df['{col}'] = pd.to_numeric(df['{col}'], errors='coerce')\n"
         "df['{col}'] = df['{col}'].fillna(df['{col}'].median())"
     ),
     "inject_nulls": (
-        "# Numeric column:\n"
-        "df['{col}'] = df['{col}'].fillna(df['{col}'].median())\n"
-        "# Categorical column:\n"
-        "# df['{col}'] = df['{col}'].fillna(df['{col}'].mode()[0])"
+        "df['{col}'] = df['{col}'].fillna(df['{col}'].median())"
     ),
     "null_injected": (
         "# Numeric column:\n"
@@ -273,10 +269,10 @@ steps as possible.
 
 You have five action types:
 1. **explore**: Inspect the data without modifying it. Your query should be a valid pandas expression using `df` (a pandas DataFrame). Examples: `df.describe()`, `df['Age'].isnull().sum()`, `df.head(10)`
-2. **transform**: Submit Python/pandas code that operates on `df` to clean it. Do NOT include import statements — pandas (pd), numpy (np), re, datetime, string, math, json, csv, io, collections, itertools, functools are already pre-imported. scipy, sklearn, and other libraries are NOT available. The variable `df` is pre-loaded.
+2. **transform**: Submit Python/pandas code that operates on `df` to clean it. Do NOT include import statements, print(), or comments — pandas (pd), numpy (np), re, datetime, string, math, json, csv, io, collections, itertools, functools are already pre-imported. The variable `df` is pre-loaded. Keep code concise.
 3. **done**: Signal you're finished cleaning.
 4. **validate**: Get detailed error breakdown (budget: 2 per episode). Use {"type": "validate"} when stuck.
-5. **undo**: Restore to a previous checkpoint. ONLY use when you see "REGRESSION" in the feedback. Do NOT undo proactively — your progress will be lost. The system handles undo automatically when needed.
+5. **undo**: Restore to a previous checkpoint. ONLY use when you see "REGRESSION" in the feedback.
 
 Respond with EXACTLY one JSON object (no markdown, no explanation):
 - For explore: {"type": "explore", "query": "<pandas expression>"}
@@ -286,8 +282,8 @@ Respond with EXACTLY one JSON object (no markdown, no explanation):
 - For validate: {"type": "validate"}
 
 Strategy:
-- DIAGNOSTIC FIRST: Before any transform, explore to understand the scope. Run `df.isnull().sum()` and check value counts on columns mentioned in the error summary so you know which error type affects how many cells.
-- On medium/hard tasks, do at least one targeted explore per error type before your first transform unless the prompt already shows an explicit transform execution error you are fixing
+- DIAGNOSTIC FIRST: Before any transform, explore to understand the scope. Run `df.isnull().sum()` and check value counts on columns mentioned in the error summary.
+- On medium/hard tasks, do at least one targeted explore per error type before your first transform
 - Tackle the largest error group first (highest count), then work down
 - Then apply targeted transforms to fix all errors
 - Check error status after each transform
@@ -305,10 +301,10 @@ Important rules:
 - If your last transform didn't improve the score, try a COMPLETELY different approach
 - Your action history is shown in every observation — use it to avoid repeating mistakes
 - If you're stuck, submit 'done' rather than repeating the same failing transform
-- NEVER invent or re-sequence identifier columns (e.g. PassengerId, id, index, key). Inspect the exact dirty tokens with explore first; do not overwrite IDs with sequential integers or any fabricated values.
-- pd.to_numeric(col, errors='coerce') turns bad strings into NaN, which is WORSE than leaving them — NaN when the clean value is a number (e.g. 0) is graded as a WRONG VALUE (1.5× penalty). You MUST always follow to_numeric with fillna using the column median or mode in the SAME transform.
+- The clean data has ZERO NaN — every NaN in the dirty data is from corruption. fillna() is always safe: `df['col'] = df['col'].fillna(df['col'].median())` for numeric, `df['col'] = df['col'].fillna(df['col'].mode()[0])` for categorical.
 - fillna(value, inplace=True) on a column may silently no-op in pandas 2.x. Use assignment: df['col'] = df['col'].fillna(value)
-- Some dirty sentinels ("n/a", "N/A", "null", "NA") are auto-parsed as NaN by pandas read_csv before you see them. If a column already shows NaN where it should have a value, fill it directly — do NOT run to_numeric on it.
+- For type_mangle: explore `df['col'].unique()[:20]` first to see dirty tokens. Then replace sentinels and convert: `df['col'] = df['col'].replace(['##','???','unknown'], float('nan')); df['col'] = pd.to_numeric(df['col'], errors='coerce'); df['col'] = df['col'].fillna(df['col'].median())`
+- NEVER invent or re-sequence identifier columns (e.g. PassengerId, id, index, key). Inspect the exact dirty tokens with explore first; do not overwrite IDs with sequential integers or any fabricated values.
 - A single cell can have MULTIPLE corruptions (e.g. type_mangle + inject_nulls on the same column). One transform may only fix one layer — check errors after each step and apply follow-up transforms for remaining issues.
 """
 
@@ -396,17 +392,17 @@ def _explore_manual(obs) -> list[str]:
     if "type_mangle" in targets:
         bullets.append(
             "For type_mangle: explore with `df['col'].unique()[:20]` to see the bad tokens. "
-            "If you see string tokens like '##', 'unknown', '-': convert AND fill in one step: "
-            "`df['col'] = pd.to_numeric(df['col'], errors='coerce'); df['col'] = df['col'].fillna(df['col'].median())`. "
-            "NEVER leave NaN after to_numeric — NaN when clean is a number scores WORSE than unfixed. "
-            "If values are already NaN (sentinels like 'n/a' auto-parsed), just fillna directly."
+            "Then replace sentinels and convert in one step: "
+            "`df['col'] = df['col'].replace(['##','???','unknown'], float('nan')); "
+            "df['col'] = pd.to_numeric(df['col'], errors='coerce'); "
+            "df['col'] = df['col'].fillna(df['col'].median())`. "
+            "All NaN are from corruption so fillna is safe."
         )
     if "inject_nulls" in targets or "null_injected" in targets:
         bullets.append(
-            "For inject_nulls: explore `df['col'].isnull().sum()` per affected column, "
-            "then fill with the column's mode or median: "
-            "`df['col'] = df['col'].fillna(df['col'].median())` for numeric, "
-            "`df['col'] = df['col'].fillna(df['col'].mode()[0])` for categorical."
+            "For inject_nulls: all NaN are from corruption so fillna is safe. "
+            "Numeric: `df['col'] = df['col'].fillna(df['col'].median())` "
+            "Categorical: `df['col'] = df['col'].fillna(df['col'].mode()[0])`"
         )
     if "outlier_injection" in targets or "decimal_shift" in targets:
         bullets.append(
@@ -642,7 +638,8 @@ def get_agent_action(
         "LLM request — %d messages, last role=%s", len(messages), messages[-1]["role"]
     )
     logger.debug("Full messages:\n%s", json.dumps(messages, indent=2)[:3000])
-    _jlog("llm_request", num_messages=len(messages))
+    _jlog("llm_request", num_messages=len(messages),
+          last_user_msg=messages[-1]["content"][:2000] if messages[-1]["role"] == "user" else "")
 
     global _last_call_time
     # Pace calls to avoid rate limits
@@ -660,7 +657,7 @@ def get_agent_action(
                 model=get_model_name(),
                 messages=messages,
                 temperature=temperature,
-                max_tokens=2048,
+                max_tokens=4096,
             )
             latency = time.time() - t0
             _last_call_time = time.time()
@@ -730,7 +727,18 @@ def get_agent_action(
             try:
                 action, _ = decoder.raw_decode(content, start)
             except json.JSONDecodeError:
-                action = {"type": "done"}
+                # Truncated JSON — try to salvage transform code
+                import re as _salvage_re
+                code_match = _salvage_re.search(
+                    r'"code"\s*:\s*"((?:[^"\\]|\\.)*)',
+                    content,
+                )
+                if code_match and '"type"' in content and '"transform"' in content:
+                    action = {"type": "transform", "code": code_match.group(1)}
+                    action["code"] = action["code"].encode().decode("unicode_escape")
+                    logger.warning("Salvaged truncated transform (%d chars)", len(action["code"]))
+                else:
+                    action = {"type": "done"}
         else:
             action = {"type": "done"}
 
@@ -779,6 +787,16 @@ def _sanitize_transform_code(code: str) -> str:
                 continue
         cleaned_lines.append(line)
     code = "\n".join(cleaned_lines)
+
+    # ── Phase 1b: Strip df = pd.read_csv(...) reloads ───────────────────────
+    # Small models re-load the file even though df is pre-loaded. The file
+    # doesn't exist in sandbox, so the line either errors or silently resets df.
+    code = _re.sub(
+        r"^\s*df\s*=\s*pd\.read_(csv|json|excel|table|fwf)\(.*\)\s*$",
+        "",
+        code,
+        flags=_re.MULTILINE,
+    )
 
     # ── Phase 2: Fix spurious indentation ────────────────────────────────────
     lines = code.split("\n")
@@ -988,6 +1006,8 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
         # Escalation ladder state (D)
         stale_count: int = 0   # consecutive non-improving transforms
         current_temp: float = 0.1  # dynamic temperature (F)
+        consecutive_blocks: int = 0  # consecutive blocked actions (validate/undo/dup)
+        total_auto_undos: int = 0   # total auto-undos (escalation + regression)
 
         messages = [
             {"role": "system", "content": build_system_prompt()},
@@ -1014,29 +1034,110 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
             action_type = action_dict.get("type", "done")
 
             # ── Block model-initiated undos that would destroy progress ────────
-            # Models consistently undo their best work unprompted, losing all
-            # progress. Auto-undo (regression/escalation) handles undo correctly;
-            # model-initiated undo to step < best always destroys checkpoints.
+            # Replace last user message instead of appending — avoids inflating context.
             if action_type == "undo" and best_fixed > 0:
-                logger.warning(
-                    "BLOCKED model undo (best_fixed=%d) — redirecting to transform",
-                    best_fixed,
-                )
+                logger.warning("BLOCKED model undo (best_fixed=%d)", best_fixed)
                 _jlog("blocked_undo", step=step_num, best_fixed=best_fixed)
-                step_num -= 1  # don't consume a step for the blocked action
-                messages.append({"role": "assistant", "content": json.dumps(action_dict)})
-                messages.append({
+                step_num -= 1
+                messages[-1] = {
                     "role": "user",
                     "content": build_user_prompt(
                         obs, current_reward, action_history=action_history,
                         warnings=[
                             f"BLOCKED: You tried to undo, but you have {best_fixed}/{total} errors fixed. "
-                            f"Undoing would DESTROY your progress. Focus on fixing the remaining "
-                            f"{total - best_fixed} errors with a transform targeting a different corruption type."
+                            f"Focus on fixing the remaining {total - best_fixed} errors with a transform "
+                            f"targeting a different corruption type."
                         ],
                     ),
-                })
+                }
                 continue
+
+            # ── Block validate loops — model stuck calling validate repeatedly ────
+            if action_type == "validate":
+                recent_validates = sum(
+                    1 for h in action_history[-4:] if h["type"] == "validate"
+                )
+                validate_budget_left = bool(
+                    obs.step_info
+                    and obs.step_info.validate_uses < obs.step_info.validate_budget
+                )
+                if recent_validates >= 2 or not validate_budget_left:
+                    consecutive_blocks += 1
+                    if consecutive_blocks >= 5:
+                        logger.warning("Model hopelessly stuck (%d blocks) — auto-done", consecutive_blocks)
+                        break
+                    logger.warning(
+                        "BLOCKED validate loop (recent_validates=%d, budget_left=%s, blocks=%d)",
+                        recent_validates, validate_budget_left, consecutive_blocks,
+                    )
+                    _jlog("blocked_validate_loop", step=step_num, recent_validates=recent_validates)
+                    step_num -= 1
+                    messages[-1] = {
+                        "role": "user",
+                        "content": build_user_prompt(
+                            obs, current_reward, action_history=action_history,
+                            warnings=[
+                                "BLOCKED: You cannot call validate again right now. "
+                                "You MUST submit a transform. "
+                                "Use the error summary above to pick the most common corruption type and fix it."
+                            ],
+                            template_hints=_build_template_hints(obs),
+                        ),
+                    }
+                    continue
+
+            # ── Block premature done — model calls done before fixing anything ────
+            if action_type == "done" and fixed == 0 and total > 0:
+                consecutive_blocks += 1
+                if consecutive_blocks >= 3:
+                    logger.warning("Model done with 0 fixed and stuck — forcing exit")
+                    break
+                logger.warning("BLOCKED premature done — 0/%d errors fixed", total)
+                _jlog("blocked_premature_done", step=step_num, fixed=fixed, total=total)
+                step_num -= 1
+                messages[-1] = {
+                    "role": "user",
+                    "content": build_user_prompt(
+                        obs, current_reward, action_history=action_history,
+                        warnings=[
+                            f"BLOCKED: You called done but have fixed 0/{total} errors. "
+                            "You MUST submit at least one transform before finishing. "
+                            "Use the error summary above to identify the corruption type and fix it."
+                        ],
+                        template_hints=_build_template_hints(obs),
+                    ),
+                }
+                continue
+
+            # ── Block duplicate transforms — models repeat exact same code ────────
+            # Replace last user message instead of appending — avoids inflating context.
+            if action_type == "transform":
+                new_code = action_dict.get("code", "").strip()
+                past_codes = [
+                    h["summary"].strip()
+                    for h in action_history
+                    if h["type"] == "transform"
+                ]
+                if any(new_code[:150] == old[:150] for old in past_codes if old):
+                    consecutive_blocks += 1
+                    if consecutive_blocks >= 5:
+                        logger.warning("Model hopelessly stuck (%d blocks) — auto-done", consecutive_blocks)
+                        break
+                    logger.warning("BLOCKED duplicate transform — same code as a previous step (blocks=%d)", consecutive_blocks)
+                    _jlog("blocked_duplicate_transform", step=step_num, consecutive_blocks=consecutive_blocks)
+                    step_num -= 1
+                    messages[-1] = {
+                        "role": "user",
+                        "content": build_user_prompt(
+                            obs, current_reward, action_history=action_history,
+                            warnings=[
+                                "BLOCKED: You submitted the EXACT SAME transform code as a previous step. "
+                                "You MUST target a DIFFERENT corruption type or different columns."
+                            ],
+                            template_hints=_build_template_hints(obs),
+                        ),
+                    }
+                    continue
 
             # Log action content at INFO
             if action_type == "explore":
@@ -1061,6 +1162,8 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
             else:
                 logger.info("Step %d | %s | latency=%.2fs", step_num, action_type, latency)
 
+            if action_type in ("transform", "done", "undo"):
+                consecutive_blocks = 0  # real progress action — reset block counter
             step_result = await env.step(action)
             obs = step_result.observation
             current_reward = (
@@ -1137,7 +1240,9 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                     best_reward = current_reward
                     best_fixed = fixed
                     best_transform_step = sum(
-                        1 for h in action_history if h["type"] == "transform"
+                        1
+                        for h in action_history
+                        if h["type"] == "transform" and not h.get("exec_failed")
                     )
                     current_temp = 0.1  # cool down on success (F)
                 else:
@@ -1159,7 +1264,7 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                     and best_reward > 0
                     and current_reward < best_reward * 0.7  # 30%+ reward drop
                 )
-                if fixed_regression or wrong_value_regression:
+                if (fixed_regression or wrong_value_regression) and total_auto_undos < 2:
                     reason = "wrong values" if wrong_value_regression else "errors-fixed drop"
                     logger.warning(
                         "Auto-undo (%s): reward %.4f→%.4f, fixed %d→%d — reverting to step %d",
@@ -1200,6 +1305,7 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                     )
                     stale_count = max(0, stale_count - 1)  # partial credit for undo
                     did_regression_undo = True
+                    total_auto_undos += 1
 
             # ── Generate per-step warnings ────────────────────────────────────
             warnings: list[str] = []
@@ -1317,6 +1423,14 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                                            "errors_fixed": fixed})
                     _jlog("escalation_validate", step=step_num, stale_count=stale_count)
 
+                elif stale_count == 3 and best_fixed > 0 and total_auto_undos >= 2:
+                    # Too many undos — each costs reward, stop thrashing
+                    logger.warning(
+                        "Escalation: %d auto-undos already — auto-done instead of undo #%d",
+                        total_auto_undos, total_auto_undos + 1,
+                    )
+                    should_auto_done = True
+
                 elif stale_count == 3 and best_fixed > 0:
                     # Tier 3: auto-undo to best known good state
                     logger.warning(
@@ -1339,8 +1453,10 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                     action_history.append({"step": step_num, "type": "undo",
                                            "summary": f"escalation-undo to {best_transform_step}",
                                            "reward_after": current_reward, "errors_fixed": fixed})
+                    total_auto_undos += 1
                     _jlog("escalation_undo", step=step_num, stale_count=stale_count,
-                          best_transform_step=best_transform_step)
+                          best_transform_step=best_transform_step,
+                          total_auto_undos=total_auto_undos)
                     # Reset stale_count so the agent gets a real attempt after the undo
                     stale_count = 0
                     current_temp = 0.3  # slightly elevated — still needs diversity
@@ -1403,13 +1519,36 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
             )
 
             # Keep message history bounded — retain system + last N exchanges.
-            # 14 messages = system + ~6 exchanges. Keeps prompt under ~12K tokens,
-            # leaving room for completion within a 20K context window.
-            MAX_HISTORY_MESSAGES = 14
+            MAX_HISTORY_MESSAGES = 16 if rehint else 20
             if len(messages) > MAX_HISTORY_MESSAGES:
                 messages = [messages[0]] + messages[-(MAX_HISTORY_MESSAGES - 1) :]
 
+            # Adaptive context guard — estimate tokens (~3.5 chars/token) and trim
+            # until we're safely under the context limit (leave 2K for completion).
+            CTX_LIMIT = 32768  # match llama-server -c setting
+            COMPLETION_RESERVE = 2048
+            MAX_PROMPT_TOKENS = CTX_LIMIT - COMPLETION_RESERVE
+            while len(messages) > 3:  # keep at least system + 1 exchange
+                est_tokens = sum(len(m["content"]) for m in messages) // 3
+                if est_tokens <= MAX_PROMPT_TOKENS:
+                    break
+                # Drop oldest exchange (assistant + user pair after system)
+                messages = [messages[0]] + messages[3:]
+                logger.debug("Trimmed messages to %d (est ~%d tokens)", len(messages), est_tokens)
+
             if step_result.done:
+                break
+
+            # ── Soft-done handling: env returns done=false on first done() ────
+            # Small models don't understand "soft done" — they repeat transforms
+            # and get stuck. Auto-finalize by sending done() again.
+            if action_type == "done" and not step_result.done:
+                logger.info("Soft-done received (reward=%.4f, %d/%d fixed) — auto-finalizing", current_reward, fixed, total)
+                final_result = await env.step(DoneAction())
+                current_reward = final_result.reward if final_result.reward is not None else current_reward
+                step_rewards.append(current_reward)
+                log_step(step_num + 1, "done", current_reward, done=True, errors_fixed=fixed, errors_total=total)
+                _jlog("auto_finalize_done", step=step_num + 1, reward=current_reward)
                 break
 
             if total > 0 and fixed == total:

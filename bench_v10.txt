@@ -1,0 +1,94 @@
+============================================
+Multi-model benchmark: tasks=titanic/easy/csv titanic/medium/csv wine_quality/easy/csv wine_quality/medium/csv
+============================================
+
+──────────────────────────────────────────
+Model: Qwen3.5-0.8B-UD-Q4_K_XL
+──────────────────────────────────────────
+  Starting server (pid 71549)...
+  Still loading model (3s)...
+  Server ready (3s)
+
+============================================================
+Running task: titanic_easy_csv
+============================================================
+[START] task=titanic_easy_csv env=data_cleaning_env model=Qwen3.5-0.8B-UD-Q4_K_XL
+[00:15:42] INFO — Starting task: titanic_easy_csv | model: Qwen3.5-0.8B-UD-Q4_K_XL | endpoint: http://localhost:8080/v1
+[00:15:43] INFO — Reset complete — 0/68 errors fixed, reward=0.0000
+[00:15:43] INFO — Diagnostic phase complete — 3 explores, validate=True
+[00:16:05] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:16:05] WARNING — BLOCKED premature done — 0/68 errors fixed
+[00:16:27] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:16:27] WARNING — BLOCKED premature done — 0/68 errors fixed
+[00:16:48] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:16:48] WARNING — Model done with 0 fixed and stuck — forcing exit
+[END] success=false steps=1 score=0.001 rewards=
+[00:16:48] INFO — Task titanic_easy_csv complete | reward=0.0000 | steps=1 | elapsed=66.4s
+
+============================================================
+Running task: titanic_medium_csv
+============================================================
+[START] task=titanic_medium_csv env=data_cleaning_env model=Qwen3.5-0.8B-UD-Q4_K_XL
+[00:16:48] INFO — Starting task: titanic_medium_csv | model: Qwen3.5-0.8B-UD-Q4_K_XL | endpoint: http://localhost:8080/v1
+[00:16:49] INFO — Reset complete — 0/360 errors fixed, reward=0.0000
+[00:16:49] INFO — Diagnostic phase complete — 4 explores, validate=True
+[00:17:13] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:17:13] WARNING — BLOCKED premature done — 0/360 errors fixed
+[00:17:18] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:17:18] INFO — Step 1 | transform | code:  # Load data  # Explore to identify corrupted columns print('Corrupted columns found:') print(df[['Embarked', 'Survived']].isna().sum()) print(df[['Parch', 'Survived']].isna().sum()) print(df[['Fare', | latency=5.73s | tokens=3571 | temp=0.1
+[00:17:18] INFO — Step 1 result | reward=0.0000 | 0/360 errors fixed | stale=0
+[STEP] step=1 action=transform('
+# Load data
+
+# Explore to identify corrupted columns
+print('Corrupted columns f') reward=0.00 done=false error=null
+[00:17:18] WARNING — Step 1 transform FAILED to execute — stale=1
+[00:17:24] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:17:24] WARNING — BLOCKED duplicate transform — same code as a previous step (blocks=1)
+[00:17:30] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:17:30] WARNING — BLOCKED duplicate transform — same code as a previous step (blocks=2)
+[00:17:34] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:17:34] WARNING — BLOCKED duplicate transform — same code as a previous step (blocks=3)
+[00:17:39] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:17:39] WARNING — Model done with 0 fixed and stuck — forcing exit
+[END] success=false steps=2 score=0.001 rewards=0.00
+[00:17:39] INFO — Task titanic_medium_csv complete | reward=0.0000 | steps=2 | elapsed=50.5s
+
+============================================================
+Running task: wine_quality_easy_csv
+============================================================
+[START] task=wine_quality_easy_csv env=data_cleaning_env model=Qwen3.5-0.8B-UD-Q4_K_XL
+[00:17:39] INFO — Starting task: wine_quality_easy_csv | model: Qwen3.5-0.8B-UD-Q4_K_XL | endpoint: http://localhost:8080/v1
+[00:17:40] INFO — Reset complete — 0/59 errors fixed, reward=0.0000
+[00:17:40] INFO — Diagnostic phase complete — 1 explores, validate=True
+[00:18:02] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:18:02] WARNING — BLOCKED premature done — 0/59 errors fixed
+[00:18:03] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:18:03] INFO — Step 1 | transform | code: df['quality'] = df['quality'].fillna(df['quality'].median()) | latency=0.87s | tokens=1405 | temp=0.1
+[00:18:04] INFO — Step 1 result | reward=0.0000 | 0/59 errors fixed | stale=0
+[STEP] step=1 action=transform('df['quality'] = df['quality'].fillna(df['quality'].median())') reward=0.00 done=false error=null
+[00:18:05] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:18:05] WARNING — BLOCKED duplicate transform — same code as a previous step (blocks=1)
+[00:18:05] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:18:05] WARNING — BLOCKED duplicate transform — same code as a previous step (blocks=2)
+[00:18:06] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:18:06] WARNING — BLOCKED duplicate transform — same code as a previous step (blocks=3)
+[00:18:06] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:18:06] WARNING — BLOCKED duplicate transform — same code as a previous step (blocks=4)
+[00:18:07] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:18:07] WARNING — Model hopelessly stuck (5 blocks) — auto-done
+[END] success=false steps=2 score=0.001 rewards=0.00
+[00:18:07] INFO — Task wine_quality_easy_csv complete | reward=0.0000 | steps=2 | elapsed=27.6s
+
+============================================================
+Running task: wine_quality_medium_csv
+============================================================
+[START] task=wine_quality_medium_csv env=data_cleaning_env model=Qwen3.5-0.8B-UD-Q4_K_XL
+[00:18:07] INFO — Starting task: wine_quality_medium_csv | model: Qwen3.5-0.8B-UD-Q4_K_XL | endpoint: http://localhost:8080/v1
+[00:18:07] INFO — Reset complete — 0/654 errors fixed, reward=0.0000
+[00:18:08] INFO — Diagnostic phase complete — 4 explores, validate=True
+[00:18:31] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:18:31] WARNING — BLOCKED premature done — 0/654 errors fixed
+[00:18:55] INFO — HTTP Request: POST http://localhost:8080/v1/chat/completions "HTTP/1.1 200 OK"
+[00:18:55] WARNING — BLOCKED premature done — 0/654 errors fixed
+  Server stopped (pid 71549)

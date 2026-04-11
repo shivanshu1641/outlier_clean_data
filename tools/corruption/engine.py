@@ -631,12 +631,21 @@ def validate_artifacts(
 
 
 def load_titanic() -> pd.DataFrame:
-    """Load Titanic dataset from bundled CSV or download."""
+    """Load Titanic dataset from bundled CSV or download.
+
+    The raw Titanic CSV has NaN in Age, Cabin, and Embarked.
+    We fill these so the clean data has zero NaN — all NaN in dirty data
+    are then guaranteed to be from corruption, making fillna always safe.
+    """
     clean_path = Path("data/clean/titanic.csv")
     if clean_path.exists():
         return pd.read_csv(clean_path)
     url = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv"
     df = pd.read_csv(url)
+    # Fill original NaN so clean data is fully populated
+    df["Age"] = df["Age"].fillna(df["Age"].median())
+    df["Cabin"] = df["Cabin"].fillna("Unknown")
+    df["Embarked"] = df["Embarked"].fillna(df["Embarked"].mode()[0])
     clean_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(clean_path, index=False)
     return df

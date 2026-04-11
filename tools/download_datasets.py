@@ -67,7 +67,7 @@ GITHUB_MIRRORS: dict[str, tuple[str, dict | None]] = {
     "wine_quality": ("https://raw.githubusercontent.com/dsrscientist/dataset1/master/winequality-red.csv",
                      {"sep": ";"}),
     "horse_colic": ("https://raw.githubusercontent.com/jbrownlee/Datasets/master/horse-colic.csv",
-                    {"header": None, "sep": r"\s+"}),
+                    {"header": None, "na_values": "?"}),
     "thyroid_disease": ("https://raw.githubusercontent.com/jbrownlee/Datasets/master/new-thyroid.csv",
                         {"header": None}),
 }
@@ -179,6 +179,18 @@ def download_one(name: str, entry: dict, dest_dir: Path) -> bool:
     df = _validate_and_trim(df, name, entry)
     if df is None:
         return False
+
+    # Clean data must have zero NaN — fill before saving so all NaN in
+    # dirty data are guaranteed to be from corruption.
+    nan_count = int(df.isna().sum().sum())
+    if nan_count > 0:
+        log.info("  filling %d NaN in clean data (%s)", nan_count, name)
+        for col in df.columns:
+            if df[col].isna().any():
+                if df[col].dtype in ("float64", "int64", "float32", "int32"):
+                    df[col] = df[col].fillna(df[col].median())
+                else:
+                    df[col] = df[col].fillna(df[col].mode()[0] if not df[col].mode().empty else "Unknown")
 
     df.to_csv(out_path, index=False)
     log.info("  saved %s  (%d rows x %d cols)", filename, len(df), len(df.columns))

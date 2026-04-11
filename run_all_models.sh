@@ -6,17 +6,26 @@ set -euo pipefail
 
 MODELS_DIR="$HOME/models"
 PORT=8080
-CONTEXT=16384
-TASK="${1:-titanic/medium/csv}"
+CONTEXT=32768
+# Default tasks if none given on CLI — use exact catalog keys
+if [ $# -gt 0 ]; then
+  TASKS=("$@")
+else
+  TASKS=(titanic/easy/csv titanic/medium/csv wine_quality/easy/csv wine_quality/medium/csv)
+fi
 
 # Parallel arrays — name[i] maps to gguf[i]. Comment out to skip.
 NAMES=(
+  "Qwen3.5-0.8B-UD-Q4_K_XL"
+  "Qwen3.5-2B-UD-Q4_K_XL"
   "gemma-4-E2B-it-Q4_K_M"
   "gemma-4-E4B-it-Q4_K_M"
   "Qwen3-4B-Q4_K_M"
   "Qwen3.5-9B-UD-Q4_K_XL"
 )
 GGUFS=(
+  "Qwen3.5-0.8B-UD-Q4_K_XL.gguf"
+  "Qwen3.5-2B-UD-Q4_K_XL.gguf"
   "gemma-4-E2B-it-Q4_K_M.gguf"
   "gemma-4-E4B-it-Q4_K_M.gguf"
   "Qwen3-4B-Q4_K_M.gguf"
@@ -62,7 +71,7 @@ kill_server() {
 }
 
 echo "============================================"
-echo "Multi-model benchmark: task=${TASK}"
+echo "Multi-model benchmark: tasks=${TASKS[*]}"
 echo "============================================"
 echo ""
 
@@ -106,7 +115,7 @@ for i in "${!NAMES[@]}"; do
   OPENAI_API_KEY="not-needed" \
   ENV_URL="http://localhost:7860" \
   MIN_CALL_INTERVAL=0 \
-    .venv/bin/python inference.py "$TASK"
+    .venv/bin/python inference.py "${TASKS[@]}"
 
   # Shut down
   kill_server "$SERVER_PID"

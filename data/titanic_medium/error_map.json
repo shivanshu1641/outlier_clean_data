@@ -1,0 +1,1762 @@
+{
+  "cell_errors": {
+    "11,Age": {
+      "severity": 2.0,
+      "clean_value": 58.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "22,Age": {
+      "severity": 2.0,
+      "clean_value": 15.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "33,Age": {
+      "severity": 2.0,
+      "clean_value": 66.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "54,Age": {
+      "severity": 2.0,
+      "clean_value": 65.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "61,Age": {
+      "severity": 2.0,
+      "clean_value": 38.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "71,Age": {
+      "severity": 2.0,
+      "clean_value": 16.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "80,Age": {
+      "severity": 2.0,
+      "clean_value": 22.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "82,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "95,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "97,Age": {
+      "severity": 2.0,
+      "clean_value": 23.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "101,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "102,Age": {
+      "severity": 2.0,
+      "clean_value": 21.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "112,Age": {
+      "severity": 2.0,
+      "clean_value": 22.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "117,Age": {
+      "severity": 2.0,
+      "clean_value": 29.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "123,Age": {
+      "severity": 2.0,
+      "clean_value": 32.5,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "127,Age": {
+      "severity": 2.0,
+      "clean_value": 24.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "142,Age": {
+      "severity": 2.0,
+      "clean_value": 24.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "163,Age": {
+      "severity": 2.0,
+      "clean_value": 17.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "164,Age": {
+      "severity": 2.0,
+      "clean_value": 1.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "165,Age": {
+      "severity": 2.0,
+      "clean_value": 9.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "167,Age": {
+      "severity": 2.0,
+      "clean_value": 45.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "173,Age": {
+      "severity": 2.0,
+      "clean_value": 21.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "174,Age": {
+      "severity": 2.0,
+      "clean_value": 56.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "187,Age": {
+      "severity": 2.0,
+      "clean_value": 45.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "207,Age": {
+      "severity": 2.0,
+      "clean_value": 26.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "214,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "221,Age": {
+      "severity": 2.0,
+      "clean_value": 27.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "222,Age": {
+      "severity": 2.0,
+      "clean_value": 51.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "224,Age": {
+      "severity": 2.0,
+      "clean_value": 38.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "230,Age": {
+      "severity": 2.0,
+      "clean_value": 35.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "237,Age": {
+      "severity": 2.0,
+      "clean_value": 8.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "246,Age": {
+      "severity": 2.0,
+      "clean_value": 25.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "259,Age": {
+      "severity": 2.0,
+      "clean_value": 50.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "274,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "282,Age": {
+      "severity": 2.0,
+      "clean_value": 16.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "293,Age": {
+      "severity": 2.0,
+      "clean_value": 24.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "294,Age": {
+      "severity": 2.0,
+      "clean_value": 24.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "303,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "305,Age": {
+      "severity": 2.0,
+      "clean_value": 0.92,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "306,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "310,Age": {
+      "severity": 2.0,
+      "clean_value": 24.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "311,Age": {
+      "severity": 2.0,
+      "clean_value": 18.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "315,Age": {
+      "severity": 2.0,
+      "clean_value": 26.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "321,Age": {
+      "severity": 2.0,
+      "clean_value": 27.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "331,Age": {
+      "severity": 2.0,
+      "clean_value": 45.5,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "332,Age": {
+      "severity": 2.0,
+      "clean_value": 38.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "333,Age": {
+      "severity": 2.0,
+      "clean_value": 16.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "340,Age": {
+      "severity": 2.0,
+      "clean_value": 2.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "342,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "345,Age": {
+      "severity": 2.0,
+      "clean_value": 24.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "350,Age": {
+      "severity": 2.0,
+      "clean_value": 23.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "351,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "354,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "370,Age": {
+      "severity": 2.0,
+      "clean_value": 25.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "382,Age": {
+      "severity": 2.0,
+      "clean_value": 32.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "395,Age": {
+      "severity": 2.0,
+      "clean_value": 22.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "401,Age": {
+      "severity": 2.0,
+      "clean_value": 26.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "408,Age": {
+      "severity": 2.0,
+      "clean_value": 21.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "418,Age": {
+      "severity": 2.0,
+      "clean_value": 30.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "419,Age": {
+      "severity": 2.0,
+      "clean_value": 10.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "429,Age": {
+      "severity": 2.0,
+      "clean_value": 32.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "439,Age": {
+      "severity": 2.0,
+      "clean_value": 31.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "448,Age": {
+      "severity": 2.0,
+      "clean_value": 5.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "457,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "470,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "476,Age": {
+      "severity": 2.0,
+      "clean_value": 34.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "478,Age": {
+      "severity": 2.0,
+      "clean_value": 22.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "482,Age": {
+      "severity": 2.0,
+      "clean_value": 50.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "487,Age": {
+      "severity": 2.0,
+      "clean_value": 58.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "495,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "501,Age": {
+      "severity": 2.0,
+      "clean_value": 21.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "509,Age": {
+      "severity": 2.0,
+      "clean_value": 26.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "535,Age": {
+      "severity": 2.0,
+      "clean_value": 7.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "537,Age": {
+      "severity": 2.0,
+      "clean_value": 30.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "541,Age": {
+      "severity": 2.0,
+      "clean_value": 9.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "546,Age": {
+      "severity": 2.0,
+      "clean_value": 19.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "547,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "548,Age": {
+      "severity": 2.0,
+      "clean_value": 33.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "549,Age": {
+      "severity": 2.0,
+      "clean_value": 8.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "552,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "555,Age": {
+      "severity": 2.0,
+      "clean_value": 62.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "556,Age": {
+      "severity": 2.0,
+      "clean_value": 48.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "559,Age": {
+      "severity": 2.0,
+      "clean_value": 36.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "575,Age": {
+      "severity": 2.0,
+      "clean_value": 19.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "596,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "602,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "610,Age": {
+      "severity": 2.0,
+      "clean_value": 39.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "614,Age": {
+      "severity": 2.0,
+      "clean_value": 35.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "620,Age": {
+      "severity": 2.0,
+      "clean_value": 27.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "623,Age": {
+      "severity": 2.0,
+      "clean_value": 21.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "625,Age": {
+      "severity": 2.0,
+      "clean_value": 61.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "638,Age": {
+      "severity": 2.0,
+      "clean_value": 41.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "643,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "651,Age": {
+      "severity": 2.0,
+      "clean_value": 18.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "652,Age": {
+      "severity": 2.0,
+      "clean_value": 21.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "662,Age": {
+      "severity": 2.0,
+      "clean_value": 47.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "663,Age": {
+      "severity": 2.0,
+      "clean_value": 36.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "665,Age": {
+      "severity": 2.0,
+      "clean_value": 32.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "666,Age": {
+      "severity": 2.0,
+      "clean_value": 25.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "671,Age": {
+      "severity": 2.0,
+      "clean_value": 31.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "686,Age": {
+      "severity": 2.0,
+      "clean_value": 14.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "690,Age": {
+      "severity": 2.0,
+      "clean_value": 31.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "691,Age": {
+      "severity": 2.0,
+      "clean_value": 4.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "694,Age": {
+      "severity": 2.0,
+      "clean_value": 60.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "699,Age": {
+      "severity": 2.0,
+      "clean_value": 42.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "702,Age": {
+      "severity": 2.0,
+      "clean_value": 18.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "708,Age": {
+      "severity": 2.0,
+      "clean_value": 22.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "733,Age": {
+      "severity": 2.0,
+      "clean_value": 23.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "741,Age": {
+      "severity": 2.0,
+      "clean_value": 36.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "748,Age": {
+      "severity": 2.0,
+      "clean_value": 19.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "752,Age": {
+      "severity": 2.0,
+      "clean_value": 33.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "764,Age": {
+      "severity": 2.0,
+      "clean_value": 16.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "774,Age": {
+      "severity": 2.0,
+      "clean_value": 54.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "779,Age": {
+      "severity": 2.0,
+      "clean_value": 43.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "781,Age": {
+      "severity": 2.0,
+      "clean_value": 17.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "791,Age": {
+      "severity": 2.0,
+      "clean_value": 16.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "794,Age": {
+      "severity": 2.0,
+      "clean_value": 25.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "795,Age": {
+      "severity": 2.0,
+      "clean_value": 39.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "796,Age": {
+      "severity": 2.0,
+      "clean_value": 49.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "799,Age": {
+      "severity": 2.0,
+      "clean_value": 30.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "833,Age": {
+      "severity": 2.0,
+      "clean_value": 23.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "848,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "862,Age": {
+      "severity": 2.0,
+      "clean_value": 48.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "864,Age": {
+      "severity": 2.0,
+      "clean_value": 24.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "869,Age": {
+      "severity": 2.0,
+      "clean_value": 4.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "875,Age": {
+      "severity": 2.0,
+      "clean_value": 15.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "876,Age": {
+      "severity": 2.0,
+      "clean_value": 20.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "883,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "4,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "12,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "13,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "18,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "28,Embarked": {
+      "severity": 2.0,
+      "clean_value": "Q",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "34,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "43,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "53,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "61,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "68,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "79,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "86,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "96,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "101,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "108,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "111,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "118,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "122,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "123,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "127,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "135,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "136,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "149,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "171,Embarked": {
+      "severity": 2.0,
+      "clean_value": "Q",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "177,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "185,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "188,Embarked": {
+      "severity": 2.0,
+      "clean_value": "Q",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "195,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "198,Embarked": {
+      "severity": 2.0,
+      "clean_value": "Q",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "200,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "203,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "226,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "228,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "235,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "236,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "251,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "255,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "258,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "262,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "270,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "301,Embarked": {
+      "severity": 2.0,
+      "clean_value": "Q",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "302,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "305,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "308,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "320,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "327,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "336,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "339,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "351,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "354,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "357,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "361,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "366,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "372,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "375,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "379,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "388,Embarked": {
+      "severity": 2.0,
+      "clean_value": "Q",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "395,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "400,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "404,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "408,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "411,Embarked": {
+      "severity": 2.0,
+      "clean_value": "Q",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "417,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "420,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "423,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "426,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "427,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "438,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "447,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "448,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "458,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "487,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "506,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "507,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "515,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "519,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "523,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "531,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "534,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "543,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "551,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "553,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "554,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "562,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "574,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "576,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "582,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "583,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "602,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "619,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "626,Embarked": {
+      "severity": 2.0,
+      "clean_value": "Q",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "633,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "644,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "645,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "646,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "648,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "650,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "651,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "652,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "659,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "662,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "666,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "673,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "689,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "711,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "713,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "715,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "716,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "724,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "747,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "769,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "772,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "778,Embarked": {
+      "severity": 2.0,
+      "clean_value": "Q",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "784,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "799,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "805,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "806,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "817,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "830,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "832,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "836,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "837,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "842,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "844,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "846,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "867,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "883,Embarked": {
+      "severity": 2.0,
+      "clean_value": "S",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "889,Embarked": {
+      "severity": 2.0,
+      "clean_value": "C",
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "191,Fare": {
+      "severity": 3.0,
+      "clean_value": 13.0,
+      "corruption": "type_mangled"
+    },
+    "77,Fare": {
+      "severity": 3.0,
+      "clean_value": 8.05,
+      "corruption": "type_mangled"
+    },
+    "207,Fare": {
+      "severity": 3.0,
+      "clean_value": 18.7875,
+      "corruption": "type_mangled"
+    },
+    "411,Fare": {
+      "severity": 3.0,
+      "clean_value": 6.8583,
+      "corruption": "type_mangled"
+    },
+    "179,Fare": {
+      "severity": 3.0,
+      "clean_value": 0.0,
+      "corruption": "type_mangled"
+    },
+    "349,Fare": {
+      "severity": 3.0,
+      "clean_value": 8.6625,
+      "corruption": "type_mangled"
+    },
+    "817,Fare": {
+      "severity": 3.0,
+      "clean_value": 37.0042,
+      "corruption": "type_mangled"
+    },
+    "120,Fare": {
+      "severity": 3.0,
+      "clean_value": 73.5,
+      "corruption": "type_mangled"
+    },
+    "15,Fare": {
+      "severity": 3.0,
+      "clean_value": 16.0,
+      "corruption": "type_mangled"
+    },
+    "812,Fare": {
+      "severity": 3.0,
+      "clean_value": 10.5,
+      "corruption": "type_mangled"
+    },
+    "178,Fare": {
+      "severity": 3.0,
+      "clean_value": 13.0,
+      "corruption": "type_mangled"
+    },
+    "29,Fare": {
+      "severity": 3.0,
+      "clean_value": 7.8958,
+      "corruption": "type_mangled"
+    },
+    "50,Fare": {
+      "severity": 3.0,
+      "clean_value": 39.6875,
+      "corruption": "type_mangled"
+    },
+    "853,Fare": {
+      "severity": 3.0,
+      "clean_value": 39.4,
+      "corruption": "type_mangled"
+    },
+    "666,Fare": {
+      "severity": 3.0,
+      "clean_value": 13.0,
+      "corruption": "type_mangled"
+    },
+    "39,Fare": {
+      "severity": 3.0,
+      "clean_value": 11.2417,
+      "corruption": "type_mangled"
+    },
+    "422,Fare": {
+      "severity": 3.0,
+      "clean_value": 7.875,
+      "corruption": "type_mangled"
+    },
+    "536,Fare": {
+      "severity": 3.0,
+      "clean_value": 26.55,
+      "corruption": "type_mangled"
+    },
+    "556,Fare": {
+      "severity": 3.0,
+      "clean_value": 39.6,
+      "corruption": "type_mangled"
+    },
+    "521,Fare": {
+      "severity": 3.0,
+      "clean_value": 7.8958,
+      "corruption": "type_mangled"
+    },
+    "260,Fare": {
+      "severity": 3.0,
+      "clean_value": 7.75,
+      "corruption": "type_mangled"
+    },
+    "300,Fare": {
+      "severity": 3.0,
+      "clean_value": 7.75,
+      "corruption": "type_mangled"
+    },
+    "852,Fare": {
+      "severity": 3.0,
+      "clean_value": 15.2458,
+      "corruption": "type_mangled"
+    },
+    "176,Fare": {
+      "severity": 3.0,
+      "clean_value": 25.4667,
+      "corruption": "type_mangled"
+    },
+    "659,Fare": {
+      "severity": 3.0,
+      "clean_value": 113.275,
+      "corruption": "type_mangled"
+    },
+    "166,Fare": {
+      "severity": 3.0,
+      "clean_value": 55.0,
+      "corruption": "type_mangled"
+    },
+    "849,Fare": {
+      "severity": 3.0,
+      "clean_value": 89.1042,
+      "corruption": "type_mangled"
+    },
+    "419,Fare": {
+      "severity": 3.0,
+      "clean_value": 24.15,
+      "corruption": "type_mangled"
+    },
+    "250,Fare": {
+      "severity": 3.0,
+      "clean_value": 7.25,
+      "corruption": "type_mangled"
+    },
+    "680,Fare": {
+      "severity": 3.0,
+      "clean_value": 8.1375,
+      "corruption": "type_mangled"
+    },
+    "733,Fare": {
+      "severity": 3.0,
+      "clean_value": 13.0,
+      "corruption": "type_mangled"
+    },
+    "244,Fare": {
+      "severity": 3.0,
+      "clean_value": 7.225,
+      "corruption": "type_mangled"
+    },
+    "246,Fare": {
+      "severity": 3.0,
+      "clean_value": 7.775,
+      "corruption": "type_mangled"
+    },
+    "623,Fare": {
+      "severity": 3.0,
+      "clean_value": 7.8542,
+      "corruption": "type_mangled"
+    },
+    "318,Fare": {
+      "severity": 3.0,
+      "clean_value": 164.8667,
+      "corruption": "type_mangled"
+    },
+    "820,Fare": {
+      "severity": 3.0,
+      "clean_value": 93.5,
+      "corruption": "type_mangled"
+    },
+    "59,Fare": {
+      "severity": 3.0,
+      "clean_value": 46.9,
+      "corruption": "type_mangled"
+    },
+    "583,Fare": {
+      "severity": 3.0,
+      "clean_value": 40.125,
+      "corruption": "type_mangled"
+    },
+    "580,Fare": {
+      "severity": 3.0,
+      "clean_value": 30.0,
+      "corruption": "type_mangled"
+    },
+    "652,Fare": {
+      "severity": 3.0,
+      "clean_value": 8.4333,
+      "corruption": "type_mangled"
+    },
+    "497,Fare": {
+      "severity": 3.0,
+      "clean_value": 15.1,
+      "corruption": "type_mangled"
+    },
+    "30,Fare": {
+      "severity": 3.0,
+      "clean_value": 27.7208,
+      "corruption": "type_mangled"
+    },
+    "184,Fare": {
+      "severity": 3.0,
+      "clean_value": 22.025,
+      "corruption": "type_mangled"
+    },
+    "210,Fare": {
+      "severity": 3.0,
+      "clean_value": 7.05,
+      "corruption": "type_mangled"
+    }
+  },
+  "spurious_rows": {},
+  "missing_rows": {}
+}

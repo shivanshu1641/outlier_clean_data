@@ -1,0 +1,18 @@
+============================================
+Multi-model benchmark: tasks=titanic/easy/csv titanic/medium/csv wine_quality/easy/csv wine_quality/medium/csv
+============================================
+
+──────────────────────────────────────────
+Model: Qwen3.5-0.8B-UD-Q4_K_XL
+──────────────────────────────────────────
+  Starting server (pid 78335)...
+  Server ready (1s)
+
+============================================================
+Running task: titanic_easy_csv
+============================================================
+[START] task=titanic_easy_csv env=data_cleaning_env model=Qwen3.5-0.8B-UD-Q4_K_XL
+[00:38:40] INFO — Starting task: titanic_easy_csv | model: Qwen3.5-0.8B-UD-Q4_K_XL | endpoint: http://localhost:8080/v1
+[00:38:41] INFO — Reset complete — 0/68 errors fixed, reward=0.0000
+[00:38:41] INFO — Diagnostic phase complete — 3 explores, validate=True
+  Server stopped (pid 78335)

@@ -108,7 +108,7 @@ def _load_catalog() -> dict[str, dict]:
 
 
 def _find_dataset(catalog: dict[str, dict], dataset_id: str) -> tuple[str, dict] | None:
-    """Look up a dataset by name. Returns (name, entry) or None."""
+    """Look up a dataset by exact catalog key. Returns (name, entry) or None."""
     if dataset_id in catalog:
         return dataset_id, catalog[dataset_id]
     return None
@@ -178,13 +178,17 @@ def _error_summary(
         lines.append(f"  {wrong} cells changed to wrong value (penalized 1.5x)")
     if unfixed:
         lines.append(f"  {unfixed} errors still unfixed")
-    # Compact corruption-type breakdown from error_map with counts and sample dirty→clean pairs
+    # Compact corruption-type breakdown — only UNFIXED errors so the model
+    # doesn't waste steps re-fixing already-fixed corruption types.
     if error_map:
         cell_errors = error_map.get("cell_errors", {})
         by_type: dict[str, dict] = {}  # ctype -> {cols: set, count: int}
         # Collect up to 2 sample dirty→clean pairs per corruption type
         type_samples: dict[str, list[str]] = {}
         for key, info in cell_errors.items():
+            # Skip already-fixed errors
+            if error_status.get(key) == "fixed":
+                continue
             ctype = info.get("corruption", "unknown")
             parts = key.split(",", 1)
             col = parts[1] if len(parts) == 2 else "?"
@@ -199,7 +203,7 @@ def _error_summary(
                         f"{col}: {dirty!r} → {clean!r}"
                     )
         if by_type:
-            lines.append("  Error types:")
+            lines.append("  Remaining error types (already-fixed types are hidden):")
             for ctype, info in sorted(by_type.items(), key=lambda x: -x[1]["count"]):
                 cols = info["cols"]
                 count = info["count"]
@@ -250,7 +254,9 @@ def _remaining_error_breakdown(
             entry["wrong"] += 1
             wrong_total += 1
 
-    lines: list[str] = []
+    # Split into unfixed (need fixing) vs wrong_value (model broke these)
+    unfixed_lines: list[str] = []
+    wrong_lines: list[str] = []
     for ctype, info in sorted(
         by_type.items(), key=lambda item: (-item[1]["count"], item[0])
     )[:max_types]:
@@ -258,10 +264,19 @@ def _remaining_error_breakdown(
         col_text = ", ".join(cols[:max_cols])
         if len(cols) > max_cols:
             col_text += f", +{len(cols) - max_cols} more"
-        line = f"{ctype}: {info['count']} remaining in {col_text}"
-        if info["wrong"]:
-            line += f" ({info['wrong']} wrong_value)"
-        lines.append(line)
+        unfixed_count = info["count"] - info["wrong"]
+        if unfixed_count > 0:
+            unfixed_lines.append(f"{ctype}: {unfixed_count} unfixed in {col_text}")
+        if info["wrong"] > 0:
+            wrong_lines.append(f"{ctype}: {info['wrong']} wrong_value in {col_text}")
+
+    lines: list[str] = []
+    if unfixed_lines:
+        lines.append("Still need fixing:")
+        lines.extend(f"  {l}" for l in unfixed_lines)
+    if wrong_lines:
+        lines.append("Broken by your transforms (undo or leave alone — do NOT re-transform these columns):")
+        lines.extend(f"  {l}" for l in wrong_lines)
 
     spurious = sum(
         1 for k, v in error_status.items() if k.startswith("spurious_") and v != "fixed"

@@ -1,0 +1,360 @@
+{
+  "cell_errors": {
+    "6,Age": {
+      "severity": 2.0,
+      "clean_value": 54.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "67,Age": {
+      "severity": 2.0,
+      "clean_value": 19.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "69,Age": {
+      "severity": 2.0,
+      "clean_value": 26.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "83,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "92,Age": {
+      "severity": 2.0,
+      "clean_value": 46.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "94,Age": {
+      "severity": 2.0,
+      "clean_value": 59.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "101,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "109,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "113,Age": {
+      "severity": 2.0,
+      "clean_value": 20.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "124,Age": {
+      "severity": 2.0,
+      "clean_value": 54.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "156,Age": {
+      "severity": 2.0,
+      "clean_value": 16.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "157,Age": {
+      "severity": 2.0,
+      "clean_value": 30.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "158,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "179,Age": {
+      "severity": 2.0,
+      "clean_value": 36.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "193,Age": {
+      "severity": 2.0,
+      "clean_value": 3.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "205,Age": {
+      "severity": 2.0,
+      "clean_value": 2.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "206,Age": {
+      "severity": 2.0,
+      "clean_value": 32.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "208,Age": {
+      "severity": 2.0,
+      "clean_value": 16.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "222,Age": {
+      "severity": 2.0,
+      "clean_value": 51.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "236,Age": {
+      "severity": 2.0,
+      "clean_value": 44.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "272,Age": {
+      "severity": 2.0,
+      "clean_value": 41.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "292,Age": {
+      "severity": 2.0,
+      "clean_value": 36.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "294,Age": {
+      "severity": 2.0,
+      "clean_value": 24.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "309,Age": {
+      "severity": 2.0,
+      "clean_value": 30.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "328,Age": {
+      "severity": 2.0,
+      "clean_value": 31.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "331,Age": {
+      "severity": 2.0,
+      "clean_value": 45.5,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "342,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "359,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "368,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "374,Age": {
+      "severity": 2.0,
+      "clean_value": 3.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "398,Age": {
+      "severity": 2.0,
+      "clean_value": 23.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "427,Age": {
+      "severity": 2.0,
+      "clean_value": 19.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "429,Age": {
+      "severity": 2.0,
+      "clean_value": 32.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "458,Age": {
+      "severity": 2.0,
+      "clean_value": 50.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "464,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "469,Age": {
+      "severity": 2.0,
+      "clean_value": 0.75,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "483,Age": {
+      "severity": 2.0,
+      "clean_value": 63.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "518,Age": {
+      "severity": 2.0,
+      "clean_value": 36.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "529,Age": {
+      "severity": 2.0,
+      "clean_value": 23.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "533,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "557,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "565,Age": {
+      "severity": 2.0,
+      "clean_value": 24.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "570,Age": {
+      "severity": 2.0,
+      "clean_value": 62.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "577,Age": {
+      "severity": 2.0,
+      "clean_value": 39.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "617,Age": {
+      "severity": 2.0,
+      "clean_value": 26.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "626,Age": {
+      "severity": 2.0,
+      "clean_value": 57.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "648,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "672,Age": {
+      "severity": 2.0,
+      "clean_value": 70.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "673,Age": {
+      "severity": 2.0,
+      "clean_value": 31.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "700,Age": {
+      "severity": 2.0,
+      "clean_value": 18.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "765,Age": {
+      "severity": 2.0,
+      "clean_value": 51.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "794,Age": {
+      "severity": 2.0,
+      "clean_value": 25.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "804,Age": {
+      "severity": 2.0,
+      "clean_value": 27.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "807,Age": {
+      "severity": 2.0,
+      "clean_value": 18.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "821,Age": {
+      "severity": 2.0,
+      "clean_value": 27.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "834,Age": {
+      "severity": 2.0,
+      "clean_value": 18.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "837,Age": {
+      "severity": 2.0,
+      "clean_value": 28.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "843,Age": {
+      "severity": 2.0,
+      "clean_value": 34.5,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    },
+    "884,Age": {
+      "severity": 2.0,
+      "clean_value": 25.0,
+      "corruption": "null_injected",
+      "accepted_fill": "any"
+    }
+  },
+  "spurious_rows": {},
+  "missing_rows": {}
+}
