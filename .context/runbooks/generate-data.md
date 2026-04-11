@@ -1,38 +1,32 @@
-# Runbook: Generate Task Artifacts
+# Runbook: Prepare Datasets
 
 ## When to run
 - First-time setup
-- After changing corruption configs in `tools/corruption/engine.py`
-- After adding new tasks or datasets
+- After adding datasets to `catalog.json`
+- When the local dataset cache needs to be refreshed
 
 ## Command
 ```bash
 source .venv/bin/activate
-python tools/corruption/engine.py
+python tools/download_datasets.py              # download all 25 datasets
+python tools/download_datasets.py titanic iris  # download specific ones
+python tools/download_datasets.py --list        # list catalog entries
 ```
 
-## What it produces
-For each of the 6 tasks, under `data/<task_id>/`:
-```
-data/titanic_easy/
-├── clean.csv         — ground truth (original dataset)
-├── dirty.csv         — corrupted version (agent input)
-├── error_map.json    — per-cell/row errors with severity + clean value
-└── severity_map.json — total severity and breakdown by corruption type
+## What it does
+Downloads clean CSVs from `catalog.json` (25 datasets) into `data/clean/`. The download script tries GitHub mirror URLs first, then falls back to the catalog's primary `source_url`.
 
-tasks/task_<task_id>.json  — task config loaded by the server
-```
+The environment does NOT need pre-built dirty CSVs or task files — corruption happens dynamically at `reset()` time.
 
-## Output format
-```
-[titanic_easy] clean=(891, 12), dirty=(891, 12), errors=120 cells + 0 spurious rows, total_severity=180.0
-[titanic_medium] ...
-...
-Done! Generated 6 tasks.
-```
+## Download sources
+1. **GitHub mirrors** — verified working URLs for popular datasets (no auth needed)
+2. **Primary source_url** — from catalog, often UCI archive (can be unreliable)
+
+## Format generation
+Non-CSV formats (JSON, Excel, XML, TSV, etc.) are generated at corruption time by `CorruptionPipeline.select_format()`. Only clean CSVs need to be downloaded.
 
 ## Notes
-- Seed is fixed (42) — regenerating produces identical artifacts
-- Clean datasets are downloaded on first run and cached in `data/clean/`
-- Existing `data/<task_id>/` directories are overwritten
-- The `tasks/` directory is wiped and rebuilt
+- Catalog was trimmed from 118 to 25 datasets (only reliably downloadable ones retained)
+- Some datasets have auto-inferred semantic rules stored in their catalog entries
+- Seeded resets produce reproducible dirty datasets
+- Add or update dataset entries in `catalog.json`, then rerun the download command

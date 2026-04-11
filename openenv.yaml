@@ -1,10 +1,14 @@
 spec_version: 1
 name: data_cleaning_env
-description: "An OpenEnv environment where AI agents clean dirty CSV data by writing Python/pandas code, graded on constraint satisfaction and efficiency."
+description: >
+  Generative data cleaning environment where AI agents restore corrupted datasets.
+  Supports 9 file formats, 22 corruption types, 3 difficulty levels (easy/medium/hard),
+  and 5 agent actions: explore, transform, done, undo, validate.
+  Graded on multi-level scoring: schema (15%), row (20%), cell (55%), distribution (10%).
 type: environment
 runtime:
   framework: fastapi
-  port: 8000
+  port: 7860
 app:
   module: server.app
   factory: app

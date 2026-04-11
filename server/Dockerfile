@@ -2,21 +2,30 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install dependencies
-COPY server/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# System deps for lxml XML parsing
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libxml2-dev libxslt-dev gcc \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy project files
+# Install Python deps first (layer cache)
+COPY pyproject.toml .
+RUN pip install --no-cache-dir ".[inference]"
+
+# Copy project
 COPY models.py .
-COPY server/ server/
-COPY tasks/ tasks/
-COPY data/ data/
-COPY openenv.yaml .
 COPY __init__.py .
+COPY server/ server/
+COPY datasets/ datasets/
+COPY tools/ tools/
+COPY client.py .
+COPY openenv.yaml .
 
-# Create outputs directory
-RUN mkdir -p outputs/sandbox outputs/logs outputs/evals
+# Runtime dirs
+RUN mkdir -p outputs/sandbox outputs/logs outputs/evals data
 
-EXPOSE 8000
+ENV SANDBOX_BASE=/app/outputs/sandbox
+ENV DATA_DIR=/app/data
 
-CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "8000"]
+EXPOSE 7860
+
+CMD ["python", "-c", "import uvicorn; import os; uvicorn.run('server.app:app', host='0.0.0.0', port=int(os.environ.get('PORT', '7860')))"]

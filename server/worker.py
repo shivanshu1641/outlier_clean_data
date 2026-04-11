@@ -85,8 +85,24 @@ def _run():
         "re": re, "datetime": datetime, "string": string,
         "math": math, "collections": collections,
         "itertools": itertools, "functools": functools,
-        "json": json, "csv": csv,
+        "json": json, "csv": csv, "io": io,
     }
+
+    try:
+        import openpyxl as _openpyxl
+        _ns_base["openpyxl"] = _openpyxl
+    except ImportError:
+        pass
+    try:
+        import yaml as _yaml
+        _ns_base["yaml"] = _yaml
+    except ImportError:
+        pass
+    try:
+        import lxml as _lxml
+        _ns_base["lxml"] = _lxml
+    except ImportError:
+        pass
 
     # Signal ready
     sys.stdout.write(json.dumps({"ready": True}) + "\n")

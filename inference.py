@@ -28,7 +28,7 @@ from pathlib import Path
 from openai import OpenAI
 
 from client import DataCleaningClient
-from models import DoneAction, ExploreAction, TransformAction
+from models import DoneAction, ExploreAction, TransformAction, UndoAction, ValidateAction
 
 # ── Logging setup ─────────────────────────────────────────────────────────────
 
@@ -59,14 +59,22 @@ MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o")
 API_KEY = os.environ.get("HF_TOKEN", os.environ.get("OPENAI_API_KEY", ""))
 ENV_URL = os.environ.get("ENV_URL", "http://localhost:7860")
 
-TASK_IDS = [
-    "titanic_easy",
-    "titanic_medium",
-    "titanic_hard",
-    "wine_easy",
-    "wine_medium",
-    "wine_hard",
+EVAL_TASK_IDS = [
+    # Titanic — 3 difficulties
+    "titanic_easy", "titanic_medium", "titanic_hard",
+    # Iris — 2 difficulties
+    "iris_easy", "iris_medium",
+    # Boston Housing — 2 difficulties
+    "housing_medium", "housing_hard",
+    # Diabetes — 2 difficulties
+    "diabetes_medium", "diabetes_hard",
+    # Wine Quality — 3 difficulties
+    "wine_easy", "wine_medium", "wine_hard",
+    # Breast Cancer — 2 difficulties
+    "breast_cancer_easy", "breast_cancer_medium",
 ]
+
+TASK_IDS = EVAL_TASK_IDS
 
 # ── Few-shot examples from dataset.parquet ────────────────────────────────────
 
@@ -205,15 +213,19 @@ You are a data cleaning agent. You receive a dirty CSV dataset and information
 about what errors exist. Your goal is to fix all errors using as few transform
 steps as possible.
 
-You have three action types:
+You have five action types:
 1. **explore**: Inspect the data without modifying it. Your query should be a valid pandas expression using `df` (a pandas DataFrame). Examples: `df.describe()`, `df['Age'].isnull().sum()`, `df.head(10)`
 2. **transform**: Submit Python/pandas code that operates on `df` to clean it. Available imports: pandas (pd), numpy (np), re, datetime, string, math, json, csv. The variable `df` is pre-loaded.
 3. **done**: Signal you're finished cleaning.
+- undo: Restore to a previous checkpoint. Use {"type": "undo", "step": N} where N=0 means the original dirty state.
+- validate: Get detailed error breakdown (budget: 2 per episode). Use {"type": "validate"} when stuck.
 
 Respond with EXACTLY one JSON object (no markdown, no explanation):
 - For explore: {"type": "explore", "query": "<pandas expression>"}
 - For transform: {"type": "transform", "code": "<python code>"}
 - For done: {"type": "done"}
+- For undo: {"type": "undo", "step": 0}
+- For validate: {"type": "validate"}
 
 Strategy:
 - First explore to understand the data issues (you have 10 explores per transform cycle)
@@ -284,6 +296,14 @@ def build_user_prompt(
         parts.extend(["", "Last explore result:", obs.explore_result])
     if obs.transform_result:
         parts.extend(["", "Last transform result:", obs.transform_result])
+    if obs.file_format:
+        parts.extend(["", f"File format: {obs.file_format}"])
+    if obs.file_preview:
+        parts.extend(["", "Raw file preview:", obs.file_preview])
+    if obs.diagnosis:
+        parts.extend(["", "Diagnosis (hints):", obs.diagnosis])
+    if obs.validate_result:
+        parts.extend(["", "Validation breakdown:", obs.validate_result])
 
     step_info = obs.step_info
     if step_info:
@@ -424,6 +444,10 @@ def action_from_dict(d: dict):
         return ExploreAction(query=d.get("query", "df.head()"))
     elif t == "transform":
         return TransformAction(code=d.get("code", ""))
+    elif t == "undo":
+        return UndoAction(step=int(d.get("step", 0)))
+    elif t == "validate":
+        return ValidateAction()
     else:
         return DoneAction()
 

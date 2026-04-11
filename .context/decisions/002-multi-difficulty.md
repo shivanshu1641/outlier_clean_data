@@ -4,14 +4,15 @@
 Accepted (April 2026)
 
 ## Context
-The original setup had three tasks: `easy_titanic`, `medium_wine`, `hard_combined`. The hard task was an artificial merge of Titanic + Wine columns, which created an unrealistic dataset with mixed domains.
+The original setup had three tasks: `easy_titanic`, `medium_wine`, `hard_combined`. The hard task was an artificial merge of Titanic + Wine columns, which created an unrealistic dataset with mixed domains and required pre-built task files.
 
 ## Decision
-Each dataset gets three difficulty variants instead of one:
-- `titanic_easy`, `titanic_medium`, `titanic_hard`
-- `wine_easy`, `wine_medium`, `wine_hard`
+Each dataset supports three difficulty profiles:
+- `easy`
+- `medium`
+- `hard`
 
-Difficulty is controlled by corruption fractions and which corruption types are applied:
+Profiles live in `server/corruption/profiles.py` and are applied dynamically at `reset()` time, not generated into static task JSON files.
 
 | difficulty | corruption fraction | corruption types |
 |-----------|--------------------|--------------------|
@@ -20,7 +21,7 @@ Difficulty is controlled by corruption fractions and which corruption types are 
 | hard      | 30%               | all 5-6 types |
 
 ## Consequences
-- 6 tasks total vs 3 before
-- Evaluation covers difficulty gradient within each domain
+- Any catalog dataset can run at easy, medium, or hard
+- Evaluation covers difficulty gradient within each dataset
 - No artificial cross-domain datasets
-- Dropped `hard_combined` — it was not a realistic cleaning scenario
+- Difficulty changes do not require rebuilding task artifacts

@@ -1,0 +1,30 @@
+models:
+  - name: qwen3-8b
+    api_base: "http://localhost:8080/v1"
+    api_key_env: "BENCHMARK_API_KEY"
+  - name: gemma-2-9b
+    api_base: "http://localhost:8080/v1"
+    api_key_env: "BENCHMARK_API_KEY"
+
+categories:
+  - FP
+  - VR
+  - MD
+  - SR
+  - SV
+  - CP
+
+difficulties:
+  - easy
+  - medium
+  - hard
+
+datasets: []
+
+seeds_per_combo: 1
+base_seed: 42
+
+output_dir: "outputs/benchmark"
+env_url: "http://localhost:7860"
+min_call_interval: 2.5
+max_steps: 50

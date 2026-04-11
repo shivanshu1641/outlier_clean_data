@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Dict, List, Literal, Optional, Union
+from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
 from openenv.core import Action as BaseAction
 from openenv.core import Observation as BaseObservation
@@ -48,8 +48,25 @@ class DoneAction(BaseAction):
     type: Literal["done"] = "done"
 
 
+class UndoAction(BaseAction):
+    """Restore the dataset to a previous checkpoint."""
+
+    type: Literal["undo"] = "undo"
+    step: int = Field(
+        ...,
+        ge=0,
+        description="Restore to state after this transform step (0 = original dirty file)",
+    )
+
+
+class ValidateAction(BaseAction):
+    """Get a detailed error breakdown without burning a done attempt."""
+
+    type: Literal["validate"] = "validate"
+
+
 Action = Annotated[
-    Union[ExploreAction, TransformAction, DoneAction],
+    Union[ExploreAction, TransformAction, DoneAction, UndoAction, ValidateAction],
     Field(discriminator="type"),
 ]
 
@@ -74,7 +91,38 @@ class ActionWrapper(BaseAction):
                 return TransformAction.model_validate(obj, **kwargs)
             elif action_type == "done":
                 return DoneAction.model_validate(obj, **kwargs)
+            elif action_type == "undo":
+                return UndoAction.model_validate(obj, **kwargs)
+            elif action_type == "validate":
+                return ValidateAction.model_validate(obj, **kwargs)
         return super().model_validate(obj, **kwargs)
+
+
+# ── Error Map Schema ─────────────────────────────────────────────────────────
+
+
+class CellError(BaseObservation):
+    """A single cell-level error entry."""
+
+    severity: float = Field(..., description="Error severity weight")
+    clean_value: Optional[Any] = Field(None, description="The correct value")
+    corruption: str = Field(..., description="Corruption type that created this error")
+    accepted_fill: Optional[str] = Field(None, description="Fill acceptance mode: any, exact, mean, median, mode")
+
+
+class RowError(BaseObservation):
+    """A row-level error (spurious or missing)."""
+
+    severity: float = Field(..., description="Error severity weight")
+    clean_values: Optional[Dict[str, Any]] = Field(None, description="Column values for missing rows")
+
+
+class ErrorMap(BaseObservation):
+    """Shared schema for error tracking between corruption pipeline and grader."""
+
+    cell_errors: Dict[str, CellError] = Field(default_factory=dict, description="'row,col' -> CellError")
+    spurious_rows: Dict[str, RowError] = Field(default_factory=dict, description="Row index -> RowError for duplicate rows")
+    missing_rows: Dict[str, RowError] = Field(default_factory=dict, description="'missing_N' -> RowError for dropped rows")
 
 
 # ── Step Info ────────────────────────────────────────────────────────────────
@@ -92,6 +140,9 @@ class StepInfo(BaseObservation):
     max_transform_steps: int = Field(10, description="Max transform steps allowed")
     min_transform_steps: int = Field(2, description="Known minimum transforms for this task")
     done_count: int = Field(0, description="Number of times agent has submitted done")
+    undo_count: int = Field(0, description="Number of undo actions taken")
+    validate_uses: int = Field(0, description="Validate actions used")
+    validate_budget: int = Field(2, description="Max validate actions per episode")
 
 
 # ── Observation ──────────────────────────────────────────────────────────────
@@ -107,6 +158,12 @@ class DataCleaningObservation(BaseObservation):
     explore_result: Optional[str] = Field(None, description="Result of last explore query")
     transform_result: Optional[str] = Field(None, description="Success/error from last transform")
     constraint_status: Dict[str, bool] = Field(default_factory=dict, description="Constraint ID → satisfied")
+    file_format: Optional[str] = Field(None, description="Input file format (csv, json, excel, etc.)")
+    target_schema: Optional[Dict[str, str]] = Field(None, description="Target column names and dtypes")
+    file_preview: Optional[str] = Field(None, description="First ~2000 chars of raw dirty file")
+    diagnosis: Optional[str] = Field(None, description="Hint-level error summary")
+    semantic_rules: List[Dict] = Field(default_factory=list, description="Semantic constraint rules for this dataset")
+    validate_result: Optional[str] = Field(None, description="Detailed error breakdown from validate action")
     step_info: Optional[StepInfo] = None
 
 

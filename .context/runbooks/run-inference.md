@@ -3,10 +3,22 @@
 ## Command
 ```bash
 source .venv/bin/activate
-python inference.py                          # all 6 tasks
-python inference.py titanic_easy             # specific task
-python inference.py titanic_easy wine_medium # multiple tasks
+python inference.py                              # default 15-task eval suite
+python inference.py titanic_easy                 # specific legacy task id
+python inference.py titanic_easy wine_medium     # multiple legacy task ids
 ```
+
+## Eval suite
+`inference.py` defines a 15-task eval suite (`EVAL_TASK_IDS`) spanning 5 datasets × 3 difficulties. Legacy IDs like `titanic_easy` are mapped through `LEGACY_TASK_MAP`.
+
+## Benchmark runner
+For systematic model evaluation across categories:
+```bash
+python tools/benchmark_runner.py                              # default config
+python tools/benchmark_runner.py --models gpt-4o --categories FP VR
+python tools/benchmark_runner.py --config tools/benchmark_config.yaml
+```
+Results saved to `outputs/benchmark/` as JSONL + CSV.
 
 ## Deployment-safe config
 
@@ -25,6 +37,12 @@ API_KEY=
 MODEL_NAME=qwen3
 ```
 
+Tested local models:
+- `qwen3` (Qwen 3 4B) — fast, good for easy/medium tasks
+- `gemma3:4b` (Gemma 3 4B) — comparable to Qwen 3 for data cleaning
+- `llama3.2:3b` — smaller, struggles on hard tasks
+- `phi4-mini` — compact, decent on structured data
+
 ### NVIDIA NIM
 ```bash
 API_BASE_URL=https://integrate.api.nvidia.com/v1
@@ -37,6 +55,20 @@ MODEL_NAME=nvidia/nemotron-super-49b-v1
 API_BASE_URL=https://api.openai.com/v1
 API_KEY=sk-...
 MODEL_NAME=gpt-4o
+```
+
+### OpenRouter (free tier)
+```bash
+API_BASE_URL=https://openrouter.ai/api/v1
+API_KEY=sk-or-...
+MODEL_NAME=google/gemma-3-27b-it:free
+```
+
+### HuggingFace Inference
+```bash
+API_BASE_URL=https://router.huggingface.co/v1
+API_KEY=hf_...
+MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
 ```
 
 ### Any other OpenAI-compatible endpoint
@@ -67,6 +99,7 @@ LOG_LEVEL=DEBUG python inference.py titanic_easy
 ## Output
 - **stdout**: Machine-readable JSON lines (`[START]`, `[STEP]`, `[END]`)
 - **stderr**: Human-readable logs
+- Supported environment actions include edit actions plus `undo` and `validate`
 
 To capture only the structured output:
 ```bash
@@ -74,5 +107,5 @@ python inference.py 2>/dev/null
 ```
 
 ## Prerequisites
-- Server must be running (`uvicorn server.app:app --port 8000 --ws-ping-interval 60 --ws-ping-timeout 120`)
-- Task artifacts must exist (`python tools/corruption/engine.py`)
+- Server must be running (`python server/app.py` or `uvicorn server.app:app --port 7860 --ws-ping-interval 60 --ws-ping-timeout 120`)
+- Datasets should be downloaded from `catalog.json` with `python tools/download_datasets.py`

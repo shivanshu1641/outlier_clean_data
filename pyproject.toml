@@ -10,6 +10,12 @@ dependencies = [
     "fastapi>=0.100",
     "uvicorn>=0.20",
     "pydantic>=2.0",
+    "polars>=1.0",
+    "openpyxl>=3.1",
+    "lxml>=5.0",
+    "pyyaml>=6.0",
+    "duckdb>=1.0",
+    "requests>=2.31",
 ]
 
 [project.optional-dependencies]
@@ -20,6 +26,10 @@ dev = [
 inference = [
     "openai>=1.0",
 ]
+ui = [
+    "gradio>=4.0",
+    "plotly>=5.0",
+]
 
 [project.scripts]
 server = "server.app:main"
@@ -27,3 +37,6 @@ server = "server.app:main"
 [build-system]
 requires = ["setuptools>=68.0"]
 build-backend = "setuptools.backends._legacy:_Backend"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

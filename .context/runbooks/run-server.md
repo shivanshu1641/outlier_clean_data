@@ -3,7 +3,9 @@
 ## Command
 ```bash
 source .venv/bin/activate
-uvicorn server.app:app --port 8000 --ws-ping-interval 60 --ws-ping-timeout 120
+python server/app.py
+# or
+uvicorn server.app:app --port 7860 --ws-ping-interval 60 --ws-ping-timeout 120
 ```
 
 ## Why the WebSocket flags
@@ -18,17 +20,16 @@ All read from `.env` (loaded by the server process):
 
 | Var | Default | Effect |
 |-----|---------|--------|
-| `TASKS_DIR` | `tasks` | Where task JSON configs are loaded from |
 | `DATA_DIR` | `data` | Root for data artifacts |
 | `SANDBOX_BASE` | `outputs/sandbox` | Where per-episode sandboxes are created |
 
 ## Health check
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:7860/health
 # or
-curl http://localhost:8000/info
+curl http://localhost:7860/info
 ```
 
 ## Prerequisites
-- Run `python tools/corruption/engine.py` first to generate task artifacts
+- Download datasets with `python tools/download_datasets.py`
 - `.venv` must be activated (or use `uvicorn` from the venv directly)
