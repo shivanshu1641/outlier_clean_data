@@ -29,7 +29,13 @@ from pathlib import Path
 from openai import OpenAI
 
 from client import DataCleaningClient
-from models import DoneAction, ExploreAction, TransformAction, UndoAction, ValidateAction
+from models import (
+    DoneAction,
+    ExploreAction,
+    TransformAction,
+    UndoAction,
+    ValidateAction,
+)
 
 # ── Logging setup ─────────────────────────────────────────────────────────────
 
@@ -64,32 +70,32 @@ ENV_URL = os.environ.get("ENV_URL", "http://localhost:7860")
 # Formats are pinned per task for deterministic, reproducible episodes.
 # easy: csv + tsv | medium: csv + json + jsonl | hard: csv + json + xml
 EVAL_TASKS: list[tuple[str, str, str]] = [
-    ("titanic",        "easy",   "csv"),
-    ("titanic",        "easy",   "tsv"),
-    ("titanic",        "medium", "csv"),
-    ("titanic",        "medium", "json"),
-    ("titanic",        "hard",   "csv"),
-    ("titanic",        "hard",   "json"),
-    ("titanic",        "hard",   "xml"),
-    ("iris",           "easy",   "csv"),
-    ("iris",           "medium", "csv"),
-    ("iris",           "medium", "jsonl"),
+    ("titanic", "easy", "csv"),
+    ("titanic", "easy", "tsv"),
+    ("titanic", "medium", "csv"),
+    ("titanic", "medium", "json"),
+    ("titanic", "hard", "csv"),
+    ("titanic", "hard", "json"),
+    ("titanic", "hard", "xml"),
+    ("iris", "easy", "csv"),
+    ("iris", "medium", "csv"),
+    ("iris", "medium", "jsonl"),
     ("boston_housing", "medium", "csv"),
     ("boston_housing", "medium", "json"),
-    ("boston_housing", "hard",   "csv"),
-    ("boston_housing", "hard",   "xml"),
-    ("diabetes",       "medium", "csv"),
-    ("diabetes",       "medium", "jsonl"),
-    ("diabetes",       "hard",   "csv"),
-    ("diabetes",       "hard",   "json"),
-    ("wine_quality",   "easy",   "csv"),
-    ("wine_quality",   "medium", "csv"),
-    ("wine_quality",   "medium", "json"),
-    ("wine_quality",   "hard",   "csv"),
-    ("wine_quality",   "hard",   "xml"),
-    ("breast_cancer",  "easy",   "csv"),
-    ("breast_cancer",  "medium", "csv"),
-    ("breast_cancer",  "medium", "jsonl"),
+    ("boston_housing", "hard", "csv"),
+    ("boston_housing", "hard", "xml"),
+    ("diabetes", "medium", "csv"),
+    ("diabetes", "medium", "jsonl"),
+    ("diabetes", "hard", "csv"),
+    ("diabetes", "hard", "json"),
+    ("wine_quality", "easy", "csv"),
+    ("wine_quality", "medium", "csv"),
+    ("wine_quality", "medium", "json"),
+    ("wine_quality", "hard", "csv"),
+    ("wine_quality", "hard", "xml"),
+    ("breast_cancer", "easy", "csv"),
+    ("breast_cancer", "medium", "csv"),
+    ("breast_cancer", "medium", "jsonl"),
 ]
 
 TASKS = EVAL_TASKS
@@ -241,8 +247,9 @@ Important rules:
 - Your action history is shown in every observation — use it to avoid repeating mistakes
 - If you're stuck, submit 'done' rather than repeating the same failing transform
 - NEVER invent or re-sequence identifier columns (e.g. PassengerId, id, index, key). Inspect the exact dirty tokens with explore first; do not overwrite IDs with sequential integers or any fabricated values.
-- pd.to_numeric(col, errors='coerce') turns bad strings into NaN, which is NOT the same as fixing them. You must also fill those NaN values correctly afterward.
+- pd.to_numeric(col, errors='coerce') turns bad strings into NaN, which is WORSE than leaving them — NaN when the clean value is a number (e.g. 0) is graded as a WRONG VALUE (1.5× penalty). You MUST always follow to_numeric with fillna using the column median or mode in the SAME transform.
 - fillna(value, inplace=True) on a column may silently no-op in pandas 2.x. Use assignment: df['col'] = df['col'].fillna(value)
+- Some dirty sentinels ("n/a", "N/A", "null", "NA") are auto-parsed as NaN by pandas read_csv before you see them. If a column already shows NaN where it should have a value, fill it directly — do NOT run to_numeric on it.
 - A single cell can have MULTIPLE corruptions (e.g. type_mangle + inject_nulls on the same column). One transform may only fix one layer — check errors after each step and apply follow-up transforms for remaining issues.
 """
 
@@ -251,7 +258,9 @@ def build_system_prompt() -> str:
     return BASE_SYSTEM_PROMPT
 
 
-def _extract_remaining_error_targets(constraints: list[str] | None) -> dict[str, list[str]]:
+def _extract_remaining_error_targets(
+    constraints: list[str] | None,
+) -> dict[str, list[str]]:
     """Parse compact `corruption in: col1, col2` lines from the observation."""
     targets: dict[str, list[str]] = {}
     for desc in constraints or []:
@@ -267,7 +276,9 @@ def _extract_remaining_error_targets(constraints: list[str] | None) -> dict[str,
     return targets
 
 
-def _suggest_explore_queries(obs, action_history: list[dict] | None = None) -> list[str]:
+def _suggest_explore_queries(
+    obs, action_history: list[dict] | None = None
+) -> list[str]:
     """Generate a few concrete explore queries from the current error summary."""
     targets = _extract_remaining_error_targets(obs.constraints or [])
     suggestions: list[str] = []
@@ -287,12 +298,19 @@ def _suggest_explore_queries(obs, action_history: list[dict] | None = None) -> l
         elif ctype == "type_mangle":
             add(f"df[{cols_expr}].head(15)")
             if shown:
-                add(f"pd.to_numeric(df[{repr(shown[0])}], errors='coerce').isna().sum()")
+                add(
+                    f"pd.to_numeric(df[{repr(shown[0])}], errors='coerce').isna().sum()"
+                )
         elif ctype in {"outlier_injection", "decimal_shift"}:
             add(f"df[{cols_expr}].describe(include='all')")
             if shown:
                 add(f"df[{repr(shown[0])}].sort_values().tail(10)")
-        elif ctype in {"whitespace_noise", "format_inconsistency", "category_misspell", "typo_injection"}:
+        elif ctype in {
+            "whitespace_noise",
+            "format_inconsistency",
+            "category_misspell",
+            "typo_injection",
+        }:
             add(f"df[{cols_expr}].head(15)")
             if shown:
                 add(f"df[{repr(shown[0])}].value_counts(dropna=False).head(20)")
@@ -317,9 +335,11 @@ def _explore_manual(obs) -> list[str]:
 
     if "type_mangle" in targets:
         bullets.append(
-            "For type_mangle: explore with `df['col'].unique()[:20]` to see the bad tokens, "
-            "then fix with `df['col'] = pd.to_numeric(df['col'], errors='coerce')`. "
-            "Do NOT use to_numeric if values are already parsed as NaN — confirm bad tokens exist first."
+            "For type_mangle: explore with `df['col'].unique()[:20]` to see the bad tokens. "
+            "If you see string tokens like '##', 'unknown', '-': convert AND fill in one step: "
+            "`df['col'] = pd.to_numeric(df['col'], errors='coerce'); df['col'] = df['col'].fillna(df['col'].median())`. "
+            "NEVER leave NaN after to_numeric — NaN when clean is a number scores WORSE than unfixed. "
+            "If values are already NaN (sentinels like 'n/a' auto-parsed), just fillna directly."
         )
     if "inject_nulls" in targets or "null_injected" in targets:
         bullets.append(
@@ -341,12 +361,22 @@ def _explore_manual(obs) -> list[str]:
             "For duplicate_rows: fix with `df = df.drop_duplicates()` — "
             "this is the ONE safe use of drop; confirm duplicates exist first with `df.duplicated().sum()`."
         )
-    if any(t in targets for t in ("whitespace_noise", "format_inconsistency", "category_misspell", "typo_injection")):
+    if any(
+        t in targets
+        for t in (
+            "whitespace_noise",
+            "format_inconsistency",
+            "category_misspell",
+            "typo_injection",
+        )
+    ):
         bullets.append(
             "For string corruption, inspect examples or value counts before normalizing so you target the right columns."
         )
 
-    bullets.append("Do not repeat the same explore query. After 1-2 targeted explores, either transform or validate.")
+    bullets.append(
+        "Do not repeat the same explore query. After 1-2 targeted explores, either transform or validate."
+    )
     return bullets[:5]
 
 
@@ -417,16 +447,24 @@ def build_user_prompt(
         error_text = str(obs.constraints[0]) if obs.constraints else ""
         # Parse corruption types and their columns from the error summary
         import re as _re
+
         type_lines = _re.findall(r"(\w+) in: ([^\n]+)", error_text)
         if type_lines:
             # Priority order: structural first, then value-level
             _PRIORITY = {
-                "duplicate_rows": 0, "drop_rows": 0, "header_in_data": 0,
-                "column_shift": 1, "value_swap": 1,
-                "inject_nulls": 2, "whitespace_noise": 2,
-                "type_mangle": 3, "format_inconsistency": 3,
-                "outlier_injection": 4, "decimal_shift": 4,
-                "category_misspell": 5, "typo_injection": 5,
+                "duplicate_rows": 0,
+                "drop_rows": 0,
+                "header_in_data": 0,
+                "column_shift": 1,
+                "value_swap": 1,
+                "inject_nulls": 2,
+                "whitespace_noise": 2,
+                "type_mangle": 3,
+                "format_inconsistency": 3,
+                "outlier_injection": 4,
+                "decimal_shift": 4,
+                "category_misspell": 5,
+                "typo_injection": 5,
             }
             sorted_types = sorted(type_lines, key=lambda t: _PRIORITY.get(t[0], 6))
             parts.extend(["", "FIX PRIORITY (work in this order):"])
@@ -616,7 +654,9 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
     env_client = DataCleaningClient(base_url=ENV_URL)
 
     async with env_client as env:
-        step_result = await env.reset(task_id=dataset_id, difficulty=difficulty, format=fmt)
+        step_result = await env.reset(
+            task_id=dataset_id, difficulty=difficulty, format=fmt
+        )
         obs = step_result.observation
         current_reward = step_result.reward or 0.0
 
@@ -659,7 +699,9 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
             # Hard enforce: must explore before first transform
             has_any_explore = any(h["type"] == "explore" for h in action_history)
             if action_type == "transform" and not has_any_explore:
-                logger.warning("Model tried to transform before any explore — auto-injecting diagnostic explore")
+                logger.warning(
+                    "Model tried to transform before any explore — auto-injecting diagnostic explore"
+                )
                 action_dict = {"type": "explore", "query": "df.isnull().sum()"}
                 action = action_from_dict(action_dict)
                 action_type = "explore"
@@ -742,14 +784,21 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
             if action_type == "transform" and fixed > best_fixed:
                 best_reward = current_reward
                 best_fixed = fixed
-                best_transform_step = sum(1 for h in action_history if h["type"] == "transform")
+                best_transform_step = sum(
+                    1 for h in action_history if h["type"] == "transform"
+                )
 
             if action_type == "transform" and fixed < best_fixed and best_fixed > 0:
                 regression_pct = (best_fixed - fixed) / best_fixed
                 if regression_pct >= 0.25:
                     logger.warning(
                         "Major regression: %d/%d fixed (was %d/%d, %.0f%% drop) — auto-undoing to step %d",
-                        fixed, total, best_fixed, total, regression_pct * 100, best_transform_step,
+                        fixed,
+                        total,
+                        best_fixed,
+                        total,
+                        regression_pct * 100,
+                        best_transform_step,
                     )
                     undo_result = await env.step(UndoAction(step=best_transform_step))
                     obs = undo_result.observation
@@ -763,8 +812,12 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                     fixed = sum(1 for v in constraint_status.values() if v)
                     total = len(constraint_status)
                     log_step(
-                        step_num, "undo", current_reward,
-                        done=False, errors_fixed=fixed, errors_total=total,
+                        step_num,
+                        "undo",
+                        current_reward,
+                        done=False,
+                        errors_fixed=fixed,
+                        errors_total=total,
                     )
                     action_history.append(
                         {
@@ -809,7 +862,7 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                     if curr < prev:
                         warnings.append(
                             f"REGRESSION: Your last transform REDUCED errors fixed from {prev}/{total} to {curr}/{total}. "
-                            f"Your previous state was better. Use undo to go back: {{\"type\": \"undo\", \"step\": 0}} restores the original, "
+                            f'Your previous state was better. Use undo to go back: {{"type": "undo", "step": 0}} restores the original, '
                             f"or use a higher step number to restore a later checkpoint. Do NOT keep transforming without undoing first."
                         )
                     elif curr == prev:
@@ -842,12 +895,17 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                 same_query_streak = _same_query_streak(action_history)
                 consecutive_explores = _consecutive_explore_count(action_history)
                 validate_available = bool(
-                    obs.step_info and obs.step_info.validate_uses < obs.step_info.validate_budget
+                    obs.step_info
+                    and obs.step_info.validate_uses < obs.step_info.validate_budget
                 )
-                budget_exhausted = "budget exhausted" in (obs.explore_result or "").lower()
+                budget_exhausted = (
+                    "budget exhausted" in (obs.explore_result or "").lower()
+                )
 
                 if validate_available and (
-                    same_query_streak >= 2 or consecutive_explores >= 5 or budget_exhausted
+                    same_query_streak >= 2
+                    or consecutive_explores >= 5
+                    or budget_exhausted
                 ):
                     logger.warning(
                         "Repeated explore loop detected (same_query_streak=%d consecutive_explores=%d budget_exhausted=%s) — auto-submitting validate",
@@ -894,8 +952,9 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                     }
                 )
 
-            # Stale: 2 consecutive transforms (since last validate) with same errors_fixed → auto-validate
+            # Stale: 5 consecutive transforms (since last validate) with same errors_fixed → auto-validate
             # Only count transforms after the most recent validate to avoid burning both validates quickly
+            # Using 5 to avoid punishing models that made real progress but plateau briefly
             transforms_since_validate = []
             for h in reversed(action_history):
                 if h["type"] == "validate":
@@ -904,16 +963,21 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                     transforms_since_validate.append(h["errors_fixed"])
             transforms_since_validate.reverse()
 
-            last2 = transforms_since_validate[-2:] if len(transforms_since_validate) >= 2 else []
+            last5 = (
+                transforms_since_validate[-5:]
+                if len(transforms_since_validate) >= 5
+                else []
+            )
             stale_validate_fired = False
-            if not should_auto_validate and len(last2) == 2 and len(set(last2)) == 1:
+            if not should_auto_validate and len(last5) == 5 and len(set(last5)) == 1:
                 validate_available = bool(
-                    obs.step_info and obs.step_info.validate_uses < obs.step_info.validate_budget
+                    obs.step_info
+                    and obs.step_info.validate_uses < obs.step_info.validate_budget
                 )
                 if validate_available:
                     logger.warning(
-                        "No improvement in last 2 transforms (%d/%d fixed) — auto-submitting validate before escalating",
-                        last2[-1],
+                        "No improvement in last 5 transforms (%d/%d fixed) — auto-submitting validate before escalating",
+                        last5[-1],
                         total,
                     )
                     validate_result = await env.step(ValidateAction())
@@ -1008,7 +1072,7 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
             # Keep message history bounded — retain system + last N exchanges
             MAX_HISTORY_MESSAGES = 20  # system + 10 exchanges (assistant+user pairs)
             if len(messages) > MAX_HISTORY_MESSAGES:
-                messages = [messages[0]] + messages[-(MAX_HISTORY_MESSAGES - 1):]
+                messages = [messages[0]] + messages[-(MAX_HISTORY_MESSAGES - 1) :]
 
             if step_result.done:
                 break
@@ -1062,7 +1126,11 @@ def _parse_cli_tasks(args: list[str]) -> list[tuple[str, str]]:
             tasks.append((parts[0], parts[1], "csv"))
             i += 1
         elif i + 1 < len(args) and args[i + 1] in ("easy", "medium", "hard"):
-            fmt = args[i + 2] if i + 2 < len(args) and args[i + 2] not in ("easy", "medium", "hard") else "csv"
+            fmt = (
+                args[i + 2]
+                if i + 2 < len(args) and args[i + 2] not in ("easy", "medium", "hard")
+                else "csv"
+            )
             step = 3 if fmt != "csv" else 2
             tasks.append((arg, args[i + 1], fmt))
             i += step

@@ -1,4 +1,5 @@
 """Runtime corruption pipeline -- generates dirty data + error_map at reset() time."""
+
 from __future__ import annotations
 
 import random
@@ -18,7 +19,12 @@ class CorruptionPipeline:
     preserve RNG ordering (both methods draw from the same py_rng).
     """
 
-    def __init__(self, seed: int, difficulty: Optional[str] = None, category: Optional[str] = None):
+    def __init__(
+        self,
+        seed: int,
+        difficulty: Optional[str] = None,
+        category: Optional[str] = None,
+    ):
         self.seed = seed
         self.rng = np.random.default_rng(seed)
         self.py_rng = random.Random(seed)
@@ -40,13 +46,16 @@ class CorruptionPipeline:
         """MUST be called BEFORE corrupt() to preserve RNG ordering."""
         if self.category:
             from .categories import get_formats_for_category
+
             pool = get_formats_for_category(self.category)
         else:
             pool = self.profile["format_pool"]
         return self.py_rng.choice(pool)
 
     def corrupt(
-        self, clean_df: pd.DataFrame, rules: list | None = None,
+        self,
+        clean_df: pd.DataFrame,
+        rules: list | None = None,
     ) -> tuple[pd.DataFrame, dict, dict, dict]:
         """Apply selected corruptions to *clean_df*.
 
@@ -83,12 +92,18 @@ class CorruptionPipeline:
                         pass
 
         # Corruptions that should never touch identifier columns
-        _RISKY_FOR_IDS = {"outlier_injection", "type_mangle", "decimal_shift",
-                          "integer_as_float", "leading_zero_strip"}
+        _RISKY_FOR_IDS = {
+            "outlier_injection",
+            "type_mangle",
+            "decimal_shift",
+            "integer_as_float",
+            "leading_zero_strip",
+        }
 
         # --- choose corruption types ---
         if self.category:
             from .categories import get_corruptions_for_category
+
             allowed = get_corruptions_for_category(self.category)
         else:
             allowed = self.profile.get("allowed_corruptions")  # None = all types
@@ -109,9 +124,7 @@ class CorruptionPipeline:
                 continue
             applicable.append(name)
 
-        selected = self.py_rng.sample(
-            applicable, min(num_types, len(applicable))
-        )
+        selected = self.py_rng.sample(applicable, min(num_types, len(applicable)))
         # Row-level ops first: they reset/shift the index, so cell-level ops
         # must record keys against the final row structure. Sort key is
         # (is_cell_op, name) — row ops first, alphabetical within each group.

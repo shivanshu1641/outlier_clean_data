@@ -83,10 +83,10 @@ The old model benchmark tables were captured before the April 2026 difficulty re
 
 ### Post-rebalance profile sanity check (Titanic, CSV, seeds 42-51)
 
-| Difficulty | Typical total errors | Average total errors | Notes |
-| ---------- | -------------------- | -------------------- | ----- |
-| easy       | 33-98                | 61.5                 | Single focused corruption type |
-| medium     | 136-447              | 278.0                | 3-4 corruption types with capped column spread |
+| Difficulty | Typical total errors | Average total errors | Notes                                                                  |
+| ---------- | -------------------- | -------------------- | ---------------------------------------------------------------------- |
+| easy       | 33-98                | 61.5                 | Single focused corruption type                                         |
+| medium     | 136-447              | 278.0                | 3-4 corruption types with capped column spread                         |
 | hard       | 1586-2895            | 2174.0               | Successful seeds only; hard-mode dtype bug still present on some seeds |
 
 Full model benchmarks should be rerun after the rebalance before publishing new reward baselines.
@@ -105,6 +105,8 @@ Full model benchmarks should be rerun after the rebalance before publishing new 
 - `titanic_hard` shows 16/958 fixed at reset — phantom matches from overlapping corruptions where dirty value happens to equal clean value
 - ~~`clean_value: None` overlap bug~~ — fixed: `_get_clean_val()` always reads from original clean_df, not corrupted df
 - Grader index type mismatch: if `result_df` has string index (e.g. after CSV round-trip) but error_map keys are int-based, `df.at[int_idx, col]` silently KeyErrors → all cells marked "unfixed". Pre-existing bug, not yet fixed
+- ~~Grader `_row_hash` int/float mismatch~~ — fixed: CSV round-trip converts int columns to float when NaN is present, causing `str(6) ≠ str(6.0)` and zero row matches in `match_rows_by_content`. `_row_hash` now normalizes numeric values (e.g. `6.0` → `"6"`). This was harmless for same-row-count tasks (identity fallback) but broke hard tasks with `drop_rows`/`duplicate_rows`
+- Medium/hard 0-progress with small models: not an environment bug — `pd.to_numeric(errors='coerce')` converts sentinels like `"##"` → NaN when clean value is `0`, graded as `wrong_value` (1.5× penalty). Models must impute correct values, not just coerce to NaN. Type_mangle sentinels like "n/a"/"N/A" are auto-parsed as NaN by `pd.read_csv()` before the agent sees them (`dirty_value=None`)
 - ~~Collateral damage detection could compare dropped rows against shifted result indices~~ — fixed: it is row-mapping aware and skips clean rows missing from the content mapping after row drops
 
 ## File Map
@@ -174,19 +176,19 @@ reward = base_score × efficiency_factor   [clamped to 0.0–1.0]
 
 ## Environment Variables
 
-| Var                 | Default                     | Purpose                                             |
-| ------------------- | --------------------------- | --------------------------------------------------- |
-| `API_BASE_URL`      | `https://api.openai.com/v1`  | LLM endpoint; validator injects LiteLLM proxy here  |
-| `API_KEY`           | from `HF_TOKEN` or `OPENAI_API_KEY` | API token (read at import time)              |
-| `MODEL_NAME`        | `gpt-4o`                     | Model name                                          |
-| `ENV_URL`           | `http://localhost:7860`      | OpenEnv server URL                                  |
-| `LOG_LEVEL`         | `INFO`                      | `INFO` for actions/timing, `DEBUG` for full LLM I/O |
-| `LOG_DIR`           | `outputs/logs`              | JSONL log directory                                 |
-| `MIN_CALL_INTERVAL` | `2.5`                       | Min seconds between LLM calls (0 for local)         |
-| `TASKS_DIR`         | `tasks`                     | Task config directory                               |
-| `DATA_DIR`          | `data`                      | Data artifacts directory                            |
-| `DATASETS_DIR`      | `datasets`                  | Dataset catalog/materialized inputs                 |
-| `SANDBOX_BASE`      | `outputs/sandbox`           | Sandbox working directories                         |
+| Var                 | Default                             | Purpose                                             |
+| ------------------- | ----------------------------------- | --------------------------------------------------- |
+| `API_BASE_URL`      | `https://api.openai.com/v1`         | LLM endpoint; validator injects LiteLLM proxy here  |
+| `API_KEY`           | from `HF_TOKEN` or `OPENAI_API_KEY` | API token (read at import time)                     |
+| `MODEL_NAME`        | `gpt-4o`                            | Model name                                          |
+| `ENV_URL`           | `http://localhost:7860`             | OpenEnv server URL                                  |
+| `LOG_LEVEL`         | `INFO`                              | `INFO` for actions/timing, `DEBUG` for full LLM I/O |
+| `LOG_DIR`           | `outputs/logs`                      | JSONL log directory                                 |
+| `MIN_CALL_INTERVAL` | `2.5`                               | Min seconds between LLM calls (0 for local)         |
+| `TASKS_DIR`         | `tasks`                             | Task config directory                               |
+| `DATA_DIR`          | `data`                              | Data artifacts directory                            |
+| `DATASETS_DIR`      | `datasets`                          | Dataset catalog/materialized inputs                 |
+| `SANDBOX_BASE`      | `outputs/sandbox`                   | Sandbox working directories                         |
 
 ## Deployment Notes
 

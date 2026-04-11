@@ -44,23 +44,53 @@ except ImportError:
 from openenv.core import Environment
 
 try:
-    from .corruption.format_corruptions import apply_format_corruptions, convert_to_format, format_preview
+    from .corruption.format_corruptions import (
+        apply_format_corruptions,
+        convert_to_format,
+        format_preview,
+    )
     from .corruption.pipeline import CorruptionPipeline
     from .corruption.profiles import DIFFICULTY_PROFILES
     from .grader import grade, summarize_errors
-    from .sandbox import ExecutionResult, create_sandbox, execute_explore, execute_transform, reload_worker_df, restore_checkpoint, save_checkpoint, terminate_worker
+    from .sandbox import (
+        ExecutionResult,
+        create_sandbox,
+        execute_explore,
+        execute_transform,
+        reload_worker_df,
+        restore_checkpoint,
+        save_checkpoint,
+        terminate_worker,
+    )
 except ImportError:
-    from corruption.format_corruptions import apply_format_corruptions, convert_to_format, format_preview
+    from corruption.format_corruptions import (
+        apply_format_corruptions,
+        convert_to_format,
+        format_preview,
+    )
     from corruption.pipeline import CorruptionPipeline
     from corruption.profiles import DIFFICULTY_PROFILES
     from grader import grade, summarize_errors
-    from sandbox import ExecutionResult, create_sandbox, execute_explore, execute_transform, reload_worker_df, restore_checkpoint, save_checkpoint, terminate_worker
+    from sandbox import (
+        ExecutionResult,
+        create_sandbox,
+        execute_explore,
+        execute_transform,
+        reload_worker_df,
+        restore_checkpoint,
+        save_checkpoint,
+        terminate_worker,
+    )
 
-ActionType = Union[ExploreAction, TransformAction, DoneAction, UndoAction, ValidateAction]
+ActionType = Union[
+    ExploreAction, TransformAction, DoneAction, UndoAction, ValidateAction
+]
 
 DATA_DIR = os.environ.get("DATA_DIR", "data")
 SANDBOX_BASE = os.environ.get("SANDBOX_BASE", "outputs/sandbox")
-CATALOG_PATH = os.environ.get("CATALOG_PATH", str(Path(__file__).parent.parent / "datasets" / "catalog.json"))
+CATALOG_PATH = os.environ.get(
+    "CATALOG_PATH", str(Path(__file__).parent.parent / "datasets" / "catalog.json")
+)
 
 # Defaults for profile keys not present in DIFFICULTY_PROFILES
 _EXPLORE_BUDGET_DEFAULT = 10
@@ -96,17 +126,21 @@ def _ensure_dataset(name: str, entry: dict) -> pd.DataFrame:
     # Try to download on the fly
     try:
         import sys
+
         tools_dir = str(Path(__file__).parent.parent / "tools")
         if tools_dir not in sys.path:
             sys.path.insert(0, tools_dir)
         from download_datasets import download_one
+
         clean_dir.mkdir(parents=True, exist_ok=True)
         ok = download_one(name, entry, clean_dir)
         if ok and csv_path.exists():
             return pd.read_csv(csv_path)
     except Exception:
         pass
-    raise RuntimeError(f"Dataset not available: {name} — run tools/download_datasets.py first")
+    raise RuntimeError(
+        f"Dataset not available: {name} — run tools/download_datasets.py first"
+    )
 
 
 def _data_summary(df: pd.DataFrame, max_rows: int = 5) -> str:
@@ -115,7 +149,11 @@ def _data_summary(df: pd.DataFrame, max_rows: int = 5) -> str:
     buf.write("Columns and types:\n")
     for col in df.columns:
         null_count = int(df[col].isnull().sum())
-        null_info = f" ({null_count} nulls, {null_count/len(df)*100:.1f}%)" if null_count > 0 else ""
+        null_info = (
+            f" ({null_count} nulls, {null_count/len(df)*100:.1f}%)"
+            if null_count > 0
+            else ""
+        )
         buf.write(f"  {col}: {df[col].dtype}{null_info}\n")
     buf.write(f"\nSample rows (first {max_rows}):\n")
     buf.write(df.head(max_rows).to_string(index=False))
@@ -165,13 +203,19 @@ def _error_summary(
             for ctype, info in sorted(by_type.items(), key=lambda x: -x[1]["count"]):
                 cols = info["cols"]
                 count = info["count"]
-                lines.append(f"    {ctype} ({count} errors) in: {', '.join(sorted(cols))}")
+                lines.append(
+                    f"    {ctype} ({count} errors) in: {', '.join(sorted(cols))}"
+                )
                 for sample in type_samples.get(ctype, []):
                     lines.append(f"      example: {sample}")
         if error_map.get("spurious_rows"):
-            lines.append(f"    duplicate_rows: {len(error_map['spurious_rows'])} extra rows")
+            lines.append(
+                f"    duplicate_rows: {len(error_map['spurious_rows'])} extra rows"
+            )
         if error_map.get("missing_rows"):
-            lines.append(f"    missing_rows: {len(error_map['missing_rows'])} rows missing")
+            lines.append(
+                f"    missing_rows: {len(error_map['missing_rows'])} rows missing"
+            )
     return "\n".join(lines)
 
 
@@ -207,7 +251,9 @@ def _remaining_error_breakdown(
             wrong_total += 1
 
     lines: list[str] = []
-    for ctype, info in sorted(by_type.items(), key=lambda item: (-item[1]["count"], item[0]))[:max_types]:
+    for ctype, info in sorted(
+        by_type.items(), key=lambda item: (-item[1]["count"], item[0])
+    )[:max_types]:
         cols = sorted(info["columns"])
         col_text = ", ".join(cols[:max_cols])
         if len(cols) > max_cols:
@@ -217,8 +263,12 @@ def _remaining_error_breakdown(
             line += f" ({info['wrong']} wrong_value)"
         lines.append(line)
 
-    spurious = sum(1 for k, v in error_status.items() if k.startswith("spurious_") and v != "fixed")
-    missing = sum(1 for k, v in error_status.items() if k.startswith("missing_") and v != "fixed")
+    spurious = sum(
+        1 for k, v in error_status.items() if k.startswith("spurious_") and v != "fixed"
+    )
+    missing = sum(
+        1 for k, v in error_status.items() if k.startswith("missing_") and v != "fixed"
+    )
     if spurious:
         lines.append(f"duplicate_rows: {spurious} remaining")
     if missing:
@@ -228,7 +278,9 @@ def _remaining_error_breakdown(
     return lines
 
 
-def _changed_columns(prev_df: pd.DataFrame, curr_df: pd.DataFrame, max_cols: int = 8) -> str:
+def _changed_columns(
+    prev_df: pd.DataFrame, curr_df: pd.DataFrame, max_cols: int = 8
+) -> str:
     """Return a compact list of columns touched by the last transform."""
     changed: list[str] = []
     all_cols = list(dict.fromkeys(list(prev_df.columns) + list(curr_df.columns)))
@@ -321,15 +373,20 @@ def _refresh_dirty_values_from_df(error_map: dict[str, Any], df: pd.DataFrame) -
             continue
 
 
-def _validate_breakdown(error_status: dict[str, str], error_map: dict, clean_df: pd.DataFrame) -> str:
+def _validate_breakdown(
+    error_status: dict[str, str], error_map: dict, clean_df: pd.DataFrame
+) -> str:
     """Generate detailed error breakdown for ValidateAction."""
     cell_errors = error_map.get("cell_errors", {})
     missing = error_map.get("missing_rows", {})
     lines = ["=== Validate: Detailed Error Breakdown ===\n"]
 
     unfixed_cells = [
-        (k, v) for k, v in error_status.items()
-        if v != "fixed" and not k.startswith("spurious_") and not k.startswith("missing_")
+        (k, v)
+        for k, v in error_status.items()
+        if v != "fixed"
+        and not k.startswith("spurious_")
+        and not k.startswith("missing_")
     ]
     if unfixed_cells:
         lines.append(f"Cell errors ({len(unfixed_cells)} unfixed):")
@@ -337,18 +394,24 @@ def _validate_breakdown(error_status: dict[str, str], error_map: dict, clean_df:
             info = cell_errors.get(key, {})
             corruption = info.get("corruption", "unknown")
             clean_val = info.get("clean_value")
-            lines.append(f"  [{status}] key={key!r}  corruption={corruption}  expected={clean_val!r}")
+            lines.append(
+                f"  [{status}] key={key!r}  corruption={corruption}  expected={clean_val!r}"
+            )
         if len(unfixed_cells) > 20:
             lines.append(f"  ... and {len(unfixed_cells)-20} more")
 
-    unfixed_spurious = [k for k, v in error_status.items() if k.startswith("spurious_") and v != "fixed"]
+    unfixed_spurious = [
+        k for k, v in error_status.items() if k.startswith("spurious_") and v != "fixed"
+    ]
     if unfixed_spurious:
         lines.append(f"\nSpurious rows ({len(unfixed_spurious)} unfixed):")
         for key in unfixed_spurious[:5]:
             row_str = key.replace("spurious_", "")
             lines.append(f"  Row index {row_str} is a duplicate — remove it")
 
-    unfixed_missing = [k for k, v in error_status.items() if k.startswith("missing_") and v != "fixed"]
+    unfixed_missing = [
+        k for k, v in error_status.items() if k.startswith("missing_") and v != "fixed"
+    ]
     if unfixed_missing:
         lines.append(f"\nMissing rows ({len(unfixed_missing)} unfixed):")
         for key in unfixed_missing[:5]:
@@ -384,7 +447,9 @@ class DataCleaningEnvironment(
         self._sandbox_dir: str = ""
         self._worker_proc = None
         self._current_df: pd.DataFrame = pd.DataFrame()
-        self._checkpoint_steps: int = 0  # number of filesystem checkpoints saved (0 = none yet)
+        self._checkpoint_steps: int = (
+            0  # number of filesystem checkpoints saved (0 = none yet)
+        )
         self._error_status: dict[str, str] = {}
         self._error_summary_cache: dict[str, Any] = {}
         self._current_reward: float = 0.0
@@ -418,6 +483,7 @@ class DataCleaningEnvironment(
             self._worker_proc = None
         if self._sandbox_dir and os.path.isdir(self._sandbox_dir):
             import shutil
+
             shutil.rmtree(self._sandbox_dir, ignore_errors=True)
             self._sandbox_dir = ""
 
@@ -491,11 +557,16 @@ class DataCleaningEnvironment(
 
         # Run corruption pipeline
         _seed = seed if seed is not None else 42
-        pipeline = CorruptionPipeline(seed=_seed, difficulty=difficulty, category=category)
-        selected = pipeline.select_format()  # MUST be called before corrupt() to preserve RNG
+        pipeline = CorruptionPipeline(
+            seed=_seed, difficulty=difficulty, category=category
+        )
+        selected = (
+            pipeline.select_format()
+        )  # MUST be called before corrupt() to preserve RNG
         self._file_format = forced_format if forced_format else selected
         dirty_df, error_map, _severity_map, pipeline_metadata = pipeline.corrupt(
-            self._clean_df, rules=self._rules,
+            self._clean_df,
+            rules=self._rules,
         )
         # Normalize error_map to plain dict
         if hasattr(error_map, "model_dump"):
@@ -524,6 +595,7 @@ class DataCleaningEnvironment(
 
         # Create sandbox (always uses CSV internally)
         import tempfile
+
         tmp_csv = tempfile.NamedTemporaryFile(suffix=".csv", delete=False, mode="w")
         dirty_df.to_csv(tmp_csv.name, index=False)
         tmp_csv.close()
@@ -571,7 +643,9 @@ class DataCleaningEnvironment(
         elif isinstance(action, ValidateAction):
             return self._handle_validate()
         else:
-            return self._make_observation(transform_result=f"Unknown action type: {type(action).__name__}")
+            return self._make_observation(
+                transform_result=f"Unknown action type: {type(action).__name__}"
+            )
 
     @property
     def state(self) -> DataCleaningState:
@@ -597,7 +671,9 @@ class DataCleaningEnvironment(
         self._explore_steps_cycle += 1
         self._explore_steps_total += 1
 
-        result = execute_explore(action.query, self._worker_proc, self._explore_steps_total)
+        result = execute_explore(
+            action.query, self._worker_proc, self._explore_steps_total
+        )
         if not result.success:
             self._explore_timeouts += 1
 
@@ -612,10 +688,14 @@ class DataCleaningEnvironment(
         prev_df = self._current_df.copy()
         prev_reward = self._current_reward
         prev_summary = dict(self._error_summary_cache)
-        result = execute_transform(action.code, self._worker_proc, self._transform_steps)
+        result = execute_transform(
+            action.code, self._worker_proc, self._transform_steps
+        )
 
         if result.success:
-            self._current_df = pd.read_csv(os.path.join(self._sandbox_dir, "current.csv"))
+            self._current_df = pd.read_csv(
+                os.path.join(self._sandbox_dir, "current.csv")
+            )
             df = self._current_df
 
             # Save filesystem checkpoint after successful transform
@@ -626,7 +706,9 @@ class DataCleaningEnvironment(
             data_changed = not prev_df.equals(df)
             self._regrade()
             changed_columns = _changed_columns(prev_df, df)
-            remaining_lines = _remaining_error_breakdown(self._error_status, self._error_map)
+            remaining_lines = _remaining_error_breakdown(
+                self._error_status, self._error_map
+            )
             msg = _format_transform_feedback(
                 True,
                 result=result,
@@ -641,7 +723,9 @@ class DataCleaningEnvironment(
             if not data_changed:
                 msg += "\nWARNING: Data was not modified. Use df['col'] = df['col'].fillna(val) instead of inplace=True."
         else:
-            remaining_lines = _remaining_error_breakdown(self._error_status, self._error_map)
+            remaining_lines = _remaining_error_breakdown(
+                self._error_status, self._error_map
+            )
             msg = _format_transform_feedback(
                 False,
                 result=result,
@@ -686,14 +770,18 @@ class DataCleaningEnvironment(
         if self._worker_proc is not None:
             terminate_worker(self._worker_proc)
             self._worker_proc = None
-        return self._make_observation(transform_result="Episode complete. Final grading applied.")
+        return self._make_observation(
+            transform_result="Episode complete. Final grading applied."
+        )
 
     def _handle_undo(self, action: UndoAction) -> DataCleaningObservation:
         self._undo_count += 1
         step = action.step
 
         if self._checkpoint_steps <= 1:
-            return self._make_observation(transform_result="Nothing to undo — no transforms applied yet.")
+            return self._make_observation(
+                transform_result="Nothing to undo — no transforms applied yet."
+            )
 
         max_step = self._checkpoint_steps - 1
         if step > max_step:
@@ -731,14 +819,18 @@ class DataCleaningEnvironment(
         self._validate_uses += 1
         self._ensure_graded()  # no-op if already graded; _current_df already up-to-date
 
-        breakdown = _validate_breakdown(self._error_status, self._error_map, self._clean_df)
+        breakdown = _validate_breakdown(
+            self._error_status, self._error_map, self._clean_df
+        )
         return self._make_observation(validate_result=breakdown)
 
     # ── Helpers ──────────────────────────────────────────────────────────────
 
     def _regrade(self) -> None:
         profile = self._profile
-        cached_rm = None  # Always recompute — row content may change without count change
+        cached_rm = (
+            None  # Always recompute — row content may change without count change
+        )
         self._error_status, self._current_reward, ss, rm = grade(
             self._clean_df,
             self._current_df,
@@ -748,8 +840,12 @@ class DataCleaningEnvironment(
             profile.get("max_transform_steps", 10),
             explore_steps=self._explore_steps_total,
             explore_timeouts=self._explore_timeouts,
-            explore_cost_per_step=profile.get("explore_cost_per_step", _EXPLORE_COST_PER_STEP_DEFAULT),
-            explore_timeout_cost=profile.get("explore_timeout_cost", _EXPLORE_TIMEOUT_COST_DEFAULT),
+            explore_cost_per_step=profile.get(
+                "explore_cost_per_step", _EXPLORE_COST_PER_STEP_DEFAULT
+            ),
+            explore_timeout_cost=profile.get(
+                "explore_timeout_cost", _EXPLORE_TIMEOUT_COST_DEFAULT
+            ),
             undo_count=self._undo_count,
             validate_count=self._validate_uses,
             undo_cost=profile.get("undo_cost", _UNDO_COST_DEFAULT),
@@ -762,10 +858,17 @@ class DataCleaningEnvironment(
         self._cached_row_mapping = rm
         # Normalize: subtract baseline so unfixed=0.0, fully fixed=1.0
         if self._reward_baseline < 1.0:
-            self._current_reward = max(0.0, round(
-                (self._current_reward - self._reward_baseline) / (1.0 - self._reward_baseline), 4
-            ))
-        self._error_summary_cache = summarize_errors(self._error_status, self._error_map)
+            self._current_reward = max(
+                0.0,
+                round(
+                    (self._current_reward - self._reward_baseline)
+                    / (1.0 - self._reward_baseline),
+                    4,
+                ),
+            )
+        self._error_summary_cache = summarize_errors(
+            self._error_status, self._error_map
+        )
         self._reward_stale = False
 
     def _make_step_info(self) -> StepInfo:
@@ -798,11 +901,17 @@ class DataCleaningEnvironment(
                 f"Clean the {self._dataset_name} dataset (difficulty: {self._difficulty}). "
                 f"The data has been corrupted — restore it to its clean form."
             ),
-            constraints=[_error_summary(self._error_status, self._error_summary_cache, self._error_map)],
+            constraints=[
+                _error_summary(
+                    self._error_status, self._error_summary_cache, self._error_map
+                )
+            ],
             data_summary=_data_summary(df),
             explore_result=explore_result,
             transform_result=transform_result,
-            constraint_status={k: (v == "fixed") for k, v in self._error_status.items()},
+            constraint_status={
+                k: (v == "fixed") for k, v in self._error_status.items()
+            },
             file_format=self._file_format,
             target_schema=_target_schema(self._clean_df),
             file_preview=format_preview(self._dirty_content, self._file_format),

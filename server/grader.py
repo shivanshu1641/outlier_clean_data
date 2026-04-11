@@ -85,7 +85,11 @@ def _is_reasonable_fill(clean_df: pd.DataFrame, col: str, result_val: Any) -> bo
         if len(numeric) > 0:
             col_min, col_max = numeric.min(), numeric.max()
             col_std = numeric.std()
-            margin = max(col_std * 0.5, 1e-6) if col_std > 0 else max(abs(col_max) * 0.1, 1.0)
+            margin = (
+                max(col_std * 0.5, 1e-6)
+                if col_std > 0
+                else max(abs(col_max) * 0.1, 1.0)
+            )
             return (col_min - margin) <= fval <= (col_max + margin)
     except (TypeError, ValueError):
         pass
@@ -100,7 +104,9 @@ def _is_reasonable_fill(clean_df: pd.DataFrame, col: str, result_val: Any) -> bo
     return False  # can't interpret → reject
 
 
-def _check_stat_fill(clean_df: pd.DataFrame, col: str, result_val: Any, stat: str) -> bool:
+def _check_stat_fill(
+    clean_df: pd.DataFrame, col: str, result_val: Any, stat: str
+) -> bool:
     """Check if result_val matches the expected column statistic from clean data."""
     if col not in clean_df.columns:
         return False
@@ -300,13 +306,27 @@ def schema_score(clean_df: pd.DataFrame, result_df: pd.DataFrame) -> float:
 
 
 def _row_hash(row) -> str:
-    """Compute a deterministic hash for a row."""
+    """Compute a deterministic hash for a row.
+
+    Normalizes numeric values so that int/float representations match
+    after CSV round-trips (e.g. ``6`` and ``6.0`` hash identically).
+    """
     parts = []
     for val in row:
         if pd.isna(val):
             parts.append("__NA__")
         else:
-            parts.append(str(val).strip().lower())
+            # Normalize numeric values: 6.0 → "6", 3.14 → "3.14"
+            try:
+                fv = float(val)
+                if fv == int(fv) and not (
+                    isinstance(val, str) and val.strip() != str(int(fv))
+                ):
+                    parts.append(str(int(fv)))
+                else:
+                    parts.append(str(fv))
+            except (TypeError, ValueError):
+                parts.append(str(val).strip().lower())
     return "|".join(parts)
 
 
@@ -371,18 +391,14 @@ def row_score(
     spurious_still = sum(
         1 for r in spurious if not _check_spurious_row(clean_df, result_df, r)
     )
-    spurious_penalty = (
-        spurious_still / max(len(spurious), 1) * 0.5 if spurious else 0
-    )
+    spurious_penalty = spurious_still / max(len(spurious), 1) * 0.5 if spurious else 0
 
     # Missing row penalty
     missing = error_map.get("missing_rows", {})
     missing_still = sum(
         1 for r in missing if _check_missing_row(clean_df, result_df, r) == "unfixed"
     )
-    missing_penalty = (
-        missing_still / max(len(missing), 1) * 0.5 if missing else 0
-    )
+    missing_penalty = missing_still / max(len(missing), 1) * 0.5 if missing else 0
 
     return max(0.0, count_ratio - spurious_penalty - missing_penalty)
 
@@ -471,9 +487,11 @@ def _cell_score_full(
             # coerces type_mangle, etc., giving false "fixed" results.
             # Use repr() to preserve type info (str("42") == str(42) but repr differs)
             dirty_val = info.get("dirty_value")
-            if (dirty_val is not None
-                    and repr(result_val) == repr(dirty_val)
-                    and repr(clean_val) != repr(dirty_val)):
+            if (
+                dirty_val is not None
+                and repr(result_val) == repr(dirty_val)
+                and repr(clean_val) != repr(dirty_val)
+            ):
                 error_status[key] = "unfixed"
                 remaining_severity += severity
             else:
@@ -565,7 +583,9 @@ def _cell_score_full(
             remaining_severity += severity * 0.5  # partial credit for attempt
 
     # ── Collateral damage ────────────────────────────────────────────────
-    collateral_severity = _detect_collateral_damage(clean_df, result_df, error_map, row_mapping)
+    collateral_severity = _detect_collateral_damage(
+        clean_df, result_df, error_map, row_mapping
+    )
     total_severity += collateral_severity
     remaining_severity += collateral_severity
 
@@ -665,8 +685,16 @@ def grade(
     Returns:
         (error_status, reward, schema_score_val, row_mapping).
     """
-    s_score = cached_schema_score if cached_schema_score is not None else schema_score(clean_df, result_df)
-    row_map = cached_row_mapping if cached_row_mapping is not None else match_rows_by_content(clean_df, result_df)
+    s_score = (
+        cached_schema_score
+        if cached_schema_score is not None
+        else schema_score(clean_df, result_df)
+    )
+    row_map = (
+        cached_row_mapping
+        if cached_row_mapping is not None
+        else match_rows_by_content(clean_df, result_df)
+    )
     r_score = row_score(clean_df, result_df, error_map)
 
     # Identify imputed columns (those with null errors)
@@ -687,12 +715,20 @@ def grade(
 
     # Weights: with rules present, use 5-dimension; otherwise legacy 4-dimension
     if rules:
-        constraint = s_score * 0.15 + r_score * 0.15 + c_score * 0.50 + d_score * 0.10 + sem_score * 0.10
+        constraint = (
+            s_score * 0.15
+            + r_score * 0.15
+            + c_score * 0.50
+            + d_score * 0.10
+            + sem_score * 0.10
+        )
     else:
         constraint = s_score * 0.15 + r_score * 0.20 + c_score * 0.55 + d_score * 0.10
 
     transform_excess = max(0, transform_steps - min_transform_steps)
-    transform_penalty = transform_excess / (max_transform_steps * 2) if max_transform_steps > 0 else 0
+    transform_penalty = (
+        transform_excess / (max_transform_steps * 2) if max_transform_steps > 0 else 0
+    )
     normal_explores = explore_steps - explore_timeouts
     explore_penalty = (
         normal_explores * explore_cost_per_step
@@ -726,7 +762,9 @@ def _compute_semantic(
 # ── Summary Helper ───────────────────────────────────────────────────────────
 
 
-def summarize_errors(error_status: dict[str, str], error_map: dict[str, Any]) -> dict[str, Any]:
+def summarize_errors(
+    error_status: dict[str, str], error_map: dict[str, Any]
+) -> dict[str, Any]:
     """Summarize error status counts for logging and observation building."""
     total = len(error_status)
     fixed = sum(1 for s in error_status.values() if s == "fixed")
