@@ -2,55 +2,59 @@
 
 ## Purpose
 
-OpenEnv environment for the Meta PyTorch Hackathon (deadline: April 8, 2026). AI agents clean dirty CSV data by writing Python/pandas code, graded on how many errors they fix relative to the ground truth, with a step efficiency bonus.
+OpenEnv environment for the Meta PyTorch Hackathon (deadline: April 8, 2026). AI agents clean dynamically corrupted tabular data by writing Python data-cleaning code, graded against the ground truth with multi-level data quality scoring and action costs.
 
 ## Architecture
 
-- **server/environment.py** — Core Environment class (reset/step/state), detects no-op transforms
-- **server/sandbox.py** — Persistent worker process per episode (pandas stays loaded in memory)
-- **server/worker.py** — Worker process: re-reads CSV each step, auto-rewrites `inplace=True` patterns
-- **server/grader.py** — Generic diff-based grader: compares result vs clean data using error map
+- **server/environment.py** — Core Environment class; generates corrupted episodes at `reset()` via `CorruptionPipeline`; supports `explore`, `transform`, `done`, checkpoint-backed `undo`, and budgeted `validate`
+- **server/sandbox.py** — Persistent worker process per episode; accepts dirty content and file format, writes raw input plus CSV working copy, and exposes filesystem-backed checkpoints for undo
+- **server/worker.py** — Worker process: re-reads CSV each step, auto-rewrites `inplace=True` patterns, exposes pandas/numpy plus `io`, `openpyxl`, `yaml`, and `lxml`
+- **server/grader.py** — Multi-level grader: schema, row, cell, and distribution scores with content-based row matching and action-cost parameters
 - **server/app.py** — FastAPI via `openenv.core.create_app()`, health endpoint at `/`
-- **Dockerfile** (root) — HF Spaces deployment, 2 vCPU / 8GB compatible
-- **models.py** — Pydantic types: ExploreAction, TransformAction, DoneAction, Observation, State
+- **Dockerfile** (root) — HF Spaces deployment on port 7860; builds from `pyproject.toml`, installs lxml system deps, copies datasets/tools
+- **models.py** — Pydantic types: ExploreAction, TransformAction, DoneAction, UndoAction, ValidateAction, ErrorMap, CellError, RowError, Observation, State
 - **client.py** — EnvClient subclass (WebSocket)
-- **inference.py** — Baseline agent using any OpenAI-compatible API with hackathon-spec structured stdout logs ([START]/[STEP]/[END]) + JSONL persistence; uses validator-injected `API_BASE_URL`/`API_KEY` env vars, defaults to OpenAI
-- **tools/corruption/engine.py** — Standalone generator: 10 corruption types, per-task RNG, configurable fractions, round-trip validation; produces 4 artifacts per task
+- **inference.py** — Baseline agent using any OpenAI-compatible API; 15-task eval suite, undo/validate support, enriched prompt fields (`file_format`, `file_preview`, `diagnosis`, `validate_result`)
+- **server/corruption/** — Runtime corruption subsystem: `CorruptionPipeline.select_format()` + `corrupt()`, 22 value corruptions, multi-format raw inputs, ~40 format-specific corruptions, 3 difficulty profiles, 3-level hints
+- **datasets/** — 118-entry dataset catalog plus download pipeline in `tools/download_datasets.py`
 
 ## Key Decisions
 
 - **Code generation over structured transforms** — agents write real pandas code
-- **Diff-based grading over constraint checkers** — compares result to ground truth using a pre-built error map; generator owns all domain knowledge, grader is a pure diff engine
+- **Generative episodes over static tasks** — `reset()` samples a dataset/profile/format and creates corruptions dynamically; `LEGACY_TASK_MAP` preserves old task IDs for compatibility
+- **Multi-format input** — agents may receive csv, json, jsonl, excel, tsv, xml, fixed-width, html table, sql dump, or yaml with file previews and diagnosis metadata in observations
+- **Multi-level grading over simple diff scoring** — reward combines schema_score (0.15), row_score (0.20), cell_score (0.55), and distribution_score (0.10)
+- **Content-based row matching** — row recovery is matched by content rather than only by index, improving resilience to reordering and format round-trips
 - **Wrong-value penalty** — changing a cell to an incorrect value is penalized 1.5×; numeric near-misses (≤5% relative error) get graduated partial credit instead of full penalty
 - **Collateral damage penalty** — cells that were correct but got corrupted by the agent add 0.5 severity each
 - **Explore cost** — each explore action incurs a small efficiency penalty (0.01/step, 0.03 for timeouts), discouraging excessive or wasteful exploration
+- **Undo cost** — undo restores the last filesystem checkpoint and applies a configured score cost through `undo_count`
+- **Validate budget** — agents get 2 validate actions per episode; validation returns structured diagnosis without ending the episode and tracks `validate_count`/`validate_uses`
 - **Soft done** — first done is a checkpoint if reward < 1.0: agent sees score + remaining errors and can continue. Second done is final. Perfect score always ends immediately. Capped at 1 retry
 - **Null fill tolerance** — `accepted_fill` field per null error: "any" accepts any reasonable imputation (mean, median, mode, ffill, bfill) within 0.5σ of column range, "exact" requires the clean value, "mean"/"median"/"mode" accept only that specific statistic
 - **Persistent worker** — pandas/numpy loaded once per episode, CSV re-read each step (avoids cold-start AND the pandas Copy-on-Write `inplace=True` pitfall)
 - **Auto-rewrite inplace=True** — worker auto-converts `df['col'].fillna(val, inplace=True)` → `df['col'] = df['col'].fillna(val)` (pandas 2.x broke chained inplace)
-- **Multi-difficulty per dataset** — titanic and wine each have easy/medium/hard variants
-- **Per-task RNG** — each task gets its own deterministic seed via `_make_rng(task_id)`, so tasks can be regenerated independently without affecting others
-- **Corruption overlap safety** — `_get_clean_val()` always reads clean values from the original clean_df (not the in-progress corrupted df); `build_error_map` filters cell errors on spurious rows to avoid conflicting entries
-- **Round-trip validation** — `validate_artifacts()` verifies clean_value correctness and detects phantom errors after generation
+- **Difficulty profiles** — easy/medium/hard profiles tune value, row, schema, and format corruption rates
+- **Format-aware corruption safety** — `CorruptionPipeline.select_format()` is called before `corrupt()` so raw dirty content, parser expectations, hints, and previews stay aligned
 - **Inference config** — `inference.py` reads `API_BASE_URL`, `MODEL_NAME`, and `API_KEY` (from `HF_TOKEN`/`OPENAI_API_KEY`) at import time via `os.environ.get`; validator injects LiteLLM proxy values which take precedence
 
 ## Conventions
 
 - OpenEnv spec v1: typed models, `reset()`/`step()`/`state()` API
 - Dual-import in server files: `try: from ..models / except: from models`
-- Rewards in 0.0–1.0 range, diff-based grading only
+- Rewards in 0.0–1.0 range, with schema/row/cell/distribution components plus action costs
 - `inference.py` LLM calls use `OpenAI(base_url=API_BASE_URL, api_key=API_KEY)` — env vars read once at import
 - Client never imports server
 - Sandbox always on for code execution
-- Generator owns all domain knowledge — grader is a pure diff engine
+- Corruption subsystem owns task generation, format selection, hints, and raw dirty content
 
 ## Invariants
 
 - Rewards always in [0.0, 1.0]
 - Sandbox always on — no code execution without AST scan + persistent worker
-- Grader never knows about corruption types — only compares values (except whitespace/null which need type-specific tolerance)
+- Grader never knows about corruption implementations — it scores result quality from clean data, error maps, and generated metadata
 - Grader detects collateral damage (correct cells the agent broke)
-- Generator always produces 4 artifacts + task config: clean.csv, dirty.csv, error*map.json, severity_map.json, task*\*.json
+- Dynamic reset produces clean data, dirty raw content, normalized CSV working copy, error map, metadata, hints, and observation previews
 - CSV is the source of truth between steps, not in-memory df
 - Client never imports server
 - Dual-import pattern in server files: `try: from ..models / except: from models`
@@ -65,8 +69,8 @@ uvicorn server.app:app --port 8000 --ws-ping-interval 60 --ws-ping-timeout 120
 python inference.py
 # Run specific tasks
 python inference.py titanic_easy wine_hard
-# Regenerate all task artifacts
-python tools/corruption/engine.py
+# Download/update dataset catalog inputs
+python tools/download_datasets.py
 ```
 
 ## Verified Results (Gemma 4 E2B, 2B params, local)
@@ -124,48 +128,46 @@ python tools/corruption/engine.py
 
 ## File Map
 
-- `models.py` — All Pydantic types
-- `server/environment.py` — Core env loop
-- `server/sandbox.py` — Persistent worker management + AST safety
-- `server/worker.py` — Worker process (exec/eval agent code, inplace rewriting)
-- `server/grader.py` — Diff engine + reward formula
+- `models.py` — Pydantic action, observation, state, error-map, undo, and validate types
+- `server/environment.py` — Generative env loop, `LEGACY_TASK_MAP`, action dispatch, observation building
+- `server/sandbox.py` — Persistent worker management, raw file/CSV setup, AST safety, checkpoints
+- `server/worker.py` — Worker process (exec/eval agent code, inplace rewriting, expanded library namespace)
+- `server/grader.py` — Multi-level reward formula and validation diagnostics
 - `server/app.py` — FastAPI wiring
 - `client.py` — WebSocket client
 - `inference.py` — LLM agent baseline (model-agnostic)
-- `tasks/task_<task_id>.json` — Task configs (generated)
-- `data/<task_id>/clean.csv` — Ground truth
-- `data/<task_id>/dirty.csv` — Corrupted input
-- `data/<task_id>/error_map.json` — Cell/row errors with severity, clean values, accepted_fill
-- `data/<task_id>/severity_map.json` — Severity totals per corruption type
-- `tools/corruption/engine.py` — Standalone corruption generator: 10 types (inject_nulls, type_mangle, duplicate_rows, whitespace_noise, format_inconsistency, outlier_injection, drop_rows, decimal_shift, value_swap, typo_injection), per-task RNG, configurable fractions, round-trip validation
+- `server/corruption/pipeline.py` — Runtime `CorruptionPipeline`, format selection, corruption orchestration
+- `server/corruption/value_corruptions.py` — 22 value-level corruption types
+- `server/corruption/format_corruptions.py` — 9 file formats and format-specific corruptions
+- `server/corruption/hints.py` — Strategy, tactical, and categorical hint generation
+- `server/corruption/profiles.py` — Easy/medium/hard corruption profiles
+- `datasets/catalog.json` — 118 dataset entries used by the generative environment
+- `tools/download_datasets.py` — Dataset download/materialization pipeline
 - `architecture.md` — System diagram, agent loop, data flow, grading details
 
 ## Task IDs
 
-- `titanic_easy`, `titanic_medium`, `titanic_hard`
-- `wine_easy`, `wine_medium`, `wine_hard`
+- `inference.py` defines a 15-task eval suite in `EVAL_TASK_IDS`
+- Legacy IDs such as `titanic_easy`, `titanic_medium`, `titanic_hard`, `wine_easy`, `wine_medium`, and `wine_hard` are mapped through `LEGACY_TASK_MAP` for backward compatibility
 
 ## Grading Formula
 
 ```
-constraint_score = 1 - (remaining_severity / total_severity)
-  where:
-    fixed cell (exact match or accepted fill) → 0 severity remaining
-    unchanged dirty cell                      → full severity remaining
-    wrong value cell (numeric near-miss ≤5%)  → severity × (dist/0.05) × 1.5 (graduated)
-    wrong value cell (far miss or non-numeric)→ severity × 1.5 remaining
-    whitespace/format cell (stripped match)    → 0 severity (fixed)
-    spurious row still present (by index+len) → full severity remaining
-    missing row restored (≥80% cols match)    → 0 (fixed)
-    missing row partial (30-80% cols match)   → severity × 0.5 (wrong_value)
-    collateral damage (correct cell corrupted)→ +0.5 severity per cell
+base_score =
+  schema_score       × 0.15 +
+  row_score          × 0.20 +
+  cell_score         × 0.55 +
+  distribution_score × 0.10
 
-  total_severity includes collateral damage severity
-
+cell_score still accounts for exact fixes, accepted null fills, numeric near-misses,
+wrong-value penalties, whitespace/format tolerance, and collateral damage.
+row_score uses content-based matching for dropped/duplicated/reordered rows.
 transform_penalty = max(0, transform_steps - min_steps) / (max_steps × 2)
 explore_penalty   = (successful_explores × 0.01) + (timed_out_explores × 0.03)
-efficiency_factor = max(0.5, 1.0 - transform_penalty - explore_penalty)
-reward = constraint_score × efficiency_factor   [clamped to 0.0–1.0]
+undo_penalty      = undo_count × undo_cost
+validate_penalty  = validate_count × validate_cost
+efficiency_factor = max(0.5, 1.0 - transform_penalty - explore_penalty - undo_penalty - validate_penalty)
+reward = base_score × efficiency_factor   [clamped to 0.0–1.0]
 ```
 
 ## Environment Variables
@@ -181,6 +183,7 @@ reward = constraint_score × efficiency_factor   [clamped to 0.0–1.0]
 | `MIN_CALL_INTERVAL` | `2.5`                       | Min seconds between LLM calls (0 for local)         |
 | `TASKS_DIR`         | `tasks`                     | Task config directory                               |
 | `DATA_DIR`          | `data`                      | Data artifacts directory                            |
+| `DATASETS_DIR`      | `datasets`                  | Dataset catalog/materialized inputs                 |
 | `SANDBOX_BASE`      | `outputs/sandbox`           | Sandbox working directories                         |
 
 ## Deployment Notes
