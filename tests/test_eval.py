@@ -1,33 +1,22 @@
-"""Smoke tests for the fixed task suite configuration."""
+"""Smoke tests for the task suite configuration."""
 from __future__ import annotations
 
 import pytest
 
-TASK_IDS = [
-    "titanic_easy", "titanic_medium", "titanic_hard",
-    "iris_easy", "iris_medium",
-    "housing_medium", "housing_hard",
-    "diabetes_medium", "diabetes_hard",
-    "wine_easy", "wine_medium", "wine_hard",
-    "breast_cancer_easy", "breast_cancer_medium",
-]
-
+from inference import EVAL_TASKS
 from models import (
     ActionWrapper, DoneAction, ExploreAction, TransformAction, UndoAction, ValidateAction
 )
-from server.environment import LEGACY_TASK_MAP
 
 
 class TestSuiteConfig:
     def test_task_count(self):
-        assert len(TASK_IDS) == 14, f"Expected 14 tasks, got {len(TASK_IDS)}"
+        assert len(EVAL_TASKS) == 14, f"Expected 14 tasks, got {len(EVAL_TASKS)}"
 
-    def test_legacy_task_map_count(self):
-        assert len(LEGACY_TASK_MAP) == 14
-
-    def test_legacy_task_ids_in_suite(self):
-        for tid in LEGACY_TASK_MAP:
-            assert tid in TASK_IDS, f"{tid} missing from task suite"
+    def test_task_format(self):
+        for dataset_id, difficulty in EVAL_TASKS:
+            assert isinstance(dataset_id, str) and dataset_id, "dataset_id must be non-empty string"
+            assert difficulty in ("easy", "medium", "hard"), f"Invalid difficulty: {difficulty}"
 
     def test_action_wrapper_routes_undo(self):
         action = ActionWrapper.model_validate({"type": "undo", "step": 2})

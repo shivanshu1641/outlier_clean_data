@@ -59,22 +59,25 @@ MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o")
 API_KEY = os.environ.get("HF_TOKEN", os.environ.get("OPENAI_API_KEY", ""))
 ENV_URL = os.environ.get("ENV_URL", "http://localhost:7860")
 
-EVAL_TASK_IDS = [
-    # Titanic — 3 difficulties
-    "titanic_easy", "titanic_medium", "titanic_hard",
-    # Iris — 2 difficulties
-    "iris_easy", "iris_medium",
-    # Boston Housing — 2 difficulties
-    "housing_medium", "housing_hard",
-    # Diabetes — 2 difficulties
-    "diabetes_medium", "diabetes_hard",
-    # Wine Quality — 3 difficulties
-    "wine_easy", "wine_medium", "wine_hard",
-    # Breast Cancer — 2 difficulties
-    "breast_cancer_easy", "breast_cancer_medium",
+# Each entry: (dataset_id, difficulty)
+EVAL_TASKS: list[tuple[str, str]] = [
+    ("titanic",       "easy"),
+    ("titanic",       "medium"),
+    ("titanic",       "hard"),
+    ("iris",          "easy"),
+    ("iris",          "medium"),
+    ("boston_housing","medium"),
+    ("boston_housing","hard"),
+    ("diabetes",      "medium"),
+    ("diabetes",      "hard"),
+    ("wine_quality",  "easy"),
+    ("wine_quality",  "medium"),
+    ("wine_quality",  "hard"),
+    ("breast_cancer", "easy"),
+    ("breast_cancer", "medium"),
 ]
 
-TASK_IDS = EVAL_TASK_IDS
+TASKS = EVAL_TASKS
 
 # ── Few-shot examples from dataset.parquet ────────────────────────────────────
 
@@ -455,8 +458,9 @@ def action_from_dict(d: dict):
 # ── Run Task ──────────────────────────────────────────────────────────────────
 
 
-async def run_task(task_id: str) -> float:
+async def run_task(dataset_id: str, difficulty: str) -> float:
     """Run the agent on a single task via WebSocket. Returns final reward."""
+    task_id = f"{dataset_id}_{difficulty}"
     log_start(task_id)
     task_start = time.time()
     current_reward = 0.0
@@ -472,7 +476,7 @@ async def run_task(task_id: str) -> float:
     env_client = DataCleaningClient(base_url=ENV_URL)
 
     async with env_client as env:
-        step_result = await env.reset(task_id=task_id)
+        step_result = await env.reset(task_id=dataset_id, difficulty=difficulty)
         obs = step_result.observation
         current_reward = step_result.reward or 0.0
 
@@ -728,23 +732,44 @@ async def run_task(task_id: str) -> float:
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
-async def amain():
-    task_ids = sys.argv[1:] if len(sys.argv) > 1 else TASK_IDS
-    results = {}
+def _parse_cli_tasks(args: list[str]) -> list[tuple[str, str]]:
+    """Parse CLI args as 'dataset_id difficulty' pairs or 'dataset_id/difficulty'."""
+    tasks = []
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if "/" in arg:
+            dataset_id, difficulty = arg.split("/", 1)
+            tasks.append((dataset_id, difficulty))
+            i += 1
+        elif i + 1 < len(args) and args[i + 1] in ("easy", "medium", "hard"):
+            tasks.append((arg, args[i + 1]))
+            i += 2
+        else:
+            raise SystemExit(
+                f"Cannot parse task: {arg!r}. Use 'dataset_id difficulty' or 'dataset_id/difficulty'.\n"
+                f"Examples: titanic easy  |  titanic/easy"
+            )
+    return tasks
 
-    for task_id in task_ids:
+
+async def amain():
+    tasks = _parse_cli_tasks(sys.argv[1:]) if len(sys.argv) > 1 else TASKS
+    results: dict[str, float] = {}
+
+    for dataset_id, difficulty in tasks:
+        task_id = f"{dataset_id}_{difficulty}"
         print(f"\n{'='*60}", file=sys.stderr)
         print(f"Running task: {task_id}", file=sys.stderr)
         print(f"{'='*60}", file=sys.stderr)
         task_start = time.time()
         try:
-            reward = await run_task(task_id)
+            reward = await run_task(dataset_id, difficulty)
             results[task_id] = reward
         except Exception as e:
             import traceback
 
             traceback.print_exc(file=sys.stderr)
-            # Ensure [END] is emitted even on crash
             elapsed = time.time() - task_start
             log_end(task_id, 0.0, 0, elapsed, [])
             results[task_id] = 0.0

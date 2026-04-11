@@ -72,23 +72,6 @@ _VALIDATE_BUDGET_DEFAULT = 2
 _UNDO_COST_DEFAULT = 0.02
 _VALIDATE_COST_DEFAULT = 0.01
 
-LEGACY_TASK_MAP: dict[str, dict] = {
-    "titanic_easy":    {"dataset_id": "titanic",        "difficulty": "easy",   "format": "csv"},
-    "titanic_medium":  {"dataset_id": "titanic",        "difficulty": "medium", "format": "csv"},
-    "titanic_hard":    {"dataset_id": "titanic",        "difficulty": "hard",   "format": "csv"},
-    "iris_easy":       {"dataset_id": "iris",           "difficulty": "easy",   "format": "csv"},
-    "iris_medium":     {"dataset_id": "iris",           "difficulty": "medium", "format": "csv"},
-    "housing_medium":  {"dataset_id": "boston_housing",  "difficulty": "medium", "format": "csv"},
-    "housing_hard":    {"dataset_id": "boston_housing",  "difficulty": "hard",   "format": "csv"},
-    "diabetes_medium": {"dataset_id": "diabetes",       "difficulty": "medium", "format": "csv"},
-    "diabetes_hard":   {"dataset_id": "diabetes",       "difficulty": "hard",   "format": "csv"},
-    "wine_easy":       {"dataset_id": "wine_quality",   "difficulty": "easy",   "format": "csv"},
-    "wine_medium":     {"dataset_id": "wine_quality",   "difficulty": "medium", "format": "csv"},
-    "wine_hard":       {"dataset_id": "wine_quality",   "difficulty": "hard",   "format": "csv"},
-    "breast_cancer_easy":   {"dataset_id": "breast_cancer", "difficulty": "easy",   "format": "csv"},
-    "breast_cancer_medium": {"dataset_id": "breast_cancer", "difficulty": "medium", "format": "csv"},
-}
-
 
 def _load_catalog() -> dict[str, dict]:
     """Load catalog.json as {dataset_name: entry_dict}."""
@@ -246,18 +229,12 @@ class DataCleaningEnvironment(
         difficulty = kwargs.get("difficulty", "medium")
         category = kwargs.get("category")
 
-        # Resolve dataset from task_id or legacy map
+        # Resolve dataset from task_id (dataset_id) directly
         catalog = _load_catalog()
         dataset_name: str | None = None
         dataset_entry: dict | None = None
 
-        if task_id and task_id in LEGACY_TASK_MAP:
-            legacy = LEGACY_TASK_MAP[task_id]
-            difficulty = legacy["difficulty"]
-            result = _find_dataset(catalog, legacy["dataset_id"])
-            if result:
-                dataset_name, dataset_entry = result
-        elif task_id:
+        if task_id:
             result = _find_dataset(catalog, task_id)
             if result:
                 dataset_name, dataset_entry = result

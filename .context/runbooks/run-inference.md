@@ -3,13 +3,13 @@
 ## Command
 ```bash
 source .venv/bin/activate
-python inference.py                              # default 15-task eval suite
-python inference.py titanic_easy                 # specific legacy task id
-python inference.py titanic_easy wine_medium     # multiple legacy task ids
+python inference.py                              # default 14-task eval suite
+python inference.py titanic easy                 # specific dataset + difficulty
+python inference.py titanic/easy titanic/medium  # slash syntax also works
 ```
 
 ## Eval suite
-`inference.py` defines a 14-task eval suite (`EVAL_TASK_IDS`) spanning 5 datasets × 2-3 difficulties. Legacy IDs like `titanic_easy` are mapped through `LEGACY_TASK_MAP` (14 entries covering titanic, iris, boston_housing, diabetes, wine_quality, breast_cancer).
+`inference.py` defines a 14-task eval suite (`EVAL_TASKS`) as `(dataset_id, difficulty)` tuples spanning 5 datasets × 2-3 difficulties: titanic, iris, boston_housing, diabetes, wine_quality, breast_cancer.
 
 ## Benchmark runner
 For systematic model evaluation across categories:
