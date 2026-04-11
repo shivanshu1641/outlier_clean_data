@@ -2,14 +2,15 @@
 Generic diff-based grader for data cleaning tasks.
 
 The grader receives clean data, result data, and a pre-built error map
-(produced by the corruption engine). It computes a severity-weighted score
-based on how many errors were fixed, with an extra penalty for cells changed
-to the wrong value, and an efficiency factor based on transform steps used.
+(produced by the corruption engine). It computes a multi-level score across
+schema, row, cell, and distribution dimensions, with an efficiency factor
+based on transform steps and exploration overhead.
 """
 
 from __future__ import annotations
 
 import math
+from collections import defaultdict
 from typing import Any
 
 import numpy as np
@@ -238,36 +239,155 @@ def _check_missing_row(
     return "unfixed"
 
 
-def grade(
+# ── Schema Scoring ──────────────────────────────────────────────────────────
+
+
+def _dtypes_compatible(a, b) -> bool:
+    """Check if two dtypes are compatible."""
+    a_str, b_str = str(a), str(b)
+    numeric = {"int64", "int32", "float64", "float32", "Int64", "Float64"}
+    string = {"object", "string", "str"}
+    if a_str in numeric and b_str in numeric:
+        return True
+    if a_str in string and b_str in string:
+        return True
+    return a_str == b_str
+
+
+def schema_score(clean_df: pd.DataFrame, result_df: pd.DataFrame) -> float:
+    """Score structural correctness of the result DataFrame.
+
+    Checks column name matching (case-insensitive) and type compatibility.
+    Column reorder is fine (no penalty). Extra columns don't penalize.
+
+    Returns a score in [0.0, 1.0] (weight: 0.15 in final grade).
+    """
+    clean_cols = {c.lower(): c for c in clean_df.columns}
+    result_cols = {c.lower(): c for c in result_df.columns}
+
+    total_clean = len(clean_cols)
+    if total_clean == 0:
+        return 1.0
+
+    matched = set(clean_cols) & set(result_cols)
+    col_ratio = len(matched) / total_clean
+
+    # Type compatibility for matched columns
+    if len(matched) == 0:
+        type_compat = 0.0
+    else:
+        compat_count = 0
+        for lower_col in matched:
+            clean_dtype = clean_df[clean_cols[lower_col]].dtype
+            result_dtype = result_df[result_cols[lower_col]].dtype
+            if _dtypes_compatible(clean_dtype, result_dtype):
+                compat_count += 1
+        type_compat = compat_count / len(matched)
+
+    return col_ratio * 0.7 + type_compat * 0.3
+
+
+# ── Row Matching ────────────────────────────────────────────────────────────
+
+
+def _row_hash(row) -> str:
+    """Compute a deterministic hash for a row."""
+    parts = []
+    for val in row:
+        if pd.isna(val):
+            parts.append("__NA__")
+        else:
+            parts.append(str(val).strip().lower())
+    return "|".join(parts)
+
+
+def match_rows_by_content(
+    clean_df: pd.DataFrame, result_df: pd.DataFrame
+) -> dict[int, int]:
+    """Content-based row matching. Returns {clean_idx: result_idx}.
+
+    Uses hash-based O(n) matching with collision handling.
+    """
+    clean_cols = {c.lower(): c for c in clean_df.columns}
+    result_cols = {c.lower(): c for c in result_df.columns}
+    shared = sorted(set(clean_cols) & set(result_cols))
+
+    if not shared:
+        return {}
+
+    # Build hash index for result
+    result_hashes: dict[str, list[int]] = defaultdict(list)
+    for idx in result_df.index:
+        vals = tuple(result_df.at[idx, result_cols[c]] for c in shared)
+        h = _row_hash(vals)
+        result_hashes[h].append(idx)
+
+    mapping: dict[int, int] = {}
+    used_result: set[int] = set()
+    for cidx in clean_df.index:
+        vals = tuple(clean_df.at[cidx, clean_cols[c]] for c in shared)
+        h = _row_hash(vals)
+        candidates = result_hashes.get(h, [])
+        for ridx in candidates:
+            if ridx not in used_result:
+                mapping[cidx] = ridx
+                used_result.add(ridx)
+                break
+    return mapping
+
+
+# ── Row Scoring ─────────────────────────────────────────────────────────────
+
+
+def row_score(
     clean_df: pd.DataFrame,
     result_df: pd.DataFrame,
     error_map: dict[str, Any],
-    transform_steps: int,
-    min_transform_steps: int,
-    max_transform_steps: int,
-    explore_steps: int = 0,
-    explore_timeouts: int = 0,
-    explore_cost_per_step: float = 0.01,
-    explore_timeout_cost: float = 0.03,
-) -> tuple[dict[str, str], float]:
-    """Grade the agent's result against the clean reference using the error map.
+) -> float:
+    """Score row completeness.
 
-    Args:
-        clean_df: Ground truth DataFrame.
-        result_df: Agent's cleaned DataFrame.
-        error_map: Dict with keys "cell_errors", "spurious_rows", "missing_rows".
-        transform_steps: Number of transform steps the agent used.
-        min_transform_steps: Minimum expected steps (efficiency baseline).
-        max_transform_steps: Maximum allowed steps.
-        explore_steps: Total number of explore actions taken.
-        explore_timeouts: Number of explore actions that timed out or failed.
-        explore_cost_per_step: Penalty per successful explore action.
-        explore_timeout_cost: Penalty per timed-out/failed explore action.
-
-    Returns:
-        (error_status, reward) where error_status maps each error key to one of
-        "fixed", "wrong_value", or "unfixed", and reward is in [0.0, 1.0].
+    Considers row count ratio, spurious row penalty, and missing row penalty.
+    Returns a score in [0.0, 1.0] (weight: 0.20 in final grade).
     """
+    expected = len(clean_df)
+    actual = len(result_df)
+
+    # Base: row count ratio (penalizes both too many and too few)
+    if expected == 0:
+        return 1.0
+    count_ratio = min(actual, expected) / max(actual, expected)
+
+    # Spurious row penalty
+    spurious = error_map.get("spurious_rows", {})
+    spurious_still = sum(
+        1 for r in spurious if not _check_spurious_row(clean_df, result_df, r)
+    )
+    spurious_penalty = (
+        spurious_still / max(len(spurious), 1) * 0.5 if spurious else 0
+    )
+
+    # Missing row penalty
+    missing = error_map.get("missing_rows", {})
+    missing_still = sum(
+        1 for r in missing if _check_missing_row(clean_df, result_df, r) == "unfixed"
+    )
+    missing_penalty = (
+        missing_still / max(len(missing), 1) * 0.5 if missing else 0
+    )
+
+    return max(0.0, count_ratio - spurious_penalty - missing_penalty)
+
+
+# ── Cell Scoring ────────────────────────────────────────────────────────────
+
+
+def _cell_score_full(
+    clean_df: pd.DataFrame,
+    result_df: pd.DataFrame,
+    error_map: dict[str, Any],
+    row_mapping: dict[int, int] | None = None,
+) -> tuple[float, dict[str, str]]:
+    """Internal: compute cell score and error_status dict together."""
     cell_errors: dict[str, dict] = error_map.get("cell_errors", {})
     spurious_rows: dict[str, dict] = error_map.get("spurious_rows", {})
     missing_rows: dict[str, dict] = error_map.get("missing_rows", {})
@@ -276,7 +396,7 @@ def grade(
     remaining_severity = 0.0
     error_status: dict[str, str] = {}
 
-    # ── Cell errors ──────────────────────────────────────────────────────────
+    # ── Cell errors ──────────────────────────────────────────────────────
     result_index = set(result_df.index.astype(str))
 
     for key, info in cell_errors.items():
@@ -292,7 +412,10 @@ def grade(
             remaining_severity += severity
             continue
 
-        if row_str not in result_index:
+        # Use row_mapping to find the actual result row index
+        mapped_idx = row_mapping.get(row_idx, row_idx) if row_mapping else row_idx
+
+        if str(mapped_idx) not in result_index:
             error_status[key] = "unfixed"
             remaining_severity += severity
             continue
@@ -303,7 +426,7 @@ def grade(
             continue
 
         try:
-            result_val = result_df.at[row_idx, col]
+            result_val = result_df.at[mapped_idx, col]
         except KeyError:
             error_status[key] = "unfixed"
             remaining_severity += severity
@@ -320,9 +443,9 @@ def grade(
             except (TypeError, ValueError):
                 result_is_nan = False
 
-            if corruption_type == "null_injected":
+            if corruption_type in ("null_injected", "inject_nulls"):
                 if result_is_nan:
-                    # Still null — unfixed
+                    # Still null -- unfixed
                     error_status[key] = "unfixed"
                     remaining_severity += severity
                 elif accepted_fill == "any":
@@ -341,7 +464,7 @@ def grade(
                         error_status[key] = "wrong_value"
                         remaining_severity += severity * WRONG_VALUE_MULTIPLIER
                 else:
-                    # Unknown accepted_fill or None — default to "any"
+                    # Unknown accepted_fill or None -- default to "any"
                     error_status[key] = "fixed"
             elif corruption_type in ("whitespace_noise", "format_inconsistency"):
                 try:
@@ -360,8 +483,6 @@ def grade(
                 # Graduated penalty: near-miss gets partial credit
                 dist = _numeric_distance(result_val, clean_val)
                 if dist is not None and dist <= NEAR_MISS_THRESHOLD:
-                    # Close enough — partial penalty instead of full wrong_value
-                    # Scale: 0 distance = 0 penalty, threshold = full wrong penalty
                     fraction = dist / NEAR_MISS_THRESHOLD
                     error_status[key] = "wrong_value"
                     remaining_severity += severity * fraction * WRONG_VALUE_MULTIPLIER
@@ -369,54 +490,175 @@ def grade(
                     error_status[key] = "wrong_value"
                     remaining_severity += severity * WRONG_VALUE_MULTIPLIER
 
-    # ── Spurious rows (duplicates) ───────────────────────────────────────────
+    # ── Spurious rows (duplicates) ───────────────────────────────────────
     for row_str, info in spurious_rows.items():
         severity = float(info["severity"])
         total_severity += severity
-        key = f"spurious_{row_str}"
+        skey = f"spurious_{row_str}"
 
         if _check_spurious_row(clean_df, result_df, row_str):
-            error_status[key] = "fixed"
+            error_status[skey] = "fixed"
         else:
-            error_status[key] = "unfixed"
+            error_status[skey] = "unfixed"
             remaining_severity += severity
 
-    # ── Missing rows ─────────────────────────────────────────────────────────
+    # ── Missing rows ─────────────────────────────────────────────────────
     for row_str, info in missing_rows.items():
         severity = float(info["severity"])
         total_severity += severity
-        key = f"missing_{row_str}"
+        mkey = f"missing_{row_str}"
 
         status = _check_missing_row(clean_df, result_df, row_str)
-        error_status[key] = status
+        error_status[mkey] = status
         if status == "unfixed":
             remaining_severity += severity
         elif status == "wrong_value":
             remaining_severity += severity * 0.5  # partial credit for attempt
 
-    # ── Collateral damage ────────────────────────────────────────────────────
+    # ── Collateral damage ────────────────────────────────────────────────
     collateral_severity = _detect_collateral_damage(clean_df, result_df, error_map)
     total_severity += collateral_severity
     remaining_severity += collateral_severity
 
-    # ── Compute reward ───────────────────────────────────────────────────────
+    # ── Score ────────────────────────────────────────────────────────────
     if total_severity == 0.0:
-        return error_status, 1.0
+        return 1.0, error_status
 
-    # Clamp remaining_severity (wrong_value penalty can push it above total)
-    constraint_score = max(0.0, 1.0 - remaining_severity / total_severity)
+    score = max(0.0, 1.0 - remaining_severity / total_severity)
+    return score, error_status
 
-    # Transform penalty
+
+def cell_score(
+    clean_df: pd.DataFrame,
+    result_df: pd.DataFrame,
+    error_map: dict[str, Any],
+    row_mapping: dict[int, int] | None = None,
+) -> float:
+    """Score cell-level correctness using the error map.
+
+    Uses row_mapping (from match_rows_by_content) when looking up result
+    values, falling back to direct index access.
+
+    Returns score in [0.0, 1.0] (weight: 0.55 in final grade).
+    """
+    score, _ = _cell_score_full(clean_df, result_df, error_map, row_mapping)
+    return score
+
+
+# ── Distribution Scoring ────────────────────────────────────────────────────
+
+
+def distribution_score(
+    clean_df: pd.DataFrame,
+    result_df: pd.DataFrame,
+    imputed_cols: set[str] | list[str] | None = None,
+) -> float:
+    """Score imputation quality by comparing distributions.
+
+    Returns a score in [0.0, 1.0] (weight: 0.10 in final grade).
+    """
+    if not imputed_cols:
+        return 1.0
+    distances: list[float] = []
+    for col in imputed_cols:
+        if col not in clean_df.columns or col not in result_df.columns:
+            continue
+        try:
+            clean_num = pd.to_numeric(clean_df[col], errors="coerce").dropna()
+            result_num = pd.to_numeric(result_df[col], errors="coerce").dropna()
+            if len(clean_num) < 2 or len(result_num) < 2:
+                continue
+            col_range = clean_num.max() - clean_num.min()
+            if col_range < 1e-9:
+                continue
+            mean_dist = abs(clean_num.mean() - result_num.mean()) / col_range
+            std_dist = abs(clean_num.std() - result_num.std()) / col_range
+            median_dist = abs(clean_num.median() - result_num.median()) / col_range
+            distances.append(min(1.0, (mean_dist + std_dist + median_dist) / 3))
+        except Exception:
+            continue
+    if not distances:
+        return 1.0
+    return max(0.0, 1.0 - sum(distances) / len(distances))
+
+
+# ── Core Grading ────────────────────────────────────────────────────────────
+
+
+def grade(
+    clean_df: pd.DataFrame,
+    result_df: pd.DataFrame,
+    error_map: dict[str, Any],
+    transform_steps: int,
+    min_transform_steps: int,
+    max_transform_steps: int,
+    explore_steps: int = 0,
+    explore_timeouts: int = 0,
+    explore_cost_per_step: float = 0.01,
+    explore_timeout_cost: float = 0.03,
+    undo_count: int = 0,
+    validate_count: int = 0,
+    undo_cost: float = 0.02,
+    validate_cost: float = 0.01,
+) -> tuple[dict[str, str], float]:
+    """Grade the agent's result using multi-level scoring.
+
+    Four scoring dimensions:
+        - Schema (0.15): column name matching + type compatibility
+        - Row (0.20): row count correctness, spurious/missing row handling
+        - Cell (0.55): severity-weighted cell error resolution
+        - Distribution (0.10): imputation quality for null-filled columns
+
+    Args:
+        clean_df: Ground truth DataFrame.
+        result_df: Agent's cleaned DataFrame.
+        error_map: Dict with keys "cell_errors", "spurious_rows", "missing_rows".
+        transform_steps: Number of transform steps the agent used.
+        min_transform_steps: Minimum expected steps (efficiency baseline).
+        max_transform_steps: Maximum allowed steps.
+        explore_steps: Total number of explore actions taken.
+        explore_timeouts: Number of explore actions that timed out or failed.
+        undo_count: Number of undo actions taken.
+        validate_count: Number of validate actions taken.
+        explore_cost_per_step: Penalty per successful explore action.
+        explore_timeout_cost: Penalty per timed-out/failed explore action.
+        undo_cost: Penalty per undo action.
+        validate_cost: Penalty per validate action.
+
+    Returns:
+        (error_status, reward) where error_status maps each error key to one of
+        "fixed", "wrong_value", or "unfixed", and reward is in [0.0, 1.0].
+    """
+    s_score = schema_score(clean_df, result_df)
+    row_map = match_rows_by_content(clean_df, result_df)
+    r_score = row_score(clean_df, result_df, error_map)
+
+    # Identify imputed columns (those with null errors)
+    imputed_cols: set[str] = set()
+    for key, info in error_map.get("cell_errors", {}).items():
+        if info.get("corruption") in ("inject_nulls", "null_injected"):
+            _, col = _parse_error_key(key)
+            imputed_cols.add(col)
+
+    c_score, error_status = _cell_score_full(clean_df, result_df, error_map, row_map)
+    d_score = distribution_score(clean_df, result_df, imputed_cols)
+
+    constraint = s_score * 0.15 + r_score * 0.20 + c_score * 0.55 + d_score * 0.10
+
     transform_excess = max(0, transform_steps - min_transform_steps)
-    transform_penalty = transform_excess / (max_transform_steps * 2)
-
-    # Explore penalty: normal explores cost a little, timed-out ones cost more
+    transform_penalty = transform_excess / (max_transform_steps * 2) if max_transform_steps > 0 else 0
     normal_explores = explore_steps - explore_timeouts
-    explore_penalty = (normal_explores * explore_cost_per_step) + (explore_timeouts * explore_timeout_cost)
+    explore_penalty = (
+        normal_explores * explore_cost_per_step
+        + explore_timeouts * explore_timeout_cost
+    )
+    undo_penalty = undo_count * undo_cost
+    validate_penalty = validate_count * validate_cost
+    efficiency = max(
+        0.5, 1.0 - transform_penalty - explore_penalty - undo_penalty - validate_penalty
+    )
 
-    efficiency_factor = max(0.5, 1.0 - transform_penalty - explore_penalty)
-
-    reward = round(min(1.0, constraint_score * efficiency_factor), 4)
+    reward = round(min(1.0, constraint * efficiency), 4)
     return error_status, reward
 
 
