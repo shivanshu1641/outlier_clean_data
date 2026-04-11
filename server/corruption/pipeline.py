@@ -40,7 +40,7 @@ class CorruptionPipeline:
         return self.py_rng.choice(self.profile["format_pool"])
 
     def corrupt(
-        self, clean_df: pd.DataFrame
+        self, clean_df: pd.DataFrame, rules: list | None = None,
     ) -> tuple[pd.DataFrame, dict, dict, dict]:
         """Apply selected corruptions to *clean_df*.
 
@@ -52,6 +52,7 @@ class CorruptionPipeline:
         pipeline_metadata : dict
         """
         df = clean_df.copy()
+        self._rules = rules or []
         error_log: list[dict] = []
 
         numeric_cols = df.select_dtypes(include="number").columns.tolist()
@@ -95,6 +96,10 @@ class CorruptionPipeline:
             else:
                 target_cols = all_cols
 
+            extra_kwargs = {}
+            if corruption_name == "business_rule_violation" and self._rules:
+                extra_kwargs["rules"] = self._rules
+
             df = meta["fn"](
                 df,
                 columns=target_cols,
@@ -103,6 +108,7 @@ class CorruptionPipeline:
                 clean_df=clean_df,
                 rng=self.rng,
                 py_rng=self.py_rng,
+                **extra_kwargs,
             )
 
             applied_corruptions.append(
@@ -135,6 +141,8 @@ class CorruptionPipeline:
                 }
                 if "accepted_fill" in entry:
                     cell_errors[key]["accepted_fill"] = entry["accepted_fill"]
+                if "rule_type" in entry:
+                    cell_errors[key]["rule_type"] = entry["rule_type"]
 
         error_map = {
             "cell_errors": cell_errors,

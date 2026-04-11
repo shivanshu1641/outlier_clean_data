@@ -849,10 +849,21 @@ def business_rule_violation(
     py_rng: random.Random | None = None,
     **kwargs: Any,
 ) -> pd.DataFrame:
-    """Inject impossible/nonsensical numeric values (negative ages, negative prices, etc.)."""
+    """Inject values that violate semantic rules.
+
+    If ``rules`` is provided via kwargs, uses them to create targeted
+    violations. Otherwise falls back to generic impossible-value injection.
+    """
     df = df.copy()
     rng = rng or np.random.default_rng(42)
+    py_rng = py_rng or random.Random(42)
     severity = CORRUPTION_SEVERITY["business_rule_violation"]
+    rules = kwargs.get("rules", [])
+
+    if rules:
+        return _rule_aware_violation(df, rules, fraction, error_log, clean_df, rng, py_rng, severity)
+
+    # Fallback: generic impossible-value injection (existing behavior)
     for col in columns:
         if col not in df.columns:
             continue
@@ -887,6 +898,71 @@ def business_rule_violation(
                     "clean_value": _safe_clean_value(clean_val),
                     "corruption": "business_rule_violation",
                 })
+    return df
+
+
+def _rule_aware_violation(
+    df: pd.DataFrame,
+    rules: list,
+    fraction: float,
+    error_log: list[dict] | None,
+    clean_df: pd.DataFrame | None,
+    rng: np.random.Generator,
+    py_rng: random.Random,
+    severity: float,
+) -> pd.DataFrame:
+    """Create targeted violations based on semantic rules."""
+    try:
+        from server.rules.types import RangeRule, RegexRule, EnumRule, NotNullRule, UniqueRule
+    except ImportError:
+        from rules.types import RangeRule, RegexRule, EnumRule, NotNullRule, UniqueRule
+
+    n_rows = len(df)
+    n_corrupt = max(1, int(n_rows * fraction))
+    rows = rng.choice(n_rows, size=min(n_corrupt, n_rows), replace=False)
+
+    applicable = [r for r in rules if hasattr(r, "column") and r.column in df.columns]
+    if not applicable:
+        return df
+
+    for idx in rows:
+        rule = py_rng.choice(applicable)
+        col = rule.column
+        clean_val = _get_clean_val(clean_df, df, int(idx), col)
+
+        if isinstance(rule, RangeRule):
+            if rng.random() < 0.5 and rule.min_val != float("-inf"):
+                spread = abs(rule.max_val - rule.min_val) * 0.5 + 1 if rule.max_val != float("inf") else 100
+                bad_val = rule.min_val - float(rng.uniform(1, spread))
+            else:
+                if rule.max_val == float("inf"):
+                    bad_val = -float(rng.uniform(1, 1000))
+                else:
+                    spread = abs(rule.max_val - rule.min_val) * 0.5 + 1
+                    bad_val = rule.max_val + float(rng.uniform(1, spread))
+            df.at[int(idx), col] = bad_val
+        elif isinstance(rule, EnumRule):
+            bad_val = f"INVALID_{int(rng.integers(100, 999))}"
+            df.at[int(idx), col] = bad_val
+        elif isinstance(rule, NotNullRule):
+            df.at[int(idx), col] = None
+        elif isinstance(rule, RegexRule):
+            df.at[int(idx), col] = f"!!!INVALID_{int(rng.integers(100))}"
+        elif isinstance(rule, UniqueRule):
+            other_idx = int(rng.choice(n_rows))
+            df.at[int(idx), col] = df.at[other_idx, col]
+        else:
+            continue
+
+        if error_log is not None:
+            error_log.append({
+                "key": f"{int(idx)},{col}",
+                "severity": severity,
+                "clean_value": _safe_clean_value(clean_val),
+                "corruption": "business_rule_violation",
+                "rule_type": rule.rule_type,
+            })
+
     return df
 
 
