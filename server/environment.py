@@ -228,6 +228,7 @@ class DataCleaningEnvironment(
         task_id = kwargs.get("task_id")
         difficulty = kwargs.get("difficulty", "medium")
         category = kwargs.get("category")
+        forced_format: str | None = kwargs.get("format")
 
         # Resolve dataset from task_id (dataset_id) directly
         catalog = _load_catalog()
@@ -286,7 +287,8 @@ class DataCleaningEnvironment(
         # Run corruption pipeline
         _seed = seed if seed is not None else 42
         pipeline = CorruptionPipeline(seed=_seed, difficulty=difficulty, category=category)
-        self._file_format = pipeline.select_format()  # MUST be called before corrupt()
+        selected = pipeline.select_format()  # MUST be called before corrupt() to preserve RNG
+        self._file_format = forced_format if forced_format else selected
         dirty_df, error_map, _severity_map, pipeline_metadata = pipeline.corrupt(
             self._clean_df, rules=self._rules,
         )

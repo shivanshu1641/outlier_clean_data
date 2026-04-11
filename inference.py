@@ -59,25 +59,42 @@ MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o")
 API_KEY = os.environ.get("HF_TOKEN", os.environ.get("OPENAI_API_KEY", ""))
 ENV_URL = os.environ.get("ENV_URL", "http://localhost:7860")
 
-# Each entry: (dataset_id, difficulty)
-EVAL_TASKS: list[tuple[str, str]] = [
-    ("titanic",       "easy"),
-    ("titanic",       "medium"),
-    ("titanic",       "hard"),
-    ("iris",          "easy"),
-    ("iris",          "medium"),
-    ("boston_housing","medium"),
-    ("boston_housing","hard"),
-    ("diabetes",      "medium"),
-    ("diabetes",      "hard"),
-    ("wine_quality",  "easy"),
-    ("wine_quality",  "medium"),
-    ("wine_quality",  "hard"),
-    ("breast_cancer", "easy"),
-    ("breast_cancer", "medium"),
+# Each entry: (dataset_id, difficulty, format)
+# Formats are pinned per task for deterministic, reproducible episodes.
+# easy: csv + tsv | medium: csv + json + jsonl | hard: csv + json + xml
+EVAL_TASKS: list[tuple[str, str, str]] = [
+    ("titanic",        "easy",   "csv"),
+    ("titanic",        "easy",   "tsv"),
+    ("titanic",        "medium", "csv"),
+    ("titanic",        "medium", "json"),
+    ("titanic",        "hard",   "csv"),
+    ("titanic",        "hard",   "json"),
+    ("titanic",        "hard",   "xml"),
+    ("iris",           "easy",   "csv"),
+    ("iris",           "medium", "csv"),
+    ("iris",           "medium", "jsonl"),
+    ("boston_housing", "medium", "csv"),
+    ("boston_housing", "medium", "json"),
+    ("boston_housing", "hard",   "csv"),
+    ("boston_housing", "hard",   "xml"),
+    ("diabetes",       "medium", "csv"),
+    ("diabetes",       "medium", "jsonl"),
+    ("diabetes",       "hard",   "csv"),
+    ("diabetes",       "hard",   "json"),
+    ("wine_quality",   "easy",   "csv"),
+    ("wine_quality",   "medium", "csv"),
+    ("wine_quality",   "medium", "json"),
+    ("wine_quality",   "hard",   "csv"),
+    ("wine_quality",   "hard",   "xml"),
+    ("breast_cancer",  "easy",   "csv"),
+    ("breast_cancer",  "medium", "csv"),
+    ("breast_cancer",  "medium", "jsonl"),
 ]
 
 TASKS = EVAL_TASKS
+
+# Max agent steps per difficulty — hard tasks get more time
+MAX_STEPS_BY_DIFFICULTY = {"easy": 30, "medium": 60, "hard": 100}
 
 # ── Few-shot examples from dataset.parquet ────────────────────────────────────
 
@@ -458,9 +475,9 @@ def action_from_dict(d: dict):
 # ── Run Task ──────────────────────────────────────────────────────────────────
 
 
-async def run_task(dataset_id: str, difficulty: str) -> float:
+async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
     """Run the agent on a single task via WebSocket. Returns final reward."""
-    task_id = f"{dataset_id}_{difficulty}"
+    task_id = f"{dataset_id}_{difficulty}_{fmt}"
     log_start(task_id)
     task_start = time.time()
     current_reward = 0.0
@@ -476,7 +493,7 @@ async def run_task(dataset_id: str, difficulty: str) -> float:
     env_client = DataCleaningClient(base_url=ENV_URL)
 
     async with env_client as env:
-        step_result = await env.reset(task_id=dataset_id, difficulty=difficulty)
+        step_result = await env.reset(task_id=dataset_id, difficulty=difficulty, format=fmt)
         obs = step_result.observation
         current_reward = step_result.reward or 0.0
 
@@ -504,7 +521,7 @@ async def run_task(dataset_id: str, difficulty: str) -> float:
         ]
 
         step_num = 0
-        max_steps = 50
+        max_steps = MAX_STEPS_BY_DIFFICULTY.get(difficulty, 60)
 
         while step_num < max_steps:
             step_num += 1
@@ -738,17 +755,22 @@ def _parse_cli_tasks(args: list[str]) -> list[tuple[str, str]]:
     i = 0
     while i < len(args):
         arg = args[i]
-        if "/" in arg:
-            dataset_id, difficulty = arg.split("/", 1)
-            tasks.append((dataset_id, difficulty))
+        parts = arg.split("/")
+        if len(parts) == 3:
+            tasks.append((parts[0], parts[1], parts[2]))
+            i += 1
+        elif len(parts) == 2:
+            tasks.append((parts[0], parts[1], "csv"))
             i += 1
         elif i + 1 < len(args) and args[i + 1] in ("easy", "medium", "hard"):
-            tasks.append((arg, args[i + 1]))
-            i += 2
+            fmt = args[i + 2] if i + 2 < len(args) and args[i + 2] not in ("easy", "medium", "hard") else "csv"
+            step = 3 if fmt != "csv" else 2
+            tasks.append((arg, args[i + 1], fmt))
+            i += step
         else:
             raise SystemExit(
-                f"Cannot parse task: {arg!r}. Use 'dataset_id difficulty' or 'dataset_id/difficulty'.\n"
-                f"Examples: titanic easy  |  titanic/easy"
+                f"Cannot parse task: {arg!r}.\n"
+                f"Examples: titanic easy  |  titanic/easy  |  titanic/easy/json"
             )
     return tasks
 
@@ -757,14 +779,14 @@ async def amain():
     tasks = _parse_cli_tasks(sys.argv[1:]) if len(sys.argv) > 1 else TASKS
     results: dict[str, float] = {}
 
-    for dataset_id, difficulty in tasks:
-        task_id = f"{dataset_id}_{difficulty}"
+    for dataset_id, difficulty, fmt in tasks:
+        task_id = f"{dataset_id}_{difficulty}_{fmt}"
         print(f"\n{'='*60}", file=sys.stderr)
         print(f"Running task: {task_id}", file=sys.stderr)
         print(f"{'='*60}", file=sys.stderr)
         task_start = time.time()
         try:
-            reward = await run_task(dataset_id, difficulty)
+            reward = await run_task(dataset_id, difficulty, fmt)
             results[task_id] = reward
         except Exception as e:
             import traceback

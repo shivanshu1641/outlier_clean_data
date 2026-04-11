@@ -11,12 +11,14 @@ from models import (
 
 class TestSuiteConfig:
     def test_task_count(self):
-        assert len(EVAL_TASKS) == 14, f"Expected 14 tasks, got {len(EVAL_TASKS)}"
+        assert len(EVAL_TASKS) == 26, f"Expected 26 tasks, got {len(EVAL_TASKS)}"
 
     def test_task_format(self):
-        for dataset_id, difficulty in EVAL_TASKS:
+        valid_formats = {"csv", "tsv", "json", "jsonl", "parquet", "excel", "xml", "markdown", "fixed_width", "html_table", "sql_dump", "yaml"}
+        for dataset_id, difficulty, fmt in EVAL_TASKS:
             assert isinstance(dataset_id, str) and dataset_id, "dataset_id must be non-empty string"
             assert difficulty in ("easy", "medium", "hard"), f"Invalid difficulty: {difficulty}"
+            assert fmt in valid_formats, f"Unknown format: {fmt}"
 
     def test_action_wrapper_routes_undo(self):
         action = ActionWrapper.model_validate({"type": "undo", "step": 2})
