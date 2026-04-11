@@ -113,6 +113,8 @@ def create_sandbox(
     episode_id: str,
     dirty_csv_path: str,
     base_dir: str = "outputs/sandbox",
+    dirty_content: str | bytes = "",
+    file_format: str = "csv",
 ) -> tuple[str, subprocess.Popen]:
     """Create an isolated sandbox and spawn the persistent worker.
 
@@ -127,6 +129,25 @@ def create_sandbox(
     current_csv = os.path.join(sandbox_dir, "current.csv")
     shutil.copy2(dirty_csv_path, os.path.join(sandbox_dir, "input.csv"))
     shutil.copy2(dirty_csv_path, current_csv)
+
+    if dirty_content:
+        ext_map = {
+            "csv": "csv",
+            "json": "json",
+            "jsonl": "jsonl",
+            "excel": "xlsx",
+            "tsv": "tsv",
+            "xml": "xml",
+            "fixed_width": "txt",
+            "html_table": "html",
+            "sql_dump": "sql",
+            "yaml": "yaml",
+        }
+        ext = ext_map.get(file_format, "csv")
+        raw_path = os.path.join(sandbox_dir, f"input.{ext}")
+        mode = "wb" if isinstance(dirty_content, bytes) else "w"
+        with open(raw_path, mode) as f:
+            f.write(dirty_content)
 
     # Spawn persistent worker
     worker_proc = subprocess.Popen(
@@ -153,6 +174,27 @@ def create_sandbox(
         raise RuntimeError(f"Worker failed to start for episode {episode_id}")
 
     return sandbox_dir, worker_proc
+
+
+def save_checkpoint(sandbox_dir: str, step: int) -> str:
+    """Copy current.csv to checkpoints/step_NNN.csv. Returns checkpoint path."""
+    ckpt_dir = os.path.join(sandbox_dir, "checkpoints")
+    os.makedirs(ckpt_dir, exist_ok=True)
+    src = os.path.join(sandbox_dir, "current.csv")
+    dst = os.path.join(ckpt_dir, f"step_{step:03d}.csv")
+    shutil.copy2(src, dst)
+    return dst
+
+
+def restore_checkpoint(sandbox_dir: str, step: int) -> bool:
+    """Restore current.csv from checkpoints/step_NNN.csv. Returns True if found."""
+    ckpt_dir = os.path.join(sandbox_dir, "checkpoints")
+    src = os.path.join(ckpt_dir, f"step_{step:03d}.csv")
+    if not os.path.exists(src):
+        return False
+    dst = os.path.join(sandbox_dir, "current.csv")
+    shutil.copy2(src, dst)
+    return True
 
 
 def terminate_worker(worker_proc: subprocess.Popen) -> None:
