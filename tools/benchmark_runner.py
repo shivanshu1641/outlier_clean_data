@@ -210,111 +210,53 @@ async def run_benchmark_task(
     max_steps: int = 50,
     min_call_interval: float = 2.5,
 ) -> BenchmarkResult:
-    """Run a single benchmark task and return the result."""
-    sys.path.insert(0, str(_PROJECT_ROOT))
-    from client import DataCleaningClient
-    from inference import (
-        build_system_prompt, build_user_prompt, get_agent_action, action_from_dict,
-    )
-    from models import DoneAction
+    """Run a single benchmark task by delegating to inference.run_task.
 
+    This avoids duplicating the inference loop — all improvements
+    (diagnostic phase, templates, escalation ladder, dynamic temperature,
+    code sanitization) are inherited automatically.
+    """
+    sys.path.insert(0, str(_PROJECT_ROOT))
     import inference as inf_mod
+
+    # Configure the inference module for this benchmark task
     inf_mod.API_BASE_URL = task.model_api_base
     inf_mod.API_KEY = os.environ.get(task.model_api_key_env, "")
     inf_mod.MODEL_NAME = task.model_name
-    inf_mod.llm_client = None
+    inf_mod.llm_client = None  # force re-init with new settings
     inf_mod.MIN_CALL_INTERVAL = min_call_interval
+    inf_mod.ENV_URL = env_url
 
     task_key = f"{task.dataset_id}_{task.category}_{task.difficulty}_{task.model_name}_{task.seed}"
     logger.info("Starting benchmark task: %s", task_key)
 
     t0 = time.time()
-    current_reward = 0.0
-    step_num = 0
-    action_history: list[dict] = []
-
-    env_client = DataCleaningClient(base_url=env_url)
 
     try:
-        async with env_client as env:
-            step_result = await env.reset(
-                task_id=task.dataset_id, difficulty=task.difficulty,
-                category=task.category, seed=task.seed,
-            )
-            obs = step_result.observation
-            current_reward = step_result.reward or 0.0
-
-            messages = [
-                {"role": "system", "content": build_system_prompt()},
-                {"role": "user", "content": build_user_prompt(obs, current_reward, action_history=action_history)},
-            ]
-
-            while step_num < max_steps:
-                step_num += 1
-                action_dict, latency, usage = get_agent_action(messages)
-                action = action_from_dict(action_dict)
-                action_type = action_dict.get("type", "done")
-
-                step_result = await env.step(action)
-                obs = step_result.observation
-                current_reward = step_result.reward if step_result.reward is not None else current_reward
-
-                constraint_status = obs.constraint_status or {}
-                fixed = sum(1 for v in constraint_status.values() if v)
-                total = len(constraint_status)
-
-                action_content = action_dict.get("query") or action_dict.get("code") or ""
-                action_history.append({
-                    "step": step_num, "type": action_type,
-                    "summary": action_content[:100],
-                    "reward_after": current_reward, "errors_fixed": fixed,
-                })
-
-                messages.append({"role": "assistant", "content": json.dumps(action_dict)})
-                messages.append({"role": "user", "content": build_user_prompt(obs, current_reward, action_history=action_history)})
-
-                if len(messages) > 20:
-                    messages = [messages[0]] + messages[-19:]
-
-                if step_result.done:
-                    break
-                if total > 0 and fixed == total:
-                    done_result = await env.step(DoneAction())
-                    current_reward = (
-                        done_result.reward
-                        if done_result.reward is not None
-                        else current_reward
-                    )
-                    break
-
-                recent_fixed = [h["errors_fixed"] for h in action_history if h["type"] == "transform"]
-                if len(recent_fixed) >= 3 and len(set(recent_fixed[-3:])) == 1:
-                    done_result = await env.step(DoneAction())
-                    current_reward = (
-                        done_result.reward
-                        if done_result.reward is not None
-                        else current_reward
-                    )
-                    break
-
+        # Delegate to the canonical inference loop — gets all improvements for free
+        reward = await inf_mod.run_task(
+            task.dataset_id, task.difficulty, fmt="csv",
+        )
     except Exception:
         logger.exception("Task %s failed", task_key)
-        raise
+        reward = 0.0
 
     elapsed = time.time() - t0
 
+    # The inference module already writes per-step JSONL logs to LOG_DIR.
+    # Point the episode_log_path to the latest run log for this task.
     episode_dir = os.path.join("outputs", "episodes")
     os.makedirs(episode_dir, exist_ok=True)
-    episode_path = os.path.join(episode_dir, f"{_safe_task_key(task_key)}.jsonl")
+    episode_path = os.path.join(episode_dir, f"{_safe_task_key(task_key)}.json")
     with open(episode_path, "w") as f:
-        for h in action_history:
-            f.write(json.dumps(h) + "\n")
+        json.dump({"task_key": task_key, "reward": reward, "elapsed_s": round(elapsed, 2)}, f)
 
     return BenchmarkResult(
         dataset_id=task.dataset_id, category=task.category,
         difficulty=task.difficulty, model=task.model_name,
-        seed=task.seed, reward=current_reward, scores={},
-        steps=step_num, episode_log_path=episode_path,
+        seed=task.seed, reward=reward, scores={},
+        steps=0,  # step count is in the inference JSONL log
+        episode_log_path=episode_path,
         elapsed_s=round(elapsed, 2),
     )
 
