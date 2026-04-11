@@ -1,16 +1,32 @@
 import pytest
+import pandas as pd
 
-from server.rules.types import (
-    CrossColumnRule,
-    DtypeRule,
-    EnumRule,
-    NotNullRule,
-    RangeRule,
-    RegexRule,
-    UniqueRule,
-    rule_from_dict,
-    rule_to_dict,
-)
+try:
+    from server.rules.types import (
+        CrossColumnRule,
+        DtypeRule,
+        EnumRule,
+        NotNullRule,
+        RangeRule,
+        RegexRule,
+        UniqueRule,
+        rule_from_dict,
+        rule_to_dict,
+    )
+    from server.rules.validator import Violation, compute_semantic_score, validate
+except ImportError:
+    from rules.types import (
+        CrossColumnRule,
+        DtypeRule,
+        EnumRule,
+        NotNullRule,
+        RangeRule,
+        RegexRule,
+        UniqueRule,
+        rule_from_dict,
+        rule_to_dict,
+    )
+    from rules.validator import Violation, compute_semantic_score, validate
 
 
 class TestRuleTypes:
@@ -153,3 +169,142 @@ class TestRuleSerialization:
     def test_from_dict_unknown_type_raises(self):
         with pytest.raises(ValueError, match="Unknown rule type"):
             rule_from_dict({"type": "bogus", "column": "x"})
+
+
+@pytest.fixture
+def sample_df():
+    return pd.DataFrame({
+        "id": [1, 2, 3, 4, 5],
+        "age": [25, 35, -5, 200, 45],
+        "email": ["a@b.com", "bad", "c@d.org", "e@f.io", ""],
+        "sex": ["male", "female", "male", "alien", "female"],
+        "score": [88.5, None, 75.0, 90.0, None],
+    })
+
+
+@pytest.fixture
+def sample_rules():
+    return [
+        RangeRule(column="age", min_val=0, max_val=120, source="heuristic"),
+        RegexRule(column="email", pattern=r"^[\w.]+@[\w.]+\.\w+$", source="heuristic"),
+        EnumRule(column="sex", values=["male", "female", "other"], source="statistical"),
+        NotNullRule(column="score", source="statistical"),
+    ]
+
+
+class TestValidator:
+    def test_validates_range_violations(self, sample_df, sample_rules):
+        violations = validate(sample_df, [sample_rules[0]])
+        assert len(violations) == 2
+        assert all(isinstance(v, Violation) for v in violations)
+        assert all(v.rule_type == "range" for v in violations)
+        assert {v.row_index for v in violations} == {2, 3}
+
+    def test_validates_regex_violations(self, sample_df, sample_rules):
+        violations = validate(sample_df, [sample_rules[1]])
+        assert len(violations) == 2
+        assert all(v.rule_type == "regex" for v in violations)
+
+    def test_validates_enum_violations(self, sample_df, sample_rules):
+        violations = validate(sample_df, [sample_rules[2]])
+        assert len(violations) == 1
+        assert violations[0].row_index == 3
+        assert violations[0].actual_value == "alien"
+
+    def test_validates_enum_case_insensitively(self):
+        df = pd.DataFrame({"sex": ["MALE", "Female", "other", "alien"]})
+        rule = EnumRule(column="sex", values=["male", "female", "other"], source="statistical")
+        violations = validate(df, [rule])
+        assert len(violations) == 1
+        assert violations[0].actual_value == "alien"
+
+    def test_validates_not_null_violations(self, sample_df, sample_rules):
+        violations = validate(sample_df, [sample_rules[3]])
+        assert len(violations) == 2
+        assert all(v.rule_type == "not_null" for v in violations)
+
+    def test_validates_unique_rule(self):
+        df = pd.DataFrame({"id": [1, 2, 3, 2, 5]})
+        violations = validate(df, [UniqueRule(column="id", source="heuristic")])
+        assert len(violations) >= 1
+        assert all(v.rule_type == "unique" for v in violations)
+
+    def test_validates_dtype_rule(self):
+        df = pd.DataFrame({"age": [25, "thirty", 40, 50]})
+        violations = validate(
+            df,
+            [DtypeRule(column="age", expected_dtype="integer", source="statistical")],
+        )
+        assert len(violations) >= 1
+        assert violations[0].actual_value == "thirty"
+
+    def test_all_rules_combined(self, sample_df, sample_rules):
+        violations = validate(sample_df, sample_rules)
+        assert len(violations) == 7
+
+    def test_skips_missing_column(self, sample_df):
+        rule = RangeRule(column="nonexistent", min_val=0, max_val=100, source="heuristic")
+        violations = validate(sample_df, [rule])
+        assert len(violations) == 0
+
+    def test_empty_rules_returns_empty(self, sample_df):
+        violations = validate(sample_df, [])
+        assert len(violations) == 0
+
+    def test_semantic_score_perfect(self):
+        df = pd.DataFrame({"age": [25, 35, 45]})
+        rules = [RangeRule(column="age", min_val=0, max_val=120, source="heuristic")]
+        assert validate(df, rules) == []
+        assert compute_semantic_score(df, rules) == 1.0
+
+    def test_semantic_score_penalizes_violations(self, sample_df, sample_rules):
+        score = compute_semantic_score(sample_df, sample_rules)
+        assert score == pytest.approx(1.0 - 7 / 20)
+
+    def test_semantic_score_returns_perfect_when_no_rules_apply(self):
+        df = pd.DataFrame({"age": [25, 35, 45]})
+        rules = [RangeRule(column="missing", min_val=0, max_val=120, source="heuristic")]
+        assert compute_semantic_score(df, rules) == 1.0
+
+    def test_cross_column_functional_dependency(self):
+        df = pd.DataFrame({
+            "embarked": ["S", "C", "S", "Q", "S"],
+            "port": ["Southampton", "Cherbourg", "WRONG", "Queenstown", "Southampton"],
+        })
+        mapping = {"S": "Southampton", "C": "Cherbourg", "Q": "Queenstown"}
+        rule = CrossColumnRule(
+            columns=["embarked", "port"],
+            condition="functional_dependency",
+            hint="S=Southampton, C=Cherbourg, Q=Queenstown",
+            source="manual",
+        )
+        violations = validate(df, [rule], cross_column_maps={"embarked->port": mapping})
+        assert len(violations) == 1
+        assert violations[0].row_index == 2
+        assert violations[0].actual_value == "WRONG"
+
+    def test_cross_column_ordering(self):
+        df = pd.DataFrame({
+            "start": [1, 4, 3],
+            "end": [2, 3, 3],
+        })
+        rule = CrossColumnRule(
+            columns=["start", "end"],
+            condition="ordering",
+            hint="start must be less than or equal to end",
+            source="manual",
+        )
+        violations = validate(df, [rule])
+        assert len(violations) == 1
+        assert violations[0].row_index == 1
+        assert violations[0].actual_value == "4 > 3"
+
+    def test_cross_column_skips_missing_columns(self):
+        df = pd.DataFrame({"start": [1, 2, 3]})
+        rule = CrossColumnRule(
+            columns=["start", "end"],
+            condition="ordering",
+            hint="start must be less than or equal to end",
+            source="manual",
+        )
+        assert validate(df, [rule]) == []
