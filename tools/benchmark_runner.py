@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import argparse
+import asyncio
 import csv
 import json
+import logging
 import os
+import sys
+import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -156,3 +161,161 @@ def generate_task_matrix(config: Dict[str, Any]) -> List[BenchmarkTask]:
                         )
 
     return tasks
+
+
+logger = logging.getLogger("benchmark")
+
+
+async def run_benchmark_task(
+    task: BenchmarkTask,
+    env_url: str = "http://localhost:7860",
+    max_steps: int = 50,
+    min_call_interval: float = 2.5,
+) -> BenchmarkResult:
+    """Run a single benchmark task and return the result."""
+    sys.path.insert(0, str(_PROJECT_ROOT))
+    from client import DataCleaningClient
+    from inference import (
+        build_system_prompt, build_user_prompt, get_agent_action, action_from_dict,
+    )
+    from models import DoneAction
+
+    import inference as inf_mod
+    inf_mod.API_BASE_URL = task.model_api_base
+    inf_mod.API_KEY = os.environ.get(task.model_api_key_env, "")
+    inf_mod.MODEL_NAME = task.model_name
+    inf_mod.llm_client = None
+    inf_mod.MIN_CALL_INTERVAL = min_call_interval
+
+    task_key = f"{task.dataset_id}_{task.category}_{task.difficulty}_{task.model_name}_{task.seed}"
+    logger.info("Starting benchmark task: %s", task_key)
+
+    t0 = time.time()
+    current_reward = 0.0
+    step_num = 0
+    action_history: list[dict] = []
+
+    env_client = DataCleaningClient(base_url=env_url)
+
+    try:
+        async with env_client as env:
+            step_result = await env.reset(
+                task_id=task.dataset_id, difficulty=task.difficulty,
+                category=task.category, seed=task.seed,
+            )
+            obs = step_result.observation
+            current_reward = step_result.reward or 0.0
+
+            messages = [
+                {"role": "system", "content": build_system_prompt(task.dataset_id)},
+                {"role": "user", "content": build_user_prompt(obs, current_reward, action_history=action_history)},
+            ]
+
+            while step_num < max_steps:
+                step_num += 1
+                action_dict, latency, usage = get_agent_action(messages)
+                action = action_from_dict(action_dict)
+                action_type = action_dict.get("type", "done")
+
+                step_result = await env.step(action)
+                obs = step_result.observation
+                current_reward = step_result.reward if step_result.reward is not None else current_reward
+
+                constraint_status = obs.constraint_status or {}
+                fixed = sum(1 for v in constraint_status.values() if v)
+                total = len(constraint_status)
+
+                action_content = action_dict.get("query") or action_dict.get("code") or ""
+                action_history.append({
+                    "step": step_num, "type": action_type,
+                    "summary": action_content[:100],
+                    "reward_after": current_reward, "errors_fixed": fixed,
+                })
+
+                messages.append({"role": "assistant", "content": json.dumps(action_dict)})
+                messages.append({"role": "user", "content": build_user_prompt(obs, current_reward, action_history=action_history)})
+
+                if len(messages) > 20:
+                    messages = [messages[0]] + messages[-19:]
+
+                if step_result.done:
+                    break
+                if total > 0 and fixed == total:
+                    await env.step(DoneAction())
+                    break
+
+                recent_fixed = [h["errors_fixed"] for h in action_history if h["type"] == "transform"]
+                if len(recent_fixed) >= 3 and len(set(recent_fixed[-3:])) == 1:
+                    await env.step(DoneAction())
+                    break
+
+    except Exception as e:
+        logger.error("Task %s failed: %s", task_key, e)
+
+    elapsed = time.time() - t0
+
+    episode_dir = os.path.join("outputs", "episodes")
+    os.makedirs(episode_dir, exist_ok=True)
+    episode_path = os.path.join(episode_dir, f"{task_key}.jsonl")
+    with open(episode_path, "w") as f:
+        for h in action_history:
+            f.write(json.dumps(h) + "\n")
+
+    return BenchmarkResult(
+        dataset_id=task.dataset_id, category=task.category,
+        difficulty=task.difficulty, model=task.model_name,
+        seed=task.seed, reward=current_reward, scores={},
+        steps=step_num, episode_log_path=episode_path,
+        elapsed_s=round(elapsed, 2),
+    )
+
+
+async def run_benchmark(config: dict) -> list[BenchmarkResult]:
+    """Run the full benchmark matrix sequentially."""
+    tasks = generate_task_matrix(config)
+    output_dir = config.get("output_dir", "outputs/benchmark")
+    env_url = config.get("env_url", "http://localhost:7860")
+    max_steps = config.get("max_steps", 50)
+    min_call_interval = config.get("min_call_interval", 2.5)
+
+    logger.info("Benchmark matrix: %d tasks", len(tasks))
+    results = []
+    for i, task in enumerate(tasks):
+        logger.info("Task %d/%d: %s/%s/%s/%s/seed=%d",
+                     i + 1, len(tasks), task.dataset_id, task.category,
+                     task.difficulty, task.model_name, task.seed)
+        result = await run_benchmark_task(task, env_url=env_url, max_steps=max_steps, min_call_interval=min_call_interval)
+        save_result(result, output_dir=output_dir)
+        results.append(result)
+        logger.info("  reward=%.4f steps=%d elapsed=%.1fs", result.reward, result.steps, result.elapsed_s)
+    logger.info("Benchmark complete: %d tasks", len(results))
+    return results
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Run data cleaning benchmark")
+    parser.add_argument("--config", default="tools/benchmark_config.yaml")
+    parser.add_argument("--models", nargs="*", help="Filter to these model names")
+    parser.add_argument("--categories", nargs="*", help="Filter to these categories")
+    parser.add_argument("--difficulties", nargs="*", help="Filter to these difficulties")
+    parser.add_argument("--datasets", nargs="*", help="Filter to these dataset IDs")
+    args = parser.parse_args()
+
+    logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s — %(message)s", datefmt="%H:%M:%S")
+
+    # CLI --models filter works by name matching
+    models_filter = None
+    if args.models:
+        models_filter = args.models
+
+    config = load_config(args.config, categories=args.categories, difficulties=args.difficulties, datasets=args.datasets)
+
+    # Filter models by name if --models provided
+    if models_filter:
+        config["models"] = [m for m in config.get("models", []) if m["name"] in models_filter]
+
+    asyncio.run(run_benchmark(config))
+
+
+if __name__ == "__main__":
+    main()
