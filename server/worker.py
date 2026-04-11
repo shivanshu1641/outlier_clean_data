@@ -40,7 +40,6 @@ def _fix_inplace_pattern(code: str) -> str:
     Pandas 2.x Copy-on-Write makes chained inplace operations a no-op.
     This silently fixes the most common LLM mistake.
     """
-    import re
     # Match: df['col'].fillna(..., inplace=True)  and similar methods
     # Captures: df['col'] as group 1, method call as group 2
     pattern = r"(df\[(['\"])([\w\s]+)\2\])\.(fillna|replace|drop_duplicates|dropna|ffill|bfill|interpolate|clip|where|mask)\((.+?),\s*inplace\s*=\s*True\s*\)"
@@ -66,7 +65,27 @@ def _fix_inplace_pattern(code: str) -> str:
     return fixed
 
 
+class _BoundedStringIO(io.StringIO):
+    """StringIO with a hard cap to prevent agent print-bombs from OOMing the worker."""
+    MAX_SIZE = 1_000_000  # 1 MB
+
+    def write(self, s: str) -> int:
+        if self.tell() + len(s) > self.MAX_SIZE:
+            raise RuntimeError("Output size limit exceeded (1 MB max)")
+        return super().write(s)
+
+
 def _run():
+    # ── Memory limit (Linux only — macOS RLIMIT_AS is unreliable) ────────────
+    try:
+        import platform
+        import resource
+        if platform.system() != "Darwin":
+            _TWO_GB = 2 * 1024 * 1024 * 1024
+            resource.setrlimit(resource.RLIMIT_AS, (_TWO_GB, _TWO_GB))
+    except Exception:
+        pass  # Best-effort — don't crash if unsupported
+
     # ── Setup ────────────────────────────────────────────────────────────────
     setup_line = sys.stdin.readline()
     if not setup_line:
@@ -79,6 +98,29 @@ def _run():
 
     df = pd.read_csv(current_csv)
 
+    # Restricted builtins — defense-in-depth against AST bypass attempts
+    _safe_builtins = {
+        "True": True, "False": False, "None": None,
+        "abs": abs, "all": all, "any": any, "bool": bool,
+        "bytes": bytes, "chr": chr, "dict": dict,
+        "enumerate": enumerate, "filter": filter,
+        "float": float, "frozenset": frozenset, "hasattr": hasattr,
+        "hash": hash, "int": int, "isinstance": isinstance,
+        "iter": iter, "len": len,
+        "list": list, "map": map, "max": max, "min": min,
+        "next": next, "ord": ord,
+        "pow": pow, "print": print, "range": range,
+        "repr": repr, "reversed": reversed, "round": round,
+        "set": set, "slice": slice, "sorted": sorted,
+        "str": str, "sum": sum, "tuple": tuple, "zip": zip,
+        # Exceptions agents may need to catch
+        "ValueError": ValueError, "TypeError": TypeError,
+        "KeyError": KeyError, "IndexError": IndexError,
+        "AttributeError": AttributeError, "RuntimeError": RuntimeError,
+        "StopIteration": StopIteration, "Exception": Exception,
+        "OverflowError": OverflowError, "ZeroDivisionError": ZeroDivisionError,
+    }
+
     # Namespace available to agent code
     _ns_base = {
         "pd": pd, "np": np,
@@ -86,6 +128,7 @@ def _run():
         "math": math, "collections": collections,
         "itertools": itertools, "functools": functools,
         "json": json, "csv": csv, "io": io,
+        "__builtins__": _safe_builtins,
     }
 
     try:
@@ -125,6 +168,15 @@ def _run():
         if cmd_type == "exit":
             break
 
+        elif cmd_type == "reload":
+            # Re-read current.csv into memory — called after undo to resync worker state
+            try:
+                df = pd.read_csv(current_csv)
+                sys.stdout.write(json.dumps({"ready": True}) + "\n")
+            except Exception as exc:
+                sys.stdout.write(json.dumps({"ready": False, "error": str(exc)}) + "\n")
+            sys.stdout.flush()
+
         elif cmd_type == "transform":
             code = _fix_inplace_pattern(cmd.get("code", ""))
             script_path = os.path.join(scripts_dir, f"transform_{step:03d}.py")
@@ -137,7 +189,7 @@ def _run():
             except Exception:
                 pass
 
-            buf = io.StringIO()
+            buf = _BoundedStringIO()
             old_stdout = sys.stdout
             success = False
             stdout_out = ""
@@ -146,10 +198,9 @@ def _run():
 
             try:
                 sys.stdout = buf
-                # Re-read CSV each step — CSV is the source of truth, not in-memory df.
-                # This avoids pandas inplace=True pitfalls.
-                df = pd.read_csv(current_csv)
-                ns = {"df": df, **_ns_base}
+                # Use in-memory df copy — _fix_inplace_pattern handles pandas 2.x
+                # Copy-on-Write pitfalls. CSV stays as persistent source of truth.
+                ns = {"df": df.copy(), **_ns_base}
                 exec(code, ns)  # noqa: S102 — AST-checked by parent before sending
                 sys.stdout = old_stdout
                 df = ns["df"]
@@ -174,7 +225,7 @@ def _run():
             query = cmd.get("query", "df.head()")
             artifact_path = os.path.join(artifacts_dir, f"explore_{step:03d}.txt")
 
-            buf = io.StringIO()
+            buf = _BoundedStringIO()
             old_stdout = sys.stdout
             success = False
             stdout_out = ""
@@ -182,9 +233,9 @@ def _run():
 
             try:
                 sys.stdout = buf
-                df = pd.read_csv(current_csv)
+                # Use in-memory df — explore is read-only, no CSV re-read needed
                 ns = {"df": df, **_ns_base}
-                result = eval(query, ns)  # noqa: S307
+                result = eval(query, ns)  # noqa: S307 — AST-checked by parent before sending
                 if result is not None:
                     print(result)
                 sys.stdout = old_stdout

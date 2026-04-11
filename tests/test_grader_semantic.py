@@ -36,7 +36,7 @@ def rules():
 
 class TestSemanticScoreInGrade:
     def test_perfect_result_with_rules(self, clean_df, error_map, rules):
-        _, reward = grade(
+        _, reward, *_ = grade(
             clean_df, clean_df, error_map,
             transform_steps=3, min_transform_steps=2, max_transform_steps=10,
             rules=rules,
@@ -48,12 +48,12 @@ class TestSemanticScoreInGrade:
         bad_result.loc[0, "age"] = -5
         bad_result.loc[1, "sex"] = "alien"
 
-        _, reward_bad = grade(
+        _, reward_bad, *_ = grade(
             clean_df, bad_result, error_map,
             transform_steps=3, min_transform_steps=2, max_transform_steps=10,
             rules=rules,
         )
-        _, reward_good = grade(
+        _, reward_good, *_ = grade(
             clean_df, clean_df, error_map,
             transform_steps=3, min_transform_steps=2, max_transform_steps=10,
             rules=rules,
@@ -61,11 +61,11 @@ class TestSemanticScoreInGrade:
         assert reward_good > reward_bad
 
     def test_no_rules_defaults_to_full_score(self, clean_df, error_map):
-        _, reward_no_rules = grade(
+        _, reward_no_rules, *_ = grade(
             clean_df, clean_df, error_map,
             transform_steps=3, min_transform_steps=2, max_transform_steps=10,
         )
-        _, reward_empty_rules = grade(
+        _, reward_empty_rules, *_ = grade(
             clean_df, clean_df, error_map,
             transform_steps=3, min_transform_steps=2, max_transform_steps=10,
             rules=[],
@@ -78,7 +78,7 @@ class TestSemanticScoreInGrade:
         terrible["sex"] = ["x", "x", "x", "x", "x"]
         terrible["score"] = [None, None, None, None, None]
 
-        _, reward = grade(
+        _, reward, *_ = grade(
             clean_df, terrible, error_map,
             transform_steps=3, min_transform_steps=2, max_transform_steps=10,
             rules=rules,

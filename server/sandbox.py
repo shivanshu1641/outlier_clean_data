@@ -10,6 +10,7 @@ Safety: agent code is AST-scanned before being sent to the worker.
 from __future__ import annotations
 
 import ast
+import atexit
 import json
 import logging
 import os
@@ -36,6 +37,16 @@ BLOCKED_MODULES = frozenset({
 BLOCKED_NAMES = frozenset({
     "exec", "eval", "compile", "__import__",
     "open", "breakpoint", "input",
+    "getattr", "setattr", "delattr",
+    "globals", "locals", "vars",
+})
+
+# Dunder attributes enabling sandbox escape via class hierarchy traversal
+BLOCKED_DUNDERS = frozenset({
+    "__import__", "__class__", "__bases__", "__subclasses__",
+    "__mro__", "__builtins__", "__globals__", "__code__",
+    "__reduce__", "__reduce_ex__", "__init_subclass__",
+    "__getattribute__", "__getattr__", "__setattr__", "__delattr__",
 })
 
 
@@ -43,10 +54,13 @@ class UnsafeCodeError(Exception):
     pass
 
 
-def check_code_safety(code: str) -> None:
-    """AST-scan agent code for blocked imports and calls."""
+def check_code_safety(code: str, mode: str = "exec") -> None:
+    """AST-scan agent code for blocked imports and calls.
+
+    mode: "exec" for transform statements, "eval" for explore expressions.
+    """
     try:
-        tree = ast.parse(code)
+        tree = ast.parse(code, mode=mode)
     except SyntaxError as e:
         raise UnsafeCodeError(f"Syntax error: {e}")
 
@@ -61,11 +75,19 @@ def check_code_safety(code: str) -> None:
                 root = node.module.split(".")[0]
                 if root in BLOCKED_MODULES:
                     raise UnsafeCodeError(f"Blocked import: from {node.module}")
+        elif isinstance(node, ast.Attribute):
+            # Block dunder attributes that enable class hierarchy traversal / escape
+            if node.attr in BLOCKED_DUNDERS or node.attr in BLOCKED_NAMES:
+                raise UnsafeCodeError(f"Blocked attribute: .{node.attr}")
         elif isinstance(node, ast.Call):
             if isinstance(node.func, ast.Name) and node.func.id in BLOCKED_NAMES:
                 raise UnsafeCodeError(f"Blocked call: {node.func.id}()")
             if isinstance(node.func, ast.Attribute) and node.func.attr in BLOCKED_NAMES:
                 raise UnsafeCodeError(f"Blocked call: .{node.func.attr}()")
+        elif isinstance(node, ast.Name):
+            # Block bare references to blocked dunders as identifiers
+            if node.id in BLOCKED_DUNDERS:
+                raise UnsafeCodeError(f"Blocked name: {node.id}")
 
 
 # ── Result type ───────────────────────────────────────────────────────────────
@@ -81,6 +103,33 @@ class ExecutionResult:
 # ── Worker management ─────────────────────────────────────────────────────────
 
 _WORKER_SCRIPT = str(Path(__file__).parent / "worker.py")
+
+# Environment variables forwarded to the worker — strips secrets like HF_TOKEN / API keys
+_WORKER_ENV_KEYS = frozenset({"PATH", "HOME", "LANG", "LC_ALL", "PYTHONPATH", "VIRTUAL_ENV"})
+
+# Track active workers for atexit cleanup
+_active_workers: set[subprocess.Popen] = set()
+
+
+def _worker_env(sandbox_dir: str) -> dict[str, str]:
+    """Build a minimal env dict for the worker, stripping server secrets."""
+    env = {k: v for k, v in os.environ.items() if k in _WORKER_ENV_KEYS}
+    env["HOME"] = sandbox_dir
+    return env
+
+
+def _cleanup_all_workers() -> None:
+    """Kill any still-running worker processes on interpreter exit."""
+    for proc in list(_active_workers):
+        try:
+            proc.kill()
+            proc.wait(timeout=1)
+        except Exception:
+            pass
+    _active_workers.clear()
+
+
+atexit.register(_cleanup_all_workers)
 
 
 def _send(proc: subprocess.Popen, obj: dict) -> bool:
@@ -149,7 +198,7 @@ def create_sandbox(
         with open(raw_path, mode) as f:
             f.write(dirty_content)
 
-    # Spawn persistent worker
+    # Spawn persistent worker — stripped env (no secrets), own session for clean kills
     worker_proc = subprocess.Popen(
         [sys.executable, _WORKER_SCRIPT],
         stdin=subprocess.PIPE,
@@ -158,7 +207,10 @@ def create_sandbox(
         text=True,
         bufsize=1,
         cwd=sandbox_dir,
+        env=_worker_env(sandbox_dir),
+        start_new_session=True,
     )
+    _active_workers.add(worker_proc)
 
     # Send setup
     _send(worker_proc, {
@@ -201,6 +253,7 @@ def terminate_worker(worker_proc: subprocess.Popen) -> None:
     """Gracefully shut down the worker process and close all pipes."""
     if worker_proc is None:
         return
+    _active_workers.discard(worker_proc)
     try:
         _send(worker_proc, {"type": "exit"})
         worker_proc.wait(timeout=3)
@@ -219,6 +272,17 @@ def terminate_worker(worker_proc: subprocess.Popen) -> None:
         worker_proc.wait(timeout=1)
     except Exception:
         pass
+
+
+def reload_worker_df(worker_proc: subprocess.Popen, timeout: float = 5.0) -> bool:
+    """Tell the worker to re-read current.csv from disk (called after undo).
+
+    Returns True on success, False if worker is dead or times out.
+    """
+    if not _send(worker_proc, {"type": "reload"}):
+        return False
+    result = _recv(worker_proc, timeout=timeout)
+    return bool(result and result.get("ready"))
 
 
 # ── Execution ─────────────────────────────────────────────────────────────────
@@ -240,7 +304,14 @@ def execute_transform(
 
     result = _recv(worker_proc, timeout=float(timeout))
     if result is None:
-        return ExecutionResult(success=False, error=f"Worker timed out after {timeout}s")
+        # Kill stuck worker — caller must respawn if needed
+        try:
+            worker_proc.kill()
+            worker_proc.wait(timeout=2)
+        except Exception:
+            pass
+        _active_workers.discard(worker_proc)
+        return ExecutionResult(success=False, error=f"Worker killed after {timeout}s timeout")
 
     return ExecutionResult(
         success=result.get("success", False),
@@ -257,12 +328,23 @@ def execute_explore(
     timeout: int = 10,
 ) -> ExecutionResult:
     """Send an explore query to the persistent worker and return the result."""
+    try:
+        check_code_safety(query, mode="eval")
+    except UnsafeCodeError as e:
+        return ExecutionResult(success=False, error=str(e))
+
     if not _send(worker_proc, {"type": "explore", "query": query, "step": step_idx}):
         return ExecutionResult(success=False, error="Worker process is not running")
 
     result = _recv(worker_proc, timeout=float(timeout))
     if result is None:
-        return ExecutionResult(success=False, error=f"Worker timed out after {timeout}s")
+        try:
+            worker_proc.kill()
+            worker_proc.wait(timeout=2)
+        except Exception:
+            pass
+        _active_workers.discard(worker_proc)
+        return ExecutionResult(success=False, error=f"Worker killed after {timeout}s timeout")
 
     return ExecutionResult(
         success=result.get("success", False),

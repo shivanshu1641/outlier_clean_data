@@ -216,12 +216,16 @@ def whitespace_noise(
     rng = rng or np.random.default_rng(42)
     severity = CORRUPTION_SEVERITY["whitespace_noise"]
     for col in columns:
-        if col not in df.columns or df[col].dtype != object:
+        if col not in df.columns or not pd.api.types.is_string_dtype(df[col]):
             continue
         idxs = _choose_indices(rng, len(df), fraction)
         for pos in idxs:
             idx = df.index[pos]
-            val = str(df.at[idx, col])
+            raw_val = df.at[idx, col]
+            if pd.isna(raw_val):
+                _ = int(rng.integers(0, 3))  # consume rng to preserve ordering
+                continue
+            val = str(raw_val)
             clean_val = _get_clean_val(clean_df, df, idx, col)
             choice = int(rng.integers(0, 3))
             if choice == 0:
@@ -260,7 +264,7 @@ def format_inconsistency(
     rng = rng or np.random.default_rng(42)
     severity = CORRUPTION_SEVERITY["format_inconsistency"]
     for col in columns:
-        if col not in df.columns or df[col].dtype != object:
+        if col not in df.columns or not pd.api.types.is_string_dtype(df[col]):
             continue
         idxs = _choose_indices(rng, len(df), fraction)
         for pos in idxs:
@@ -479,7 +483,7 @@ def typo_injection(
     py_rng = py_rng or random.Random(42)
     severity = CORRUPTION_SEVERITY["typo_injection"]
     for col in columns:
-        if col not in df.columns or df[col].dtype != object:
+        if col not in df.columns or not pd.api.types.is_string_dtype(df[col]):
             continue
         idxs = _choose_indices(rng, len(df), fraction)
         for pos in idxs:
@@ -540,7 +544,7 @@ def date_format_mix(
     rng = rng or np.random.default_rng(42)
     severity = CORRUPTION_SEVERITY["date_format_mix"]
     for col in columns:
-        if col not in df.columns or df[col].dtype != object:
+        if col not in df.columns or not pd.api.types.is_string_dtype(df[col]):
             continue
         idxs = _choose_indices(rng, len(df), fraction)
         for pos in idxs:
@@ -627,7 +631,7 @@ def abbreviation_mix(
     py_rng = py_rng or random.Random(42)
     severity = CORRUPTION_SEVERITY["abbreviation_mix"]
     for col in columns:
-        if col not in df.columns or df[col].dtype != object:
+        if col not in df.columns or not pd.api.types.is_string_dtype(df[col]):
             continue
         idxs = _choose_indices(rng, len(df), fraction)
         for pos in idxs:
@@ -687,7 +691,7 @@ def leading_zero_strip(
     rng = rng or np.random.default_rng(42)
     severity = CORRUPTION_SEVERITY["leading_zero_strip"]
     for col in columns:
-        if col not in df.columns or df[col].dtype != object:
+        if col not in df.columns or not pd.api.types.is_string_dtype(df[col]):
             continue
         idxs = _choose_indices(rng, len(df), fraction)
         for pos in idxs:
@@ -793,7 +797,7 @@ def category_misspell(
     py_rng = py_rng or random.Random(42)
     severity = CORRUPTION_SEVERITY["category_misspell"]
     for col in columns:
-        if col not in df.columns or df[col].dtype != object:
+        if col not in df.columns or not pd.api.types.is_string_dtype(df[col]):
             continue
         idxs = _choose_indices(rng, len(df), fraction)
         for pos in idxs:
@@ -1011,7 +1015,7 @@ def encoding_noise(
     py_rng = py_rng or random.Random(42)
     severity = CORRUPTION_SEVERITY["encoding_noise"]
     for col in columns:
-        if col not in df.columns or df[col].dtype != object:
+        if col not in df.columns or not pd.api.types.is_string_dtype(df[col]):
             continue
         idxs = _choose_indices(rng, len(df), fraction)
         for pos in idxs:
@@ -1146,7 +1150,7 @@ def unicode_homoglyph(
     py_rng = py_rng or random.Random(42)
     severity = CORRUPTION_SEVERITY["unicode_homoglyph"]
     for col in columns:
-        if col not in df.columns or df[col].dtype != object:
+        if col not in df.columns or not pd.api.types.is_string_dtype(df[col]):
             continue
         idxs = _choose_indices(rng, len(df), fraction)
         for pos in idxs:
@@ -1207,7 +1211,7 @@ def html_entity_leak(
     severity = CORRUPTION_SEVERITY["html_entity_leak"]
     entity_chars = list(_HTML_ENTITY_MAP.keys())
     for col in columns:
-        if col not in df.columns or df[col].dtype != object:
+        if col not in df.columns or not pd.api.types.is_string_dtype(df[col]):
             continue
         idxs = _choose_indices(rng, len(df), fraction)
         for pos in idxs:

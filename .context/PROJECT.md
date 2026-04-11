@@ -36,7 +36,7 @@ OpenEnv environment for the Meta PyTorch Hackathon (deadline: April 8, 2026). AI
 - **Validate budget** — agents get 2 validate actions per episode; validation returns structured diagnosis without ending the episode and tracks `validate_count`/`validate_uses`
 - **Soft done** — first done is a checkpoint if reward < 1.0: agent sees score + remaining errors and can continue. Second done is final. Perfect score always ends immediately. Capped at 1 retry
 - **Null fill tolerance** — `accepted_fill` field per null error: "any" accepts any reasonable imputation (mean, median, mode, ffill, bfill) within 0.5σ of column range, "exact" requires the clean value, "mean"/"median"/"mode" accept only that specific statistic
-- **Persistent worker** — pandas/numpy loaded once per episode, CSV re-read each step (avoids cold-start AND the pandas Copy-on-Write `inplace=True` pitfall)
+- **Persistent worker** — pandas/numpy loaded once per episode; transform uses `df.copy()` in exec namespace (no CSV re-read per step); explore uses in-memory `df` directly (read-only); undo sends a `"reload"` command to resync worker state after checkpoint restore
 - **Auto-rewrite inplace=True** — worker auto-converts `df['col'].fillna(val, inplace=True)` → `df['col'] = df['col'].fillna(val)` (pandas 2.x broke chained inplace)
 - **Difficulty profiles** — easy/medium/hard profiles tune value, row, schema, and format corruption rates
 - **Format-aware corruption safety** — `CorruptionPipeline.select_format()` is called before `corrupt()` so raw dirty content, parser expectations, hints, and previews stay aligned
@@ -57,9 +57,9 @@ OpenEnv environment for the Meta PyTorch Hackathon (deadline: April 8, 2026). AI
 - Rewards always in [0.0, 1.0]
 - Sandbox always on — no code execution without AST scan + persistent worker
 - Grader never knows about corruption implementations — it scores result quality from clean data, error maps, and generated metadata
-- Grader detects collateral damage (correct cells the agent broke)
+- Grader detects collateral damage (correct cells the agent broke) using content-based row mapping so reordered rows are aligned before comparison
 - Dynamic reset produces clean data, dirty raw content, normalized CSV working copy, error map, metadata, hints, and observation previews
-- CSV is the source of truth between steps, not in-memory df
+- CSV is the source of truth between steps; worker in-memory `df` is kept in sync (reload on undo)
 - Client never imports server
 - Dual-import pattern in server files: `try: from ..models / except: from models`
 
@@ -129,13 +129,14 @@ python tools/download_datasets.py
 - `titanic_hard` shows 16/958 fixed at reset — phantom matches from overlapping corruptions where dirty value happens to equal clean value
 - ~~`clean_value: None` overlap bug~~ — fixed: `_get_clean_val()` always reads from original clean_df, not corrupted df
 - Grader index type mismatch: if `result_df` has string index (e.g. after CSV round-trip) but error_map keys are int-based, `df.at[int_idx, col]` silently KeyErrors → all cells marked "unfixed". Pre-existing bug, not yet fixed
+- ~~Collateral damage detection could compare dropped rows against shifted result indices~~ — fixed: it is row-mapping aware and skips clean rows missing from the content mapping after row drops
 
 ## File Map
 
 - `models.py` — Pydantic action, observation, state, error-map, undo, and validate types
 - `server/environment.py` — Generative env loop, `LEGACY_TASK_MAP`, action dispatch, observation building
-- `server/sandbox.py` — Persistent worker management, raw file/CSV setup, AST safety, checkpoints
-- `server/worker.py` — Worker process (exec/eval agent code, inplace rewriting, expanded library namespace)
+- `server/sandbox.py` — Persistent worker management, raw file/CSV setup, AST safety (exec + eval modes), filesystem checkpoints, env stripping, atexit cleanup
+- `server/worker.py` — Worker process: exec/eval agent code with restricted `__builtins__`, inplace rewriting, `_BoundedStringIO` stdout cap, 2GB memory limit (Linux), reload-on-undo
 - `server/grader.py` — Multi-level reward formula, semantic scoring, and validation diagnostics
 - `server/app.py` — FastAPI wiring
 - `client.py` — WebSocket client

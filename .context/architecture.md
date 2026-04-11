@@ -141,13 +141,19 @@ outputs/sandbox/{episode_id}/
 ├── input.<format>     (original dirty raw file, never modified)
 ├── input.csv          (normalized dirty CSV)
 ├── current.csv        (working copy, updated after each transform)
-├── checkpoints/       (filesystem snapshots for undo)
+├── checkpoints/       (filesystem snapshots for undo — step_000.csv = dirty state)
 ├── scripts/           (generated transform scripts for replay)
 └── artifacts/         (execution outputs/snapshots)
 ```
 
 Agent code runs in a subprocess with:
-- AST-level import/call blocking (no os, sys, subprocess, open, eval, etc.)
-- 30s transform timeout, 10s explore timeout
-- 2GB memory limit
-- Persistent worker process per episode so pandas/numpy and supported parsing libraries stay warm
+- **AST-level safety** — two-mode scan: `"exec"` for transforms, `"eval"` for explore queries. Blocks: `BLOCKED_MODULES` (os, sys, subprocess, …), `BLOCKED_NAMES` (open, getattr, globals, locals, …), `BLOCKED_DUNDERS` (\_\_class\_\_, \_\_subclasses\_\_, \_\_getattribute\_\_, …)
+- **Restricted builtins** — worker exec/eval namespace sets `__builtins__` to an explicit allowlist (no open, exec, compile, object, issubclass, getattr, globals)
+- **Stripped environment** — worker subprocess receives only `{PATH, HOME, LANG, LC_ALL, PYTHONPATH, VIRTUAL_ENV}`; server secrets (HF_TOKEN, API keys) are not inherited
+- **Process group isolation** — `start_new_session=True`; kill-on-timeout kills the whole group
+- **30s transform timeout, 10s explore timeout** — stuck workers are killed (not just abandoned)
+- **2GB memory limit** — `resource.setrlimit(RLIMIT_AS)` in worker at startup (Linux only)
+- **1MB stdout cap** — `_BoundedStringIO` in worker prevents print-bomb OOM
+- **Persistent worker** — pandas/numpy loaded once per episode; transforms use `df.copy()` in exec namespace; explores use in-memory `df` directly; undo sends `"reload"` to resync worker state
+- **Filesystem checkpoints** — `save_checkpoint()` writes `checkpoints/step_NNN.csv` after each transform; `restore_checkpoint()` + `reload_worker_df()` implement undo
+- **atexit cleanup** — `_active_workers` set + `atexit.register(_cleanup_all_workers)` in sandbox.py; `tini` in Dockerfile reaps zombies inside the container

@@ -3,6 +3,7 @@
 ## Local Development
 
 ### Prerequisites
+
 - Python 3.11+
 - pip
 
@@ -32,13 +33,13 @@ bash inference.sh titanic easy json  # specific task
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `API_BASE_URL` | LLM API endpoint | `https://router.huggingface.co/v1` |
-| `MODEL_NAME` | LLM model name | `Qwen/Qwen2.5-72B-Instruct` |
-| `OPENAI_API_KEY` / `HF_TOKEN` | API token env var | (required) |
-| `ENV_URL` | Environment server URL | `http://localhost:7860` |
-| `MIN_CALL_INTERVAL` | Seconds between LLM calls | `2.5` |
+| Variable                      | Description               | Default                            |
+| ----------------------------- | ------------------------- | ---------------------------------- |
+| `API_BASE_URL`                | LLM API endpoint          | `https://router.huggingface.co/v1` |
+| `MODEL_NAME`                  | LLM model name            | `Qwen/Qwen2.5-72B-Instruct`        |
+| `OPENAI_API_KEY` / `HF_TOKEN` | API token env var         | (required)                         |
+| `ENV_URL`                     | Environment server URL    | `http://localhost:7860`            |
+| `MIN_CALL_INTERVAL`           | Seconds between LLM calls | `2.5`                              |
 
 ## Docker (Local)
 

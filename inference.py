@@ -248,7 +248,12 @@ def build_user_prompt(
     action_history: list[dict] | None = None,
     warnings: list[str] | None = None,
 ) -> str:
-    """Build the user message from the current observation."""
+    """Build the user message from the current observation.
+
+    Matches the lean format from the working baseline (58b3292): just task,
+    status, data summary, last result, and action history.  No file_preview,
+    target_schema, or semantic_rules — those are noise for small models.
+    """
     parts = [
         f"Task: {obs.task_description}",
         "",
@@ -276,14 +281,6 @@ def build_user_prompt(
         parts.extend(["", "Last explore result:", obs.explore_result])
     if obs.transform_result:
         parts.extend(["", "Last transform result:", obs.transform_result])
-    if obs.file_format:
-        parts.extend(["", f"File format: {obs.file_format}"])
-    if obs.file_preview:
-        parts.extend(["", "Raw file preview:", obs.file_preview])
-    if obs.diagnosis:
-        parts.extend(["", "Diagnosis (hints):", obs.diagnosis])
-    if obs.validate_result:
-        parts.extend(["", "Validation breakdown:", obs.validate_result])
 
     step_info = obs.step_info
     if step_info:
@@ -295,16 +292,14 @@ def build_user_prompt(
             ]
         )
 
-    # Action history — survives message truncation
     if action_history:
         parts.extend(["", "Action history:"])
-        for h in action_history:
+        for h in action_history[-10:]:
             summary = h["summary"][:80]
             parts.append(
                 f'  Step {h["step"]}: {h["type"]} "{summary}" -> reward={h["reward_after"]:.4f}'
             )
 
-    # Warnings about repeated/stale actions
     if warnings:
         parts.extend([""])
         for w in warnings:
@@ -669,7 +664,7 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
             # Keep message history bounded — retain system + last N exchanges
             MAX_HISTORY_MESSAGES = 20  # system + 10 exchanges (assistant+user pairs)
             if len(messages) > MAX_HISTORY_MESSAGES:
-                messages = [messages[0]] + messages[-(MAX_HISTORY_MESSAGES - 1) :]
+                messages = [messages[0]] + messages[-(MAX_HISTORY_MESSAGES - 1):]
 
             if step_result.done:
                 break

@@ -2,9 +2,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# System deps for lxml XML parsing
+# System deps: lxml, tini (zombie reaping init), sandboxuser (privilege separation)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libxml2-dev libxslt-dev gcc \
+    libxml2-dev libxslt-dev gcc tini \
+    && useradd --no-create-home --shell /bin/false sandboxuser \
     && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies
@@ -31,7 +32,12 @@ ENV SANDBOX_BASE=/app/outputs/sandbox
 ENV DATA_DIR=/app/data
 ENV ENABLE_WEB_INTERFACE=true
 
+# Grant sandboxuser write access to sandbox output dir
+RUN chown -R sandboxuser:sandboxuser /app/outputs/sandbox
+
 EXPOSE 7860
 
+# tini as PID 1: reaps zombie worker processes inside the container
+ENTRYPOINT ["tini", "--"]
 # Default: run the environment server
 CMD ["python", "-c", "import uvicorn; import os; uvicorn.run('server.app:app', host='0.0.0.0', port=int(os.environ.get('PORT', '7860')), ws_ping_interval=60, ws_ping_timeout=120)"]
