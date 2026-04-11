@@ -69,18 +69,26 @@ Dataset entries in `catalog.json` can include a `rules_override` field with manu
 
 #### 1.4 Catalog Schema Addition
 
+Rules are **auto-generated** by running `catalog_enricher.py` across all clean datasets. The enricher writes the `rules` field automatically. Manual overrides are optional — use `rules_override` only when auto-inference isn't precise enough for a specific dataset.
+
 ```json
 {
   "id": "titanic",
   "rules": [
-    {"type": "range", "column": "age", "min": 0, "max": 120, "source": "manual"},
-    {"type": "enum", "column": "sex", "values": ["male", "female"], "source": "inferred"},
-    {"type": "not_null", "column": "passenger_id", "source": "inferred"},
-    {"type": "unique", "column": "passenger_id", "source": "inferred"},
-    {"type": "cross_column", "columns": ["embarked", "port"], "condition": "embarked_port_mapping", "hint": "Embarkation code must match port name (S=Southampton, C=Cherbourg, Q=Queenstown)", "source": "manual"}
+    {"type": "range", "column": "age", "min": 0, "max": 120, "source": "heuristic"},
+    {"type": "range", "column": "fare", "min": 0, "max": 1000, "source": "statistical"},
+    {"type": "enum", "column": "sex", "values": ["male", "female"], "source": "statistical"},
+    {"type": "not_null", "column": "passengerid", "source": "statistical"},
+    {"type": "unique", "column": "passengerid", "source": "heuristic"},
+    {"type": "cross_column", "columns": ["embarked", "port"], "condition": "functional_dependency", "hint": "Embarkation code must match port name (S=Southampton, C=Cherbourg, Q=Queenstown)", "source": "cross_column_inference"}
+  ],
+  "rules_override": [
+    {"type": "range", "column": "fare", "min": 0, "max": 600, "source": "manual"}
   ]
 }
 ```
+
+The `source` field tracks provenance: `"heuristic"` (domain name match), `"statistical"` (data-driven), `"cross_column_inference"` (co-occurrence), or `"manual"` (human override). At merge time, manual rules replace any inferred rule for the same column+type.
 
 #### 1.5 Corruption Integration
 
