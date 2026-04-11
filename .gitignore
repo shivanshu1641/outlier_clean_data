@@ -21,6 +21,13 @@ data/clean/
 # Generated data artifacts
 data/dataset.parquet
 data/manifest.json
+data/*/
+
+# Generated task configs
+tasks/
+
+# Benchmark logs
+bench_v*.txt
 
 # Docs (generated / external)
 docs/
