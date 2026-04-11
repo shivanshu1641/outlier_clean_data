@@ -1,7 +1,10 @@
+import json
+
 import pytest
 import pandas as pd
 
 try:
+    from server.rules.catalog_enricher import enrich_catalog
     from server.rules.types import (
         CrossColumnRule,
         DtypeRule,
@@ -16,6 +19,7 @@ try:
     from server.rules.inferrer import infer_rules
     from server.rules.validator import Violation, compute_semantic_score, validate
 except ImportError:
+    from rules.catalog_enricher import enrich_catalog
     from rules.types import (
         CrossColumnRule,
         DtypeRule,
@@ -458,3 +462,82 @@ class TestInferrerCrossColumn:
             rule for rule in rules if rule.rule_type == "cross_column"
         ]
         assert len(cross_column_rules) == 0
+
+
+class TestCatalogEnricher:
+    def test_enriches_single_dataset(self, tmp_path):
+        catalog = {
+            "test_ds": {
+                "filename": "test.csv",
+                "domain": "test",
+            }
+        }
+        catalog_path = tmp_path / "catalog.json"
+        catalog_path.write_text(json.dumps(catalog), encoding="utf-8")
+
+        clean_dir = tmp_path / "clean"
+        clean_dir.mkdir()
+        df = pd.DataFrame({
+            "age": [25, 35, 45],
+            "name": ["Alice", "Bob", "Charlie"],
+        })
+        df.to_csv(clean_dir / "test.csv", index=False)
+
+        enrich_catalog(str(catalog_path), str(clean_dir))
+
+        enriched = json.loads(catalog_path.read_text(encoding="utf-8"))
+        assert "rules" in enriched["test_ds"]
+        rules = enriched["test_ds"]["rules"]
+        assert any(
+            rule["type"] == "range" and rule["column"] == "age"
+            for rule in rules
+        )
+
+    def test_manual_overrides_win(self, tmp_path):
+        catalog = {
+            "test_ds": {
+                "filename": "test.csv",
+                "domain": "test",
+                "rules_override": [
+                    {
+                        "type": "range",
+                        "column": "age",
+                        "min": 18,
+                        "max": 65,
+                        "source": "manual",
+                    }
+                ],
+            }
+        }
+        catalog_path = tmp_path / "catalog.json"
+        catalog_path.write_text(json.dumps(catalog), encoding="utf-8")
+
+        clean_dir = tmp_path / "clean"
+        clean_dir.mkdir()
+        df = pd.DataFrame({"age": [25, 35, 45]})
+        df.to_csv(clean_dir / "test.csv", index=False)
+
+        enrich_catalog(str(catalog_path), str(clean_dir))
+
+        enriched = json.loads(catalog_path.read_text(encoding="utf-8"))
+        range_rules = [
+            rule
+            for rule in enriched["test_ds"]["rules"]
+            if rule["type"] == "range" and rule["column"] == "age"
+        ]
+        assert len(range_rules) == 1
+        assert range_rules[0]["min"] == 18
+        assert range_rules[0]["source"] == "manual"
+
+    def test_skips_missing_csv(self, tmp_path):
+        catalog = {"missing": {"filename": "nope.csv"}}
+        catalog_path = tmp_path / "catalog.json"
+        catalog_path.write_text(json.dumps(catalog), encoding="utf-8")
+
+        clean_dir = tmp_path / "clean"
+        clean_dir.mkdir()
+
+        enrich_catalog(str(catalog_path), str(clean_dir))
+
+        enriched = json.loads(catalog_path.read_text(encoding="utf-8"))
+        assert "rules" not in enriched["missing"]
