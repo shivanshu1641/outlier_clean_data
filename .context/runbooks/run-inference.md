@@ -3,9 +3,10 @@
 ## Command
 ```bash
 source .venv/bin/activate
-python inference.py                          # all 6 tasks
-python inference.py titanic_easy             # specific task
-python inference.py titanic_easy wine_medium # multiple tasks
+python inference.py                              # default eval set
+EVAL_TASK_IDS=15 python inference.py             # 15 eval tasks
+python inference.py titanic_easy                 # specific legacy task id
+python inference.py titanic_easy wine_medium     # multiple legacy task ids
 ```
 
 ## Deployment-safe config
@@ -67,6 +68,7 @@ LOG_LEVEL=DEBUG python inference.py titanic_easy
 ## Output
 - **stdout**: Machine-readable JSON lines (`[START]`, `[STEP]`, `[END]`)
 - **stderr**: Human-readable logs
+- Supported environment actions include edit actions plus `undo` and `validate`
 
 To capture only the structured output:
 ```bash
@@ -74,5 +76,5 @@ python inference.py 2>/dev/null
 ```
 
 ## Prerequisites
-- Server must be running (`uvicorn server.app:app --port 8000 --ws-ping-interval 60 --ws-ping-timeout 120`)
-- Task artifacts must exist (`python tools/corruption/engine.py`)
+- Server must be running (`python server/app.py` or `uvicorn server.app:app --port 7860 --ws-ping-interval 60 --ws-ping-timeout 120`)
+- Datasets should be downloaded from `catalog.json` with `python tools/download_datasets.py`
