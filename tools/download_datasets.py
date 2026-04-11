@@ -1,5 +1,9 @@
 """Download datasets from catalog, validate, and save as clean CSVs.
 
+Download order per dataset:
+  1. GitHub mirror URLs — no auth needed, covers popular datasets
+  2. Primary source_url from catalog — often UCI archive (can be unreliable)
+
 Usage:
     python tools/download_datasets.py                 # download all
     python tools/download_datasets.py titanic iris    # download specific
@@ -21,7 +25,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 CATALOG_PATH = ROOT / "datasets" / "catalog.json"
-CLEAN_DIR = ROOT / "datasets" / "clean"
+CLEAN_DIR = ROOT / "data" / "clean"
 
 MAX_ROWS = 20_000
 MAX_COLS = 30
@@ -32,6 +36,39 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 log = logging.getLogger(__name__)
+
+
+# ── GitHub mirror URLs ──────────────────────────────────────────────────
+# catalog_name -> (url, csv_params_override | None)
+# csv_params_override=None means use catalog csv_params as-is.
+
+GITHUB_MIRRORS: dict[str, tuple[str, dict | None]] = {
+    "iris": ("https://raw.githubusercontent.com/mwaskom/seaborn-data/master/iris.csv", None),
+    "heart_disease": ("https://raw.githubusercontent.com/sharmaroshan/Heart-UCI-Dataset/master/heart.csv", None),
+    "glass": ("https://raw.githubusercontent.com/jbrownlee/Datasets/master/glass.csv",
+              {"header": None, "names": ["RI", "Na", "Mg", "Al", "Si", "K", "Ca", "Ba", "Fe", "Type"]}),
+    "ionosphere": ("https://raw.githubusercontent.com/jbrownlee/Datasets/master/ionosphere.csv", {"header": None}),
+    "sonar": ("https://raw.githubusercontent.com/jbrownlee/Datasets/master/sonar.csv", {"header": None}),
+    "abalone": ("https://raw.githubusercontent.com/jbrownlee/Datasets/master/abalone.csv",
+                {"header": None, "names": ["Sex", "Length", "Diameter", "Height", "Whole_weight",
+                                           "Shucked_weight", "Viscera_weight", "Shell_weight", "Rings"]}),
+    "breast_cancer": ("https://raw.githubusercontent.com/jbrownlee/Datasets/master/breast-cancer-wisconsin.csv",
+                      {"header": None}),
+    "auto_mpg": ("https://raw.githubusercontent.com/mwaskom/seaborn-data/master/mpg.csv", None),
+    "haberman": ("https://raw.githubusercontent.com/jbrownlee/Datasets/master/haberman.csv",
+                 {"header": None, "names": ["age", "year", "nodes", "status"]}),
+    "ecoli": ("https://raw.githubusercontent.com/jbrownlee/Datasets/master/ecoli.csv",
+              {"header": None, "names": ["name", "mcg", "gvh", "lip", "chg", "aac", "alm1", "alm2", "class"]}),
+    "german_credit": ("https://raw.githubusercontent.com/jbrownlee/Datasets/master/german.csv", {"header": None}),
+    "wine_recognition": ("https://raw.githubusercontent.com/jbrownlee/Datasets/master/wine.csv", {"header": None}),
+    "mushroom": ("https://raw.githubusercontent.com/stedy/Machine-Learning-with-R-datasets/master/mushrooms.csv",
+                 None),
+    "seeds": ("https://raw.githubusercontent.com/selva86/datasets/master/seeds.csv", None),
+    "horse_colic": ("https://raw.githubusercontent.com/jbrownlee/Datasets/master/horse-colic.csv",
+                    {"header": None, "sep": r"\s+"}),
+    "thyroid_disease": ("https://raw.githubusercontent.com/jbrownlee/Datasets/master/new-thyroid.csv",
+                        {"header": None}),
+}
 
 
 # ── helpers ──────────────────────────────────────────────────────────────
@@ -48,7 +85,6 @@ def _fetch_url(url: str, timeout: int = 120) -> str:
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         raw = resp.read()
-    # try utf-8, fall back to latin-1
     try:
         return raw.decode("utf-8")
     except UnicodeDecodeError:
@@ -58,7 +94,6 @@ def _fetch_url(url: str, timeout: int = 120) -> str:
 def _read_csv(text: str, csv_params: dict | None) -> pd.DataFrame:
     """Parse CSV text into a DataFrame using optional csv_params."""
     params = dict(csv_params or {})
-    # Handle max_cols — not a pandas param, pop it out
     params.pop("max_cols", None)
     return pd.read_csv(StringIO(text), **params)
 
@@ -66,23 +101,17 @@ def _read_csv(text: str, csv_params: dict | None) -> pd.DataFrame:
 def _validate_and_trim(
     df: pd.DataFrame, name: str, entry: dict
 ) -> pd.DataFrame | None:
-    """Apply row/column caps and drop empty columns.
-
-    Returns the cleaned DataFrame or None if validation fails.
-    """
-    # drop fully-empty columns
+    """Apply row/column caps and drop empty columns."""
     empty_cols = [c for c in df.columns if df[c].isna().all()]
     if empty_cols:
         log.info("  dropping %d empty column(s): %s", len(empty_cols), empty_cols[:5])
         df = df.drop(columns=empty_cols)
 
-    # enforce per-dataset or global row cap
     row_cap = entry.get("max_rows", MAX_ROWS)
     if len(df) > row_cap:
         log.info("  trimming rows: %d -> %d", len(df), row_cap)
         df = df.head(row_cap)
 
-    # enforce column cap (take first MAX_COLS columns)
     max_cols = (entry.get("csv_params") or {}).get("max_cols", MAX_COLS)
     if len(df.columns) > max_cols:
         log.info("  trimming cols: %d -> %d", len(df.columns), max_cols)
@@ -95,12 +124,41 @@ def _validate_and_trim(
     return df
 
 
+# ── download backends ────────────────────────────────────────────────────
+
+
+def _try_github_mirror(name: str) -> pd.DataFrame | None:
+    """Try downloading from a known GitHub mirror URL."""
+    if name not in GITHUB_MIRRORS:
+        return None
+
+    url, csv_params = GITHUB_MIRRORS[name]
+    log.info("  [github] trying %s ...", url)
+    try:
+        text = _fetch_url(url)
+        return _read_csv(text, csv_params)
+    except Exception as exc:
+        log.warning("  [github] failed: %s", exc)
+        return None
+
+
+def _try_source_url(name: str, entry: dict) -> pd.DataFrame | None:
+    """Try downloading from the catalog's primary source_url."""
+    url = entry["source_url"]
+    log.info("  [source] trying %s ...", url)
+    try:
+        text = _fetch_url(url)
+        return _read_csv(text, entry.get("csv_params"))
+    except Exception as exc:
+        log.warning("  [source] failed: %s", exc)
+        return None
+
+
 # ── main pipeline ────────────────────────────────────────────────────────
 
 
 def download_one(name: str, entry: dict, dest_dir: Path) -> bool:
     """Download, validate, and save a single dataset. Returns True on success."""
-    url = entry["source_url"]
     filename = entry.get("filename", f"{name}.csv")
     out_path = dest_dir / filename
 
@@ -108,17 +166,12 @@ def download_one(name: str, entry: dict, dest_dir: Path) -> bool:
         log.info("  [skip] %s already exists", out_path.name)
         return True
 
-    log.info("  downloading %s ...", url)
-    try:
-        text = _fetch_url(url)
-    except Exception as exc:
-        log.error("  FAILED to download %s: %s", name, exc)
-        return False
+    df = _try_github_mirror(name)
+    if df is None:
+        df = _try_source_url(name, entry)
 
-    try:
-        df = _read_csv(text, entry.get("csv_params"))
-    except Exception as exc:
-        log.error("  FAILED to parse %s: %s", name, exc)
+    if df is None:
+        log.error("  FAILED to download %s from all sources", name)
         return False
 
     df = _validate_and_trim(df, name, entry)
@@ -140,7 +193,7 @@ def download_all(
     Args:
         names: Specific dataset names to download (None = all).
         catalog: Pre-loaded catalog dict (loads from disk if None).
-        dest_dir: Output directory (defaults to datasets/clean).
+        dest_dir: Output directory (defaults to data/clean).
 
     Returns:
         Dict mapping dataset name -> success bool.
@@ -163,7 +216,6 @@ def download_all(
         log.info("[%s]", name)
         ok = download_one(name, catalog[name], dest_dir)
         results[name] = ok
-        # small politeness delay between downloads
         time.sleep(0.25)
 
     succeeded = sum(v for v in results.values())
@@ -195,7 +247,7 @@ def main() -> None:
         "--dest",
         type=Path,
         default=CLEAN_DIR,
-        help="Output directory (default: datasets/clean)",
+        help="Output directory (default: data/clean)",
     )
     args = parser.parse_args()
 
@@ -216,7 +268,6 @@ def main() -> None:
         catalog=catalog,
         dest_dir=args.dest,
     )
-    # exit 1 if any failed
     if not all(results.values()):
         sys.exit(1)
 

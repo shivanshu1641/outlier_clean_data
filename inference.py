@@ -64,18 +64,14 @@ EVAL_TASK_IDS = [
     "titanic_easy", "titanic_medium", "titanic_hard",
     # Iris — 2 difficulties
     "iris_easy", "iris_medium",
-    # Housing — 2 difficulties
+    # Boston Housing — 2 difficulties
     "housing_medium", "housing_hard",
     # Diabetes — 2 difficulties
     "diabetes_medium", "diabetes_hard",
-    # Wine — 2 difficulties
-    "wine_easy", "wine_medium",
-    # Breast cancer — 2 difficulties
+    # Wine Quality — 3 difficulties
+    "wine_easy", "wine_medium", "wine_hard",
+    # Breast Cancer — 2 difficulties
     "breast_cancer_easy", "breast_cancer_medium",
-    # Adult — 1 difficulty
-    "adult_medium",
-    # Income — 1 difficulty
-    "income_medium",
 ]
 
 TASK_IDS = EVAL_TASK_IDS

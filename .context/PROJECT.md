@@ -9,21 +9,25 @@ OpenEnv environment for the Meta PyTorch Hackathon (deadline: April 8, 2026). AI
 - **server/environment.py** — Core Environment class; generates corrupted episodes at `reset()` via `CorruptionPipeline`; supports `explore`, `transform`, `done`, checkpoint-backed `undo`, and budgeted `validate`
 - **server/sandbox.py** — Persistent worker process per episode; accepts dirty content and file format, writes raw input plus CSV working copy, and exposes filesystem-backed checkpoints for undo
 - **server/worker.py** — Worker process: re-reads CSV each step, auto-rewrites `inplace=True` patterns, exposes pandas/numpy plus `io`, `openpyxl`, `yaml`, and `lxml`
-- **server/grader.py** — Multi-level grader: schema, row, cell, and distribution scores with content-based row matching and action-cost parameters
+- **server/grader.py** — Multi-level grader: schema, row, cell, distribution, and semantic scores with content-based row matching and action-cost parameters
 - **server/app.py** — FastAPI via `openenv.core.create_app()`, health endpoint at `/`
 - **Dockerfile** (root) — HF Spaces deployment on port 7860; builds from `pyproject.toml`, installs lxml system deps, copies datasets/tools
 - **models.py** — Pydantic types: ExploreAction, TransformAction, DoneAction, UndoAction, ValidateAction, ErrorMap, CellError, RowError, Observation, State
 - **client.py** — EnvClient subclass (WebSocket)
 - **inference.py** — Baseline agent using any OpenAI-compatible API; 15-task eval suite, undo/validate support, enriched prompt fields (`file_format`, `file_preview`, `diagnosis`, `validate_result`)
-- **server/corruption/** — Runtime corruption subsystem: `CorruptionPipeline.select_format()` + `corrupt()`, 22 value corruptions, multi-format raw inputs, ~40 format-specific corruptions, 3 difficulty profiles, 3-level hints
-- **datasets/** — 118-entry dataset catalog plus download pipeline in `tools/download_datasets.py`
+- **server/corruption/** — Runtime corruption subsystem: `CorruptionPipeline.select_format()` + `corrupt()`, 22 value corruptions, multi-format raw inputs, ~40 format-specific corruptions, 3 difficulty profiles, 3-level hints, 6 benchmark categories
+- **server/corruption/categories.py** — 6 benchmark categories (FP/VR/MD/SR/SV/CP) mapping to corruption subsets and format pools
+- **server/rules/** — 7 semantic rule types (Range, Regex, Enum, Dtype, NotNull, Unique, CrossColumn), auto-inferred from clean data, validated in grading
+- **datasets/** — 25-entry dataset catalog plus download pipeline in `tools/download_datasets.py`
+- **tools/benchmark_runner.py** — CLI benchmark orchestrator: generates task matrix, runs inference agent, saves JSONL + CSV results
+- **ui/** — Gradio benchmark dashboard: leaderboard, episode explorer, dataset catalog tabs
 
 ## Key Decisions
 
 - **Code generation over structured transforms** — agents write real pandas code
 - **Generative episodes over static tasks** — `reset()` samples a dataset/profile/format and creates corruptions dynamically; `LEGACY_TASK_MAP` preserves old task IDs for compatibility
 - **Multi-format input** — agents may receive csv, json, jsonl, excel, tsv, xml, fixed-width, html table, sql dump, or yaml with file previews and diagnosis metadata in observations
-- **Multi-level grading over simple diff scoring** — reward combines schema_score (0.15), row_score (0.20), cell_score (0.55), and distribution_score (0.10)
+- **Multi-level grading over simple diff scoring** — reward combines schema_score (0.15), row_score (0.15/0.20), cell_score (0.50/0.55), distribution_score (0.10), and semantic_score (0.10 when rules present)
 - **Content-based row matching** — row recovery is matched by content rather than only by index, improving resilience to reordering and format round-trips
 - **Wrong-value penalty** — changing a cell to an incorrect value is penalized 1.5×; numeric near-misses (≤5% relative error) get graduated partial credit instead of full penalty
 - **Collateral damage penalty** — cells that were correct but got corrupted by the agent add 0.5 severity each
@@ -132,18 +136,28 @@ python tools/download_datasets.py
 - `server/environment.py` — Generative env loop, `LEGACY_TASK_MAP`, action dispatch, observation building
 - `server/sandbox.py` — Persistent worker management, raw file/CSV setup, AST safety, checkpoints
 - `server/worker.py` — Worker process (exec/eval agent code, inplace rewriting, expanded library namespace)
-- `server/grader.py` — Multi-level reward formula and validation diagnostics
+- `server/grader.py` — Multi-level reward formula, semantic scoring, and validation diagnostics
 - `server/app.py` — FastAPI wiring
 - `client.py` — WebSocket client
-- `inference.py` — LLM agent baseline (model-agnostic)
+- `inference.py` — LLM agent baseline (model-agnostic), 15-task eval suite
 - `server/corruption/pipeline.py` — Runtime `CorruptionPipeline`, format selection, corruption orchestration
 - `server/corruption/value_corruptions.py` — 22 value-level corruption types
 - `server/corruption/format_corruptions.py` — 9 file formats and format-specific corruptions
 - `server/corruption/hints.py` — Strategy, tactical, and categorical hint generation
 - `server/corruption/profiles.py` — Easy/medium/hard corruption profiles
-- `datasets/catalog.json` — 118 dataset entries used by the generative environment
-- `tools/download_datasets.py` — Dataset download/materialization pipeline
-- `architecture.md` — System diagram, agent loop, data flow, grading details
+- `server/corruption/categories.py` — 6 benchmark categories (FP/VR/MD/SR/SV/CP)
+- `server/rules/types.py` — 7 semantic rule types and validation logic
+- `server/rules/infer.py` — Auto-infer rules from clean DataFrames
+- `server/rules/enrich_catalog.py` — Batch-enrich catalog.json with inferred rules
+- `datasets/catalog.json` — 25 dataset entries used by the generative environment
+- `tools/download_datasets.py` — Dataset download pipeline (GitHub mirrors + source URLs)
+- `tools/benchmark_runner.py` — CLI benchmark orchestrator for model evaluation
+- `tools/benchmark_config.yaml` — Default benchmark config (models, categories, difficulties)
+- `ui/app.py` — Gradio dashboard entry point
+- `ui/leaderboard.py` — Model × Category leaderboard pivot table
+- `ui/explorer.py` — Step-by-step episode replay viewer
+- `ui/catalog_view.py` — Dataset catalog browser with rule viewer
+- `ui/data_loader.py` — Loads benchmark results, episode logs, catalog
 
 ## Task IDs
 
@@ -153,15 +167,26 @@ python tools/download_datasets.py
 ## Grading Formula
 
 ```
+# With semantic rules (auto-inferred from clean data):
+base_score =
+  schema_score       × 0.15 +
+  row_score          × 0.15 +
+  cell_score         × 0.50 +
+  distribution_score × 0.10 +
+  semantic_score     × 0.10
+
+# Without rules (legacy):
 base_score =
   schema_score       × 0.15 +
   row_score          × 0.20 +
   cell_score         × 0.55 +
   distribution_score × 0.10
 
-cell_score still accounts for exact fixes, accepted null fills, numeric near-misses,
+cell_score accounts for exact fixes, accepted null fills, numeric near-misses,
 wrong-value penalties, whitespace/format tolerance, and collateral damage.
 row_score uses content-based matching for dropped/duplicated/reordered rows.
+semantic_score measures rule violation rate against 7 auto-inferred constraint types.
+
 transform_penalty = max(0, transform_steps - min_steps) / (max_steps × 2)
 explore_penalty   = (successful_explores × 0.01) + (timed_out_explores × 0.03)
 undo_penalty      = undo_count × undo_cost

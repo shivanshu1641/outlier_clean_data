@@ -18,7 +18,7 @@ class CorruptionPipeline:
     preserve RNG ordering (both methods draw from the same py_rng).
     """
 
-    def __init__(self, seed: int, difficulty: Optional[str] = None):
+    def __init__(self, seed: int, difficulty: Optional[str] = None, category: Optional[str] = None):
         self.seed = seed
         self.rng = np.random.default_rng(seed)
         self.py_rng = random.Random(seed)
@@ -30,6 +30,7 @@ class CorruptionPipeline:
 
         self.difficulty = difficulty
         self.profile = DIFFICULTY_PROFILES[difficulty]
+        self.category = category
 
     # ------------------------------------------------------------------
     # Public API
@@ -37,7 +38,12 @@ class CorruptionPipeline:
 
     def select_format(self) -> str:
         """MUST be called BEFORE corrupt() to preserve RNG ordering."""
-        return self.py_rng.choice(self.profile["format_pool"])
+        if self.category:
+            from .categories import get_formats_for_category
+            pool = get_formats_for_category(self.category)
+        else:
+            pool = self.profile["format_pool"]
+        return self.py_rng.choice(pool)
 
     def corrupt(
         self, clean_df: pd.DataFrame, rules: list | None = None,
@@ -56,15 +62,26 @@ class CorruptionPipeline:
         error_log: list[dict] = []
 
         numeric_cols = df.select_dtypes(include="number").columns.tolist()
-        string_cols = df.select_dtypes(include="object").columns.tolist()
+        string_cols = df.select_dtypes(include=["object", "string"]).columns.tolist()
         all_cols = df.columns.tolist()
 
         # --- choose corruption types ---
-        min_types, max_types = self.profile["num_corruption_types"]
+        if self.category:
+            from .categories import get_corruptions_for_category
+            allowed = get_corruptions_for_category(self.category)
+        else:
+            allowed = None  # no restriction
+
+        if self.category == "CP":
+            min_types, max_types = 7, min(10, len(CORRUPTION_REGISTRY))
+        else:
+            min_types, max_types = self.profile["num_corruption_types"]
         num_types = self.py_rng.randint(min_types, max_types)
 
         applicable: list[str] = []
         for name, meta in CORRUPTION_REGISTRY.items():
+            if allowed is not None and name not in allowed:
+                continue
             if meta["requires_numeric"] and not numeric_cols:
                 continue
             if meta["requires_string"] and not string_cols:

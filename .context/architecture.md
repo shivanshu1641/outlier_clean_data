@@ -11,21 +11,21 @@ A generative data cleaning RL environment where an AI agent receives dirty tabul
   datasets/catalog.json + materialized dataset files
        ↓
 [Server]
-  POST /reset?task_id=<eval_or_legacy_id>
+  POST /reset?task_id=<eval_or_legacy_id>&category=<FP|VR|MD|SR|SV|CP>
        ↓
   DataCleaningEnvironment.reset()
     → resolve task/profile via EVAL_TASK_IDS or LEGACY_TASK_MAP
-    → load source dataset
-    → CorruptionPipeline.select_format()
-    → CorruptionPipeline.corrupt()
+    → load source dataset + semantic rules from catalog
+    → CorruptionPipeline(seed, difficulty, category).select_format()
+    → CorruptionPipeline.corrupt(clean_df, rules=rules)
         - value corruptions
         - row/schema corruptions
         - format-specific corruptions
         - hints + diagnosis metadata
     → create sandbox with raw dirty file + normalized current.csv
     → save initial checkpoint
-    → grade(clean_df, current_df, error_map, metadata) → initial reward
-    → return Observation(file_format, target_schema, file_preview, diagnosis)
+    → grade(clean_df, current_df, error_map, metadata, rules=rules) → initial reward
+    → return Observation(file_format, target_schema, file_preview, diagnosis, semantic_rules)
 
   POST /step  {type: "explore", query: "df.head()"}
        ↓
@@ -85,11 +85,16 @@ A generative data cleaning RL environment where an AI agent receives dirty tabul
 | `server/corruption/format_corruptions.py` | Supported output formats (csv, json, jsonl, excel, tsv, xml, fixed_width, html_table, sql_dump, yaml) and ~40 format-specific corruptions |
 | `server/corruption/hints.py` | Three hint levels: strategy, tactical, categorical |
 | `server/corruption/profiles.py` | Easy/medium/hard difficulty profiles |
-| `server/grader.py` | Multi-level scoring, content-based row matching, validation diagnostics, action costs |
+| `server/rules/` | 7 semantic rule types, auto-inference from clean data, validation, catalog enrichment |
+| `server/corruption/categories.py` | 6 benchmark categories (FP/VR/MD/SR/SV/CP) mapping to corruption subsets and format pools |
+| `server/grader.py` | Multi-level scoring, content-based row matching, validation diagnostics, action costs, semantic scoring |
 | `server/environment.py` | Episode lifecycle, dynamic reset, action dispatch, checkpoint/undo coordination, observation building |
 | `server/sandbox.py` | Code safety, persistent worker management, raw-format file setup, CSV working copy, checkpoint save/restore |
 | `server/worker.py` | Agent code execution with pandas/numpy plus `io`, `openpyxl`, `yaml`, and `lxml` in namespace |
 | `inference.py` | 15-task eval suite, LLM orchestration, prompt building, action parsing, undo/validate support |
+| `tools/benchmark_runner.py` | CLI benchmark orchestrator — generates task matrix, runs inference agent, saves JSONL + CSV results |
+| `ui/app.py` | Gradio dashboard entry point with leaderboard, episode explorer, and catalog tabs |
+| `ui/data_loader.py` | Loads benchmark results (JSONL), episode logs, and catalog.json for the UI |
 
 ## Grading
 
@@ -99,13 +104,23 @@ The grader receives:
 - `error_map` — generated map of corrupted cells/rows/schema issues
 - `metadata` / action counts — format/profile context plus transform, explore, undo, and validate counts
 
-The reward combines four quality levels:
+The reward combines up to five quality levels (semantic only when rules present):
 - **schema_score (0.15)** — expected columns, names, and structural compatibility
-- **row_score (0.20)** — duplicate/missing/reordered row recovery using content-based matching
-- **cell_score (0.55)** — exact cell fixes, accepted null fills, numeric near-misses, wrong-value penalties, whitespace tolerance, and collateral damage
+- **row_score (0.15/0.20)** — duplicate/missing/reordered row recovery using content-based matching
+- **cell_score (0.50/0.55)** — exact cell fixes, accepted null fills, numeric near-misses, wrong-value penalties, whitespace tolerance, and collateral damage
 - **distribution_score (0.10)** — coarse statistical similarity to the clean data
+- **semantic_score (0.10)** — rule violation rate against auto-inferred or manual constraints (only when rules present)
 
 ```
+# With semantic rules:
+base_score =
+  schema_score       × 0.15 +
+  row_score          × 0.15 +
+  cell_score         × 0.50 +
+  distribution_score × 0.10 +
+  semantic_score     × 0.10
+
+# Without rules (legacy):
 base_score =
   schema_score       × 0.15 +
   row_score          × 0.20 +

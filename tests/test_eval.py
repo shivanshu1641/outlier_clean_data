@@ -1,18 +1,15 @@
-"""Smoke tests for the 15-task fixed eval suite configuration."""
+"""Smoke tests for the fixed task suite configuration."""
 from __future__ import annotations
 
 import pytest
 
-EVAL_TASK_IDS = [
+TASK_IDS = [
     "titanic_easy", "titanic_medium", "titanic_hard",
     "iris_easy", "iris_medium",
     "housing_medium", "housing_hard",
     "diabetes_medium", "diabetes_hard",
-    "wine_easy", "wine_medium",
+    "wine_easy", "wine_medium", "wine_hard",
     "breast_cancer_easy", "breast_cancer_medium",
-    "adult_medium",
-    # 15th task for full coverage
-    "income_medium",
 ]
 
 from models import (
@@ -21,16 +18,16 @@ from models import (
 from server.environment import LEGACY_TASK_MAP
 
 
-class TestEvalSuiteConfig:
-    def test_eval_has_15_tasks(self):
-        assert len(EVAL_TASK_IDS) == 15, f"Expected 15 tasks, got {len(EVAL_TASK_IDS)}"
+class TestSuiteConfig:
+    def test_task_count(self):
+        assert len(TASK_IDS) == 14, f"Expected 14 tasks, got {len(TASK_IDS)}"
 
-    def test_legacy_task_map_has_9_entries(self):
-        assert len(LEGACY_TASK_MAP) == 9
+    def test_legacy_task_map_count(self):
+        assert len(LEGACY_TASK_MAP) == 14
 
-    def test_legacy_task_ids_in_eval(self):
+    def test_legacy_task_ids_in_suite(self):
         for tid in LEGACY_TASK_MAP:
-            assert tid in EVAL_TASK_IDS, f"{tid} missing from eval suite"
+            assert tid in TASK_IDS, f"{tid} missing from task suite"
 
     def test_action_wrapper_routes_undo(self):
         action = ActionWrapper.model_validate({"type": "undo", "step": 2})

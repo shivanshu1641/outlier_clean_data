@@ -10,7 +10,6 @@ CATALOG_PATH = ROOT / "datasets" / "catalog.json"
 
 REQUIRED_DATASETS = [
     "titanic",
-    "adult_income",
     "heart_disease",
     "iris",
     "wine_quality",
@@ -49,8 +48,8 @@ def test_catalog_has_at_least_15_entries(catalog):
     assert len(catalog) >= 15, f"Catalog has only {len(catalog)} entries, need >= 15"
 
 
-def test_catalog_has_100_plus_entries(catalog):
-    assert len(catalog) >= 100, f"Catalog has only {len(catalog)} entries, need >= 100"
+def test_catalog_has_20_plus_entries(catalog):
+    assert len(catalog) >= 20, f"Catalog has only {len(catalog)} entries, need >= 20"
 
 
 def test_required_datasets_present(catalog):

@@ -22,6 +22,9 @@ data/*/dirty/
 data/*/mappings/
 data/dataset.parquet
 data/manifest.json
+
+# Downloaded datasets — fetch on the fly via tools/download_datasets.py
+data/clean/
 docs/
 
 # IDE

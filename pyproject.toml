@@ -26,6 +26,10 @@ dev = [
 inference = [
     "openai>=1.0",
 ]
+ui = [
+    "gradio>=4.0",
+    "plotly>=5.0",
+]
 
 [project.scripts]
 server = "server.app:main"

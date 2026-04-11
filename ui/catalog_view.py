@@ -37,7 +37,7 @@ def _format_rules(rules: list[dict]) -> str:
         if rtype == "range":
             lines.append(f"- **Range** `{col}`: [{r.get('min', '?')}, {r.get('max', '?')}] *(source: {source})*")
         elif rtype == "enum":
-            vals = r.get("allowed_values", [])
+            vals = r.get("values", r.get("allowed_values", []))
             preview = ", ".join(str(v) for v in vals[:10])
             if len(vals) > 10:
                 preview += f" ... ({len(vals)} total)"

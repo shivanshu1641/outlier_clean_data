@@ -17,6 +17,9 @@ Seeded RNG ensures full reproducibility: same seed → identical dirty dataset.
 
 ## Consequences
 - No offline generation step needed — any dataset from catalog.json works immediately
-- 118+ datasets × 3 difficulties × 9 formats = large effective task space
+- 25 datasets × 3 difficulties × 9 formats × 6 categories = large effective task space
 - LEGACY_TASK_MAP maps old task_id strings to dataset_id + difficulty for backward compat
 - CorruptionPipeline.select_format() must always be called before corrupt() (order matters for RNG state)
+- Catalog trimmed from 118 to 25 entries (only datasets with reliable download sources retained)
+- 7 semantic rule types auto-inferred from clean data and stored in catalog entries
+- 6 benchmark categories (FP/VR/MD/SR/SV/CP) constrain corruption selection and format pools

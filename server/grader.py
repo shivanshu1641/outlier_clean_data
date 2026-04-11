@@ -400,7 +400,10 @@ def _cell_score_full(
     result_index = set(result_df.index.astype(str))
 
     for key, info in cell_errors.items():
-        row_str, col = _parse_error_key(key)
+        try:
+            row_str, col = _parse_error_key(key)
+        except ValueError:
+            continue
         severity = float(info["severity"])
         clean_val = info["clean_value"]
         total_severity += severity
@@ -639,7 +642,10 @@ def grade(
     imputed_cols: set[str] = set()
     for key, info in error_map.get("cell_errors", {}).items():
         if info.get("corruption") in ("inject_nulls", "null_injected"):
-            _, col = _parse_error_key(key)
+            try:
+                _, col = _parse_error_key(key)
+            except ValueError:
+                continue
             imputed_cols.add(col)
 
     c_score, error_status = _cell_score_full(clean_df, result_df, error_map, row_map)

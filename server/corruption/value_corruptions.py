@@ -398,6 +398,8 @@ def decimal_shift(
                 fval = float(df.at[idx, col])
             except (TypeError, ValueError):
                 continue
+            if math.isnan(fval) or math.isinf(fval):
+                continue
             shift = shifts[int(rng.integers(0, len(shifts)))]
             df.at[idx, col] = fval * shift
             if error_log is not None:
@@ -883,6 +885,8 @@ def business_rule_violation(
                 fval = float(df.at[idx, col])
             except (TypeError, ValueError):
                 continue
+            if math.isnan(fval) or math.isinf(fval):
+                continue
             violation_type = int(rng.integers(0, 3))
             if violation_type == 0:
                 new_val = -abs(fval) - float(rng.uniform(1, col_range * 0.5))
@@ -1351,6 +1355,8 @@ def unit_inconsistency(
             try:
                 fval = float(df.at[idx, col])
             except (TypeError, ValueError):
+                continue
+            if math.isnan(fval) or math.isinf(fval):
                 continue
             new_val = fval * factor
             # Round to similar precision as original

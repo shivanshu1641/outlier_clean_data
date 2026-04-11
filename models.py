@@ -162,6 +162,7 @@ class DataCleaningObservation(BaseObservation):
     target_schema: Optional[Dict[str, str]] = Field(None, description="Target column names and dtypes")
     file_preview: Optional[str] = Field(None, description="First ~2000 chars of raw dirty file")
     diagnosis: Optional[str] = Field(None, description="Hint-level error summary")
+    semantic_rules: List[Dict] = Field(default_factory=list, description="Semantic constraint rules for this dataset")
     validate_result: Optional[str] = Field(None, description="Detailed error breakdown from validate action")
     step_info: Optional[StepInfo] = None
 

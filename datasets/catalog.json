@@ -5,19 +5,128 @@
     "domain": "transportation",
     "rows": 891,
     "cols": 12,
-    "dtypes": {"numeric": 5, "categorical": 5, "datetime": 0, "text": 2},
-    "size_class": "small"
-  },
-  "adult_income": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data",
-    "filename": "adult_income.csv",
-    "domain": "census",
-    "rows": 32561,
-    "cols": 15,
-    "dtypes": {"numeric": 6, "categorical": 8, "datetime": 0, "text": 1},
-    "size_class": "large",
-    "csv_params": {"header": null, "names": ["age","workclass","fnlwgt","education","education_num","marital_status","occupation","relationship","race","sex","capital_gain","capital_loss","hours_per_week","native_country","income"]},
-    "max_rows": 20000
+    "dtypes": {
+      "numeric": 5,
+      "categorical": 5,
+      "datetime": 0,
+      "text": 2
+    },
+    "size_class": "small",
+    "rules": [
+      {
+        "type": "range",
+        "source": "heuristic",
+        "column": "Age",
+        "min": 0.0,
+        "max": 120.0
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "PassengerId"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "PassengerId",
+        "min": 0.0,
+        "max": 1069.0
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "Survived"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "Survived",
+        "min": 0.0,
+        "max": 1.2
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "Pclass"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "Pclass",
+        "min": 0.0,
+        "max": 3.4
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "Name"
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "Sex"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "Sex",
+        "values": [
+          "female",
+          "male"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "SibSp"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "SibSp",
+        "min": 0.0,
+        "max": 9.6
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "Parch"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "Parch",
+        "min": 0.0,
+        "max": 7.2
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "Ticket"
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "Fare"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "Fare",
+        "min": 0.0,
+        "max": 614.79504
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "Embarked",
+        "values": [
+          "C",
+          "Q",
+          "S"
+        ]
+      }
+    ]
   },
   "heart_disease": {
     "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data",
@@ -25,9 +134,301 @@
     "domain": "health",
     "rows": 303,
     "cols": 14,
-    "dtypes": {"numeric": 13, "categorical": 1, "datetime": 0, "text": 0},
+    "dtypes": {
+      "numeric": 13,
+      "categorical": 1,
+      "datetime": 0,
+      "text": 0
+    },
     "size_class": "small",
-    "csv_params": {"header": null, "names": ["age","sex","cp","trestbps","chol","fbs","restecg","thalach","exang","oldpeak","slope","ca","thal","target"]}
+    "csv_params": {
+      "header": null,
+      "names": [
+        "age",
+        "sex",
+        "cp",
+        "trestbps",
+        "chol",
+        "fbs",
+        "restecg",
+        "thalach",
+        "exang",
+        "oldpeak",
+        "slope",
+        "ca",
+        "thal",
+        "target"
+      ]
+    },
+    "rules": [
+      {
+        "type": "range",
+        "source": "heuristic",
+        "column": "age",
+        "min": 0.0,
+        "max": 120.0
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "age"
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "sex"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "sex",
+        "min": 0.0,
+        "max": 1.2
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "sex",
+        "values": [
+          "0",
+          "1",
+          "sex"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "cp"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "cp",
+        "min": 0.0,
+        "max": 3.6
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "cp",
+        "values": [
+          "0",
+          "1",
+          "2",
+          "3",
+          "cp"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "trestbps"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "trestbps",
+        "min": 0.0,
+        "max": 221.2
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "chol"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "chol",
+        "min": 0.0,
+        "max": 651.6
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "fbs"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "fbs",
+        "min": 0.0,
+        "max": 1.2
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "fbs",
+        "values": [
+          "0",
+          "1",
+          "fbs"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "restecg"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "restecg",
+        "min": 0.0,
+        "max": 2.4
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "restecg",
+        "values": [
+          "0",
+          "1",
+          "2",
+          "restecg"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "thalach"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "thalach",
+        "min": 0.0,
+        "max": 228.2
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "exang"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "exang",
+        "min": 0.0,
+        "max": 1.2
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "exang",
+        "values": [
+          "0",
+          "1",
+          "exang"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "oldpeak"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "oldpeak",
+        "min": 0.0,
+        "max": 7.44
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "slope"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "slope",
+        "min": 0.0,
+        "max": 2.4
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "slope",
+        "values": [
+          "0",
+          "1",
+          "2",
+          "slope"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "ca"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "ca",
+        "min": 0.0,
+        "max": 4.8
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "ca",
+        "values": [
+          "0",
+          "1",
+          "2",
+          "3",
+          "4",
+          "ca"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "thal"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "thal",
+        "min": 0.0,
+        "max": 3.6
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "thal",
+        "values": [
+          "0",
+          "1",
+          "2",
+          "3",
+          "thal"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "target"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "target",
+        "min": 0.0,
+        "max": 1.2
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "target",
+        "values": [
+          "0",
+          "1",
+          "target"
+        ]
+      }
+    ]
   },
   "iris": {
     "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data",
@@ -35,9 +436,150 @@
     "domain": "biology",
     "rows": 150,
     "cols": 5,
-    "dtypes": {"numeric": 4, "categorical": 1, "datetime": 0, "text": 0},
+    "dtypes": {
+      "numeric": 4,
+      "categorical": 1,
+      "datetime": 0,
+      "text": 0
+    },
     "size_class": "small",
-    "csv_params": {"header": null, "names": ["sepal_length","sepal_width","petal_length","petal_width","species"]}
+    "csv_params": {
+      "header": null,
+      "names": [
+        "sepal_length",
+        "sepal_width",
+        "petal_length",
+        "petal_width",
+        "species"
+      ]
+    },
+    "rules": [
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "sepal_length"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "sepal_length",
+        "min": 0.0,
+        "max": 8.620000000000001
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "sepal_width"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "sepal_width",
+        "min": 0.0,
+        "max": 4.880000000000001
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "sepal_width",
+        "values": [
+          "2.0",
+          "2.2",
+          "2.3",
+          "2.4",
+          "2.5",
+          "2.6",
+          "2.7",
+          "2.8",
+          "2.9",
+          "3.0",
+          "3.1",
+          "3.2",
+          "3.3",
+          "3.4",
+          "3.5",
+          "3.6",
+          "3.7",
+          "3.8",
+          "3.9",
+          "4.0",
+          "4.1",
+          "4.2",
+          "4.4",
+          "sepal_width"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "petal_length"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "petal_length",
+        "min": 0.0,
+        "max": 8.08
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "petal_width"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "petal_width",
+        "min": 0.0,
+        "max": 2.98
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "petal_width",
+        "values": [
+          "0.1",
+          "0.2",
+          "0.3",
+          "0.4",
+          "0.5",
+          "0.6",
+          "1.0",
+          "1.1",
+          "1.2",
+          "1.3",
+          "1.4",
+          "1.5",
+          "1.6",
+          "1.7",
+          "1.8",
+          "1.9",
+          "2.0",
+          "2.1",
+          "2.2",
+          "2.3",
+          "2.4",
+          "2.5",
+          "petal_width"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "species"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "species",
+        "values": [
+          "setosa",
+          "species",
+          "versicolor",
+          "virginica"
+        ]
+      }
+    ]
   },
   "wine_quality": {
     "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv",
@@ -45,9 +587,23 @@
     "domain": "food_science",
     "rows": 1599,
     "cols": 12,
-    "dtypes": {"numeric": 12, "categorical": 0, "datetime": 0, "text": 0},
+    "dtypes": {
+      "numeric": 12,
+      "categorical": 0,
+      "datetime": 0,
+      "text": 0
+    },
     "size_class": "medium",
-    "csv_params": {"sep": ";"}
+    "csv_params": {
+      "sep": ";"
+    },
+    "rules": [
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "fixed acidity,volatile acidity,citric acid,residual sugar,chlorides,free sulfur dioxide,total sulfur dioxide,density,pH,sulphates,alcohol,quality"
+      }
+    ]
   },
   "auto_mpg": {
     "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data",
@@ -55,9 +611,35 @@
     "domain": "transportation",
     "rows": 398,
     "cols": 9,
-    "dtypes": {"numeric": 7, "categorical": 1, "datetime": 0, "text": 1},
+    "dtypes": {
+      "numeric": 7,
+      "categorical": 1,
+      "datetime": 0,
+      "text": 1
+    },
     "size_class": "small",
-    "csv_params": {"header": null, "sep": "\\s+", "names": ["mpg","cylinders","displacement","horsepower","weight","acceleration","model_year","origin","car_name"]}
+    "csv_params": {
+      "header": null,
+      "sep": "\\s+",
+      "names": [
+        "mpg",
+        "cylinders",
+        "displacement",
+        "horsepower",
+        "weight",
+        "acceleration",
+        "model_year",
+        "origin",
+        "car_name"
+      ]
+    },
+    "rules": [
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "mpg"
+      }
+    ]
   },
   "abalone": {
     "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/abalone/abalone.data",
@@ -65,9 +647,177 @@
     "domain": "biology",
     "rows": 4177,
     "cols": 9,
-    "dtypes": {"numeric": 8, "categorical": 1, "datetime": 0, "text": 0},
+    "dtypes": {
+      "numeric": 8,
+      "categorical": 1,
+      "datetime": 0,
+      "text": 0
+    },
     "size_class": "medium",
-    "csv_params": {"header": null, "names": ["sex","length","diameter","height","whole_weight","shucked_weight","viscera_weight","shell_weight","rings"]}
+    "csv_params": {
+      "header": null,
+      "names": [
+        "sex",
+        "length",
+        "diameter",
+        "height",
+        "whole_weight",
+        "shucked_weight",
+        "viscera_weight",
+        "shell_weight",
+        "rings"
+      ]
+    },
+    "rules": [
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "sex"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "sex",
+        "values": [
+          "F",
+          "I",
+          "M",
+          "Sex"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "length"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "length",
+        "min": 0.0,
+        "max": 0.963
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "diameter"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "diameter",
+        "min": 0.0,
+        "max": 0.769
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "height"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "height",
+        "min": 0.0,
+        "max": 1.3559999999999999
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "whole_weight"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "whole_weight",
+        "min": 0.0,
+        "max": 3.3902
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "shucked_weight"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "shucked_weight",
+        "min": 0.0,
+        "max": 1.7854
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "viscera_weight"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "viscera_weight",
+        "min": 0.0,
+        "max": 0.9119
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "shell_weight"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "shell_weight",
+        "min": 0.0,
+        "max": 1.2056999999999998
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "rings"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "rings",
+        "min": 0.0,
+        "max": 34.6
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "rings",
+        "values": [
+          "1",
+          "10",
+          "11",
+          "12",
+          "13",
+          "14",
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "2",
+          "20",
+          "21",
+          "22",
+          "23",
+          "24",
+          "25",
+          "26",
+          "27",
+          "29",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9",
+          "Rings"
+        ]
+      }
+    ]
   },
   "mushroom": {
     "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/mushroom/agaricus-lepiota.data",
@@ -75,9 +825,682 @@
     "domain": "biology",
     "rows": 8124,
     "cols": 23,
-    "dtypes": {"numeric": 0, "categorical": 23, "datetime": 0, "text": 0},
+    "dtypes": {
+      "numeric": 0,
+      "categorical": 23,
+      "datetime": 0,
+      "text": 0
+    },
     "size_class": "medium",
-    "csv_params": {"header": null, "names": ["class","cap_shape","cap_surface","cap_color","bruises","odor","gill_attachment","gill_spacing","gill_size","gill_color","stalk_shape","stalk_root","stalk_surface_above_ring","stalk_surface_below_ring","stalk_color_above_ring","stalk_color_below_ring","veil_type","veil_color","ring_number","ring_type","spore_print_color","population","habitat"]}
+    "csv_params": {
+      "header": null,
+      "names": [
+        "class",
+        "cap_shape",
+        "cap_surface",
+        "cap_color",
+        "bruises",
+        "odor",
+        "gill_attachment",
+        "gill_spacing",
+        "gill_size",
+        "gill_color",
+        "stalk_shape",
+        "stalk_root",
+        "stalk_surface_above_ring",
+        "stalk_surface_below_ring",
+        "stalk_color_above_ring",
+        "stalk_color_below_ring",
+        "veil_type",
+        "veil_color",
+        "ring_number",
+        "ring_type",
+        "spore_print_color",
+        "population",
+        "habitat"
+      ]
+    },
+    "rules": [
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "class"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "class",
+        "values": [
+          "class",
+          "e",
+          "p",
+          "type"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "cap_shape"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "cap_shape",
+        "values": [
+          "b",
+          "c",
+          "cap_shape",
+          "f",
+          "k",
+          "s",
+          "x"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "cap_surface"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "cap_surface",
+        "values": [
+          "cap_surface",
+          "f",
+          "g",
+          "s",
+          "y"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "cap_color"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "cap_color",
+        "values": [
+          "b",
+          "c",
+          "cap_color",
+          "e",
+          "g",
+          "n",
+          "p",
+          "r",
+          "u",
+          "w",
+          "y"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "bruises"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "bruises",
+        "values": [
+          "bruises",
+          "f",
+          "t"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "odor"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "odor",
+        "values": [
+          "a",
+          "c",
+          "f",
+          "l",
+          "m",
+          "n",
+          "odor",
+          "p",
+          "s",
+          "y"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "gill_attachment"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "gill_attachment",
+        "values": [
+          "a",
+          "f",
+          "gill_attachment"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "gill_spacing"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "gill_spacing",
+        "values": [
+          "c",
+          "gill_spacing",
+          "w"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "gill_size"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "gill_size",
+        "values": [
+          "b",
+          "gill_size",
+          "n"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "gill_color"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "gill_color",
+        "values": [
+          "b",
+          "e",
+          "g",
+          "gill_color",
+          "h",
+          "k",
+          "n",
+          "o",
+          "p",
+          "r",
+          "u",
+          "w",
+          "y"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "stalk_shape"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "stalk_shape",
+        "values": [
+          "e",
+          "stalk_shape",
+          "t"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "stalk_root"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "stalk_root",
+        "values": [
+          "?",
+          "b",
+          "c",
+          "e",
+          "r",
+          "stalk_root"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "stalk_surface_above_ring"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "stalk_surface_above_ring",
+        "values": [
+          "f",
+          "k",
+          "s",
+          "stalk_surface_above_ring",
+          "y"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "stalk_surface_below_ring"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "stalk_surface_below_ring",
+        "values": [
+          "f",
+          "k",
+          "s",
+          "stalk_surface_below_ring",
+          "y"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "stalk_color_above_ring"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "stalk_color_above_ring",
+        "values": [
+          "b",
+          "c",
+          "e",
+          "g",
+          "n",
+          "o",
+          "p",
+          "stalk_color_above_ring",
+          "w",
+          "y"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "stalk_color_below_ring"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "stalk_color_below_ring",
+        "values": [
+          "b",
+          "c",
+          "e",
+          "g",
+          "n",
+          "o",
+          "p",
+          "stalk_color_below_ring",
+          "w",
+          "y"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "veil_type"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "veil_type",
+        "values": [
+          "p",
+          "veil_type"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "veil_color"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "veil_color",
+        "values": [
+          "n",
+          "o",
+          "veil_color",
+          "w",
+          "y"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "ring_number"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "ring_number",
+        "values": [
+          "n",
+          "o",
+          "ring_number",
+          "t"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "ring_type"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "ring_type",
+        "values": [
+          "e",
+          "f",
+          "l",
+          "n",
+          "p",
+          "ring_type"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "spore_print_color"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "spore_print_color",
+        "values": [
+          "b",
+          "h",
+          "k",
+          "n",
+          "o",
+          "r",
+          "spore_print_color",
+          "u",
+          "w",
+          "y"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "population"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "population",
+        "values": [
+          "a",
+          "c",
+          "n",
+          "population",
+          "s",
+          "v",
+          "y"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "habitat"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "habitat",
+        "values": [
+          "d",
+          "g",
+          "habitat",
+          "l",
+          "m",
+          "p",
+          "u",
+          "w"
+        ]
+      },
+      {
+        "type": "cross_column",
+        "source": "cross_column_inference",
+        "columns": [
+          "class",
+          "veil_type"
+        ],
+        "condition": "functional_dependency",
+        "hint": "Each class value maps to exactly one veil_type value: class=veil_type, type=veil_type, p=p, e=p"
+      },
+      {
+        "type": "cross_column",
+        "source": "cross_column_inference",
+        "columns": [
+          "cap_shape",
+          "veil_type"
+        ],
+        "condition": "functional_dependency",
+        "hint": "Each cap_shape value maps to exactly one veil_type value: cap_shape=veil_type, x=p, b=p, s=p, f=p, k=p, c=p"
+      },
+      {
+        "type": "cross_column",
+        "source": "cross_column_inference",
+        "columns": [
+          "cap_surface",
+          "veil_type"
+        ],
+        "condition": "functional_dependency",
+        "hint": "Each cap_surface value maps to exactly one veil_type value: cap_surface=veil_type, s=p, y=p, f=p, g=p"
+      },
+      {
+        "type": "cross_column",
+        "source": "cross_column_inference",
+        "columns": [
+          "cap_color",
+          "veil_type"
+        ],
+        "condition": "functional_dependency",
+        "hint": "Each cap_color value maps to exactly one veil_type value: cap_color=veil_type, n=p, y=p, w=p, g=p, e=p, p=p, b=p (+3 more)"
+      },
+      {
+        "type": "cross_column",
+        "source": "cross_column_inference",
+        "columns": [
+          "bruises",
+          "veil_type"
+        ],
+        "condition": "functional_dependency",
+        "hint": "Each bruises value maps to exactly one veil_type value: bruises=veil_type, t=p, f=p"
+      },
+      {
+        "type": "cross_column",
+        "source": "cross_column_inference",
+        "columns": [
+          "odor",
+          "veil_type"
+        ],
+        "condition": "functional_dependency",
+        "hint": "Each odor value maps to exactly one veil_type value: odor=veil_type, p=p, a=p, l=p, n=p, f=p, c=p, y=p (+2 more)"
+      },
+      {
+        "type": "cross_column",
+        "source": "cross_column_inference",
+        "columns": [
+          "gill_attachment",
+          "veil_type"
+        ],
+        "condition": "functional_dependency",
+        "hint": "Each gill_attachment value maps to exactly one veil_type value: gill_attachment=veil_type, f=p, a=p"
+      },
+      {
+        "type": "cross_column",
+        "source": "cross_column_inference",
+        "columns": [
+          "gill_spacing",
+          "veil_type"
+        ],
+        "condition": "functional_dependency",
+        "hint": "Each gill_spacing value maps to exactly one veil_type value: gill_spacing=veil_type, c=p, w=p"
+      },
+      {
+        "type": "cross_column",
+        "source": "cross_column_inference",
+        "columns": [
+          "gill_size",
+          "veil_type"
+        ],
+        "condition": "functional_dependency",
+        "hint": "Each gill_size value maps to exactly one veil_type value: gill_size=veil_type, n=p, b=p"
+      },
+      {
+        "type": "cross_column",
+        "source": "cross_column_inference",
+        "columns": [
+          "gill_color",
+          "veil_type"
+        ],
+        "condition": "functional_dependency",
+        "hint": "Each gill_color value maps to exactly one veil_type value: gill_color=veil_type, k=p, n=p, g=p, p=p, w=p, h=p, u=p (+5 more)"
+      },
+      {
+        "type": "cross_column",
+        "source": "cross_column_inference",
+        "columns": [
+          "stalk_shape",
+          "veil_type"
+        ],
+        "condition": "functional_dependency",
+        "hint": "Each stalk_shape value maps to exactly one veil_type value: stalk_shape=veil_type, e=p, t=p"
+      },
+      {
+        "type": "cross_column",
+        "source": "cross_column_inference",
+        "columns": [
+          "stalk_root",
+          "veil_type"
+        ],
+        "condition": "functional_dependency",
+        "hint": "Each stalk_root value maps to exactly one veil_type value: stalk_root=veil_type, e=p, c=p, b=p, r=p, ?=p"
+      },
+      {
+        "type": "cross_column",
+        "source": "cross_column_inference",
+        "columns": [
+          "stalk_surface_above_ring",
+          "veil_type"
+        ],
+        "condition": "functional_dependency",
+        "hint": "Each stalk_surface_above_ring value maps to exactly one veil_type value: stalk_surface_above_ring=veil_type, s=p, f=p, k=p, y=p"
+      },
+      {
+        "type": "cross_column",
+        "source": "cross_column_inference",
+        "columns": [
+          "stalk_surface_below_ring",
+          "veil_type"
+        ],
+        "condition": "functional_dependency",
+        "hint": "Each stalk_surface_below_ring value maps to exactly one veil_type value: stalk_surface_below_ring=veil_type, s=p, f=p, y=p, k=p"
+      },
+      {
+        "type": "cross_column",
+        "source": "cross_column_inference",
+        "columns": [
+          "stalk_color_above_ring",
+          "veil_type"
+        ],
+        "condition": "functional_dependency",
+        "hint": "Each stalk_color_above_ring value maps to exactly one veil_type value: stalk_color_above_ring=veil_type, w=p, g=p, p=p, n=p, b=p, e=p, o=p (+2 more)"
+      },
+      {
+        "type": "cross_column",
+        "source": "cross_column_inference",
+        "columns": [
+          "stalk_color_below_ring",
+          "veil_type"
+        ],
+        "condition": "functional_dependency",
+        "hint": "Each stalk_color_below_ring value maps to exactly one veil_type value: stalk_color_below_ring=veil_type, w=p, p=p, g=p, b=p, n=p, e=p, y=p (+2 more)"
+      },
+      {
+        "type": "cross_column",
+        "source": "cross_column_inference",
+        "columns": [
+          "veil_color",
+          "veil_type"
+        ],
+        "condition": "functional_dependency",
+        "hint": "Each veil_color value maps to exactly one veil_type value: veil_color=veil_type, w=p, n=p, o=p, y=p"
+      },
+      {
+        "type": "cross_column",
+        "source": "cross_column_inference",
+        "columns": [
+          "ring_number",
+          "veil_type"
+        ],
+        "condition": "functional_dependency",
+        "hint": "Each ring_number value maps to exactly one veil_type value: ring_number=veil_type, o=p, t=p, n=p"
+      },
+      {
+        "type": "cross_column",
+        "source": "cross_column_inference",
+        "columns": [
+          "ring_type",
+          "veil_type"
+        ],
+        "condition": "functional_dependency",
+        "hint": "Each ring_type value maps to exactly one veil_type value: ring_type=veil_type, p=p, e=p, l=p, f=p, n=p"
+      },
+      {
+        "type": "cross_column",
+        "source": "cross_column_inference",
+        "columns": [
+          "spore_print_color",
+          "veil_type"
+        ],
+        "condition": "functional_dependency",
+        "hint": "Each spore_print_color value maps to exactly one veil_type value: spore_print_color=veil_type, k=p, n=p, u=p, h=p, w=p, r=p, o=p (+2 more)"
+      },
+      {
+        "type": "cross_column",
+        "source": "cross_column_inference",
+        "columns": [
+          "population",
+          "veil_type"
+        ],
+        "condition": "functional_dependency",
+        "hint": "Each population value maps to exactly one veil_type value: population=veil_type, s=p, n=p, a=p, v=p, y=p, c=p"
+      },
+      {
+        "type": "cross_column",
+        "source": "cross_column_inference",
+        "columns": [
+          "habitat",
+          "veil_type"
+        ],
+        "condition": "functional_dependency",
+        "hint": "Each habitat value maps to exactly one veil_type value: habitat=veil_type, u=p, g=p, m=p, d=p, p=p, w=p, l=p"
+      }
+    ]
   },
   "breast_cancer": {
     "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wdbc.data",
@@ -85,10 +1508,196 @@
     "domain": "health",
     "rows": 569,
     "cols": 32,
-    "dtypes": {"numeric": 30, "categorical": 1, "datetime": 0, "text": 0},
+    "dtypes": {
+      "numeric": 30,
+      "categorical": 1,
+      "datetime": 0,
+      "text": 0
+    },
     "size_class": "small",
-    "csv_params": {"header": null, "names": ["id","diagnosis","radius_mean","texture_mean","perimeter_mean","area_mean","smoothness_mean","compactness_mean","concavity_mean","concave_points_mean","symmetry_mean","fractal_dimension_mean","radius_se","texture_se","perimeter_se","area_se","smoothness_se","compactness_se","concavity_se","concave_points_se","symmetry_se","fractal_dimension_se","radius_worst","texture_worst","perimeter_worst","area_worst","smoothness_worst","compactness_worst","concavity_worst","concave_points_worst","symmetry_worst","fractal_dimension_worst"]},
-    "max_rows": 20000
+    "csv_params": {
+      "header": null,
+      "names": [
+        "id",
+        "diagnosis",
+        "radius_mean",
+        "texture_mean",
+        "perimeter_mean",
+        "area_mean",
+        "smoothness_mean",
+        "compactness_mean",
+        "concavity_mean",
+        "concave_points_mean",
+        "symmetry_mean",
+        "fractal_dimension_mean",
+        "radius_se",
+        "texture_se",
+        "perimeter_se",
+        "area_se",
+        "smoothness_se",
+        "compactness_se",
+        "concavity_se",
+        "concave_points_se",
+        "symmetry_se",
+        "fractal_dimension_se",
+        "radius_worst",
+        "texture_worst",
+        "perimeter_worst",
+        "area_worst",
+        "smoothness_worst",
+        "compactness_worst",
+        "concavity_worst",
+        "concave_points_worst",
+        "symmetry_worst",
+        "fractal_dimension_worst"
+      ]
+    },
+    "max_rows": 20000,
+    "rules": [
+      {
+        "type": "unique",
+        "source": "heuristic",
+        "column": "id"
+      },
+      {
+        "type": "not_null",
+        "source": "heuristic",
+        "column": "id"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "id",
+        "min": 0.0,
+        "max": 12.0
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "diagnosis"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "diagnosis",
+        "min": 0.0,
+        "max": 11.8
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "radius_mean"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "radius_mean",
+        "min": 0.0,
+        "max": 11.8
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "texture_mean"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "texture_mean",
+        "min": 0.0,
+        "max": 11.8
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "perimeter_mean"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "perimeter_mean",
+        "min": 0.0,
+        "max": 11.8
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "area_mean"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "area_mean",
+        "min": 0.0,
+        "max": 11.8
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "area_mean",
+        "values": [
+          "1",
+          "10",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9",
+          "?"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "smoothness_mean"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "smoothness_mean",
+        "min": 0.0,
+        "max": 11.8
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "compactness_mean"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "compactness_mean",
+        "min": 0.0,
+        "max": 11.8
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "concavity_mean"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "concavity_mean",
+        "min": 0.0,
+        "max": 11.8
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "concave_points_mean"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "concave_points_mean",
+        "min": 0.0,
+        "max": 10.4
+      }
+    ]
   },
   "boston_housing": {
     "source_url": "https://raw.githubusercontent.com/selva86/datasets/master/BostonHousing.csv",
@@ -96,8 +1705,183 @@
     "domain": "housing",
     "rows": 506,
     "cols": 14,
-    "dtypes": {"numeric": 13, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "small"
+    "dtypes": {
+      "numeric": 13,
+      "categorical": 1,
+      "datetime": 0,
+      "text": 0
+    },
+    "size_class": "small",
+    "rules": [
+      {
+        "type": "range",
+        "source": "heuristic",
+        "column": "age",
+        "min": 0.0,
+        "max": 120.0
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "crim"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "crim",
+        "min": 0.0,
+        "max": 106.770176
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "zn"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "zn",
+        "min": 0.0,
+        "max": 120.0
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "indus"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "indus",
+        "min": 0.0,
+        "max": 33.196
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "chas"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "chas",
+        "min": 0.0,
+        "max": 1.2
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "nox"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "nox",
+        "min": 0.0,
+        "max": 0.9682
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "rm"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "rm",
+        "min": 0.0,
+        "max": 9.823799999999999
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "age"
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "dis"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "dis",
+        "min": 0.0,
+        "max": 14.32588
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "rad"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "rad",
+        "min": 0.0,
+        "max": 28.6
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "tax"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "tax",
+        "min": 0.0,
+        "max": 815.8
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "ptratio"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "ptratio",
+        "min": 0.0,
+        "max": 23.88
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "b"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "b",
+        "min": 0.0,
+        "max": 476.216
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "lstat"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "lstat",
+        "min": 0.0,
+        "max": 45.218
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "medv"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "medv",
+        "min": 0.0,
+        "max": 59.0
+      }
+    ]
   },
   "diabetes": {
     "source_url": "https://raw.githubusercontent.com/jbrownlee/Datasets/master/pima-indians-diabetes.data.csv",
@@ -105,18 +1889,123 @@
     "domain": "health",
     "rows": 768,
     "cols": 9,
-    "dtypes": {"numeric": 9, "categorical": 0, "datetime": 0, "text": 0},
-    "size_class": "small"
-  },
-  "wine_white": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv",
-    "filename": "wine_white.csv",
-    "domain": "food_science",
-    "rows": 4898,
-    "cols": 12,
-    "dtypes": {"numeric": 12, "categorical": 0, "datetime": 0, "text": 0},
-    "size_class": "medium",
-    "csv_params": {"sep": ";"}
+    "dtypes": {
+      "numeric": 9,
+      "categorical": 0,
+      "datetime": 0,
+      "text": 0
+    },
+    "size_class": "small",
+    "rules": [
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "6"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "6",
+        "min": 0.0,
+        "max": 20.4
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "148"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "148",
+        "min": 0.0,
+        "max": 238.8
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "72"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "72",
+        "min": 0.0,
+        "max": 146.4
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "35"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "35",
+        "min": 0.0,
+        "max": 118.8
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "0"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "0",
+        "min": 0.0,
+        "max": 1015.2
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "33.6"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "33.6",
+        "min": 0.0,
+        "max": 80.52
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "0.627"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "0.627",
+        "min": 0.0,
+        "max": 2.8884
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "50"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "50",
+        "min": 0.0,
+        "max": 93.0
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "1"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "1",
+        "min": 0.0,
+        "max": 1.2
+      }
+    ]
   },
   "glass": {
     "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/glass/glass.data",
@@ -124,9 +2013,170 @@
     "domain": "materials",
     "rows": 214,
     "cols": 11,
-    "dtypes": {"numeric": 10, "categorical": 1, "datetime": 0, "text": 0},
+    "dtypes": {
+      "numeric": 10,
+      "categorical": 1,
+      "datetime": 0,
+      "text": 0
+    },
     "size_class": "small",
-    "csv_params": {"header": null, "names": ["id","ri","na","mg","al","si","k","ca","ba","fe","glass_type"]}
+    "csv_params": {
+      "header": null,
+      "names": [
+        "id",
+        "ri",
+        "na",
+        "mg",
+        "al",
+        "si",
+        "k",
+        "ca",
+        "ba",
+        "fe",
+        "glass_type"
+      ]
+    },
+    "rules": [
+      {
+        "type": "unique",
+        "source": "heuristic",
+        "column": "id"
+      },
+      {
+        "type": "not_null",
+        "source": "heuristic",
+        "column": "id"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "id",
+        "min": 0.0,
+        "max": 1.538486
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "ri"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "ri",
+        "min": 0.0,
+        "max": 18.709999999999997
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "na"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "na",
+        "min": 0.0,
+        "max": 5.388
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "mg"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "mg",
+        "min": 0.0,
+        "max": 4.142
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "al"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "al",
+        "min": 0.0,
+        "max": 76.53
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "si"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "si",
+        "min": 0.0,
+        "max": 7.452
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "k"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "k",
+        "min": 0.0,
+        "max": 18.342000000000002
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "ca"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "ca",
+        "min": 0.0,
+        "max": 3.78
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "ba"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "ba",
+        "min": 0.0,
+        "max": 0.612
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "fe"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "fe",
+        "min": 0.0,
+        "max": 8.2
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "fe",
+        "values": [
+          "1",
+          "2",
+          "3",
+          "5",
+          "6",
+          "7",
+          "Type"
+        ]
+      }
+    ]
   },
   "ecoli": {
     "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/ecoli/ecoli.data",
@@ -134,9 +2184,34 @@
     "domain": "biology",
     "rows": 336,
     "cols": 8,
-    "dtypes": {"numeric": 7, "categorical": 1, "datetime": 0, "text": 0},
+    "dtypes": {
+      "numeric": 7,
+      "categorical": 1,
+      "datetime": 0,
+      "text": 0
+    },
     "size_class": "small",
-    "csv_params": {"header": null, "sep": "\\s+", "names": ["sequence_name","mcg","gvh","lip","chg","aac","alm1","alm2"]}
+    "csv_params": {
+      "header": null,
+      "sep": "\\s+",
+      "names": [
+        "sequence_name",
+        "mcg",
+        "gvh",
+        "lip",
+        "chg",
+        "aac",
+        "alm1",
+        "alm2"
+      ]
+    },
+    "rules": [
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "sequence_name"
+      }
+    ]
   },
   "seeds": {
     "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00236/seeds_dataset.txt",
@@ -144,39 +2219,27 @@
     "domain": "agriculture",
     "rows": 210,
     "cols": 8,
-    "dtypes": {"numeric": 7, "categorical": 1, "datetime": 0, "text": 0},
+    "dtypes": {
+      "numeric": 7,
+      "categorical": 1,
+      "datetime": 0,
+      "text": 0
+    },
     "size_class": "small",
-    "csv_params": {"header": null, "sep": "\\s+", "names": ["area","perimeter","compactness","kernel_length","kernel_width","asymmetry","groove_length","variety"]}
-  },
-  "banknote": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00267/data_banknote_authentication.txt",
-    "filename": "banknote.csv",
-    "domain": "finance",
-    "rows": 1372,
-    "cols": 5,
-    "dtypes": {"numeric": 4, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "medium",
-    "csv_params": {"header": null, "names": ["variance","skewness","curtosis","entropy","class"]}
-  },
-  "car_evaluation": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/car/car.data",
-    "filename": "car_evaluation.csv",
-    "domain": "transportation",
-    "rows": 1728,
-    "cols": 7,
-    "dtypes": {"numeric": 0, "categorical": 7, "datetime": 0, "text": 0},
-    "size_class": "medium",
-    "csv_params": {"header": null, "names": ["buying","maint","doors","persons","lug_boot","safety","class"]}
-  },
-  "yeast": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/yeast/yeast.data",
-    "filename": "yeast.csv",
-    "domain": "biology",
-    "rows": 1484,
-    "cols": 10,
-    "dtypes": {"numeric": 8, "categorical": 1, "datetime": 0, "text": 1},
-    "size_class": "medium",
-    "csv_params": {"header": null, "sep": "\\s+", "names": ["sequence_name","mcg","gvh","alm","mit","erl","pox","vac","nuc","class"]}
+    "csv_params": {
+      "header": null,
+      "sep": "\\s+",
+      "names": [
+        "area",
+        "perimeter",
+        "compactness",
+        "kernel_length",
+        "kernel_width",
+        "asymmetry",
+        "groove_length",
+        "variety"
+      ]
+    }
   },
   "haberman": {
     "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/haberman/haberman.data",
@@ -184,19 +2247,102 @@
     "domain": "health",
     "rows": 306,
     "cols": 4,
-    "dtypes": {"numeric": 3, "categorical": 1, "datetime": 0, "text": 0},
+    "dtypes": {
+      "numeric": 3,
+      "categorical": 1,
+      "datetime": 0,
+      "text": 0
+    },
     "size_class": "small",
-    "csv_params": {"header": null, "names": ["age","year_of_operation","positive_nodes","survival_status"]}
-  },
-  "balance_scale": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/balance-scale/balance-scale.data",
-    "filename": "balance_scale.csv",
-    "domain": "education",
-    "rows": 625,
-    "cols": 5,
-    "dtypes": {"numeric": 4, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "small",
-    "csv_params": {"header": null, "names": ["class","left_weight","left_distance","right_weight","right_distance"]}
+    "csv_params": {
+      "header": null,
+      "names": [
+        "age",
+        "year_of_operation",
+        "positive_nodes",
+        "survival_status"
+      ]
+    },
+    "rules": [
+      {
+        "type": "range",
+        "source": "heuristic",
+        "column": "age",
+        "min": 0.0,
+        "max": 120.0
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "age"
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "year_of_operation"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "year_of_operation",
+        "min": 0.0,
+        "max": 71.2
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "year_of_operation",
+        "values": [
+          "58",
+          "59",
+          "60",
+          "61",
+          "62",
+          "63",
+          "64",
+          "65",
+          "66",
+          "67",
+          "68",
+          "69",
+          "year"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "positive_nodes"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "positive_nodes",
+        "min": 0.0,
+        "max": 62.4
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "survival_status"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "survival_status",
+        "min": 0.0,
+        "max": 2.2
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "survival_status",
+        "values": [
+          "1",
+          "2",
+          "status"
+        ]
+      }
+    ]
   },
   "ionosphere": {
     "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/ionosphere/ionosphere.data",
@@ -204,9 +2350,17 @@
     "domain": "environment",
     "rows": 351,
     "cols": 35,
-    "dtypes": {"numeric": 34, "categorical": 1, "datetime": 0, "text": 0},
+    "dtypes": {
+      "numeric": 34,
+      "categorical": 1,
+      "datetime": 0,
+      "text": 0
+    },
     "size_class": "small",
-    "csv_params": {"header": null, "max_cols": 30}
+    "csv_params": {
+      "header": null,
+      "max_cols": 30
+    }
   },
   "sonar": {
     "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/undocumented/connectionist-bench/sonar/sonar.all-data",
@@ -214,30 +2368,17 @@
     "domain": "technology",
     "rows": 208,
     "cols": 61,
-    "dtypes": {"numeric": 60, "categorical": 1, "datetime": 0, "text": 0},
+    "dtypes": {
+      "numeric": 60,
+      "categorical": 1,
+      "datetime": 0,
+      "text": 0
+    },
     "size_class": "small",
-    "csv_params": {"header": null, "max_cols": 30}
-  },
-  "dermatology": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/dermatology/dermatology.data",
-    "filename": "dermatology.csv",
-    "domain": "health",
-    "rows": 366,
-    "cols": 35,
-    "dtypes": {"numeric": 33, "categorical": 1, "datetime": 1, "text": 0},
-    "size_class": "small",
-    "csv_params": {"header": null, "max_cols": 30}
-  },
-  "student_performance": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/student-mat.csv",
-    "filename": "student_performance.csv",
-    "domain": "education",
-    "rows": 395,
-    "cols": 33,
-    "dtypes": {"numeric": 16, "categorical": 13, "datetime": 0, "text": 4},
-    "size_class": "small",
-    "csv_params": {"sep": ";"},
-    "max_rows": 20000
+    "csv_params": {
+      "header": null,
+      "max_cols": 30
+    }
   },
   "concrete": {
     "source_url": "https://raw.githubusercontent.com/stedy/Machine-Learning-with-R-datasets/master/concrete.csv",
@@ -245,108 +2386,123 @@
     "domain": "materials",
     "rows": 1030,
     "cols": 9,
-    "dtypes": {"numeric": 9, "categorical": 0, "datetime": 0, "text": 0},
-    "size_class": "medium"
-  },
-  "energy_efficiency": {
-    "source_url": "https://raw.githubusercontent.com/selva86/datasets/master/ENB2012_data.csv",
-    "filename": "energy_efficiency.csv",
-    "domain": "environment",
-    "rows": 768,
-    "cols": 10,
-    "dtypes": {"numeric": 10, "categorical": 0, "datetime": 0, "text": 0},
-    "size_class": "small"
-  },
-  "parkinsons": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/parkinsons/parkinsons.data",
-    "filename": "parkinsons.csv",
-    "domain": "health",
-    "rows": 195,
-    "cols": 24,
-    "dtypes": {"numeric": 23, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "small"
-  },
-  "liver_disorders": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/liver-disorders/bupa.data",
-    "filename": "liver_disorders.csv",
-    "domain": "health",
-    "rows": 345,
-    "cols": 7,
-    "dtypes": {"numeric": 6, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "small",
-    "csv_params": {"header": null, "names": ["mcv","alkphos","sgpt","sgot","gammagt","drinks","selector"]}
-  },
-  "fertility": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00244/fertility_Diagnosis.txt",
-    "filename": "fertility.csv",
-    "domain": "health",
-    "rows": 100,
-    "cols": 10,
-    "dtypes": {"numeric": 9, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "small",
-    "csv_params": {"header": null, "names": ["season","age","childhood_diseases","accident","surgical_intervention","high_fevers","alcohol","smoking","sitting_hours","diagnosis"]}
-  },
-  "acute_inflammation": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/acute/diagnosis.data",
-    "filename": "acute_inflammation.csv",
-    "domain": "health",
-    "rows": 120,
-    "cols": 8,
-    "dtypes": {"numeric": 1, "categorical": 7, "datetime": 0, "text": 0},
-    "size_class": "small",
-    "csv_params": {"header": null, "sep": "\t", "names": ["temperature","nausea","lumbar_pain","urine_pushing","micturition_pain","burning_urethra","inflammation","nephritis"]}
-  },
-  "wholesale_customers": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00292/Wholesale%20customers%20data.csv",
-    "filename": "wholesale_customers.csv",
-    "domain": "finance",
-    "rows": 440,
-    "cols": 8,
-    "dtypes": {"numeric": 6, "categorical": 2, "datetime": 0, "text": 0},
-    "size_class": "small"
-  },
-  "letter_recognition": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/letter-recognition/letter-recognition.data",
-    "filename": "letter_recognition.csv",
-    "domain": "technology",
-    "rows": 20000,
-    "cols": 17,
-    "dtypes": {"numeric": 16, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "large",
-    "csv_params": {"header": null, "names": ["letter","x_box","y_box","width","height","onpix","x_bar","y_bar","x2bar","y2bar","xybar","x2ybr","xy2br","x_ege","xegvy","y_ege","yegvx"]},
-    "max_rows": 20000
-  },
-  "magic_telescope": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/magic/magic04.data",
-    "filename": "magic_telescope.csv",
-    "domain": "environment",
-    "rows": 19020,
-    "cols": 11,
-    "dtypes": {"numeric": 10, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "large",
-    "csv_params": {"header": null, "names": ["flength","fwidth","fsize","fconc","fconc1","fasym","fm3long","fm3trans","falpha","fdist","class"]},
-    "max_rows": 20000
-  },
-  "page_blocks": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/page-blocks/page-blocks.data",
-    "filename": "page_blocks.csv",
-    "domain": "technology",
-    "rows": 5473,
-    "cols": 11,
-    "dtypes": {"numeric": 10, "categorical": 1, "datetime": 0, "text": 0},
+    "dtypes": {
+      "numeric": 9,
+      "categorical": 0,
+      "datetime": 0,
+      "text": 0
+    },
     "size_class": "medium",
-    "csv_params": {"header": null, "sep": "\\s+", "names": ["height","length","area","eccen","p_black","p_and","mean_tr","blackpix","blackand","wb_trans","class"]}
-  },
-  "statlog_shuttle": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/statlog/shuttle/shuttle.trn",
-    "filename": "statlog_shuttle.csv",
-    "domain": "transportation",
-    "rows": 43500,
-    "cols": 10,
-    "dtypes": {"numeric": 9, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "large",
-    "csv_params": {"header": null, "sep": " ", "names": ["a1","a2","a3","a4","a5","a6","a7","a8","a9","class"]},
-    "max_rows": 20000
+    "rules": [
+      {
+        "type": "range",
+        "source": "heuristic",
+        "column": "age",
+        "min": 0.0,
+        "max": 120.0
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "cement"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "cement",
+        "min": 0.0,
+        "max": 627.6
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "slag"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "slag",
+        "min": 0.0,
+        "max": 431.28
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "ash"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "ash",
+        "min": 0.0,
+        "max": 240.12
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "water"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "water",
+        "min": 0.0,
+        "max": 272.04
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "superplastic"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "superplastic",
+        "min": 0.0,
+        "max": 38.64
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "coarseagg"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "coarseagg",
+        "min": 0.0,
+        "max": 1213.8
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "fineagg"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "fineagg",
+        "min": 0.0,
+        "max": 1072.32
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "age"
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "strength"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "strength",
+        "min": 0.0,
+        "max": 98.654
+      }
+    ]
   },
   "wine_recognition": {
     "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/wine/wine.data",
@@ -354,127 +2510,207 @@
     "domain": "food_science",
     "rows": 178,
     "cols": 14,
-    "dtypes": {"numeric": 13, "categorical": 1, "datetime": 0, "text": 0},
+    "dtypes": {
+      "numeric": 13,
+      "categorical": 1,
+      "datetime": 0,
+      "text": 0
+    },
     "size_class": "small",
-    "csv_params": {"header": null, "names": ["class","alcohol","malic_acid","ash","alcalinity_of_ash","magnesium","total_phenols","flavanoids","nonflavanoid_phenols","proanthocyanins","color_intensity","hue","od280_od315","proline"]}
-  },
-  "pendigits": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/pendigits/pendigits.tra",
-    "filename": "pendigits.csv",
-    "domain": "technology",
-    "rows": 7494,
-    "cols": 17,
-    "dtypes": {"numeric": 16, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "medium",
-    "csv_params": {"header": null, "names": ["a1","a2","a3","a4","a5","a6","a7","a8","a9","a10","a11","a12","a13","a14","a15","a16","digit"]}
-  },
-  "segmentation": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/image/segmentation.data",
-    "filename": "segmentation.csv",
-    "domain": "technology",
-    "rows": 210,
-    "cols": 20,
-    "dtypes": {"numeric": 19, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "small"
-  },
-  "optdigits": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/optdigits/optdigits.tra",
-    "filename": "optdigits.csv",
-    "domain": "technology",
-    "rows": 3823,
-    "cols": 65,
-    "dtypes": {"numeric": 64, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "medium",
-    "csv_params": {"header": null, "max_cols": 30}
-  },
-  "spambase": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/spambase/spambase.data",
-    "filename": "spambase.csv",
-    "domain": "technology",
-    "rows": 4601,
-    "cols": 58,
-    "dtypes": {"numeric": 57, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "medium",
-    "csv_params": {"header": null, "max_cols": 30}
-  },
-  "tic_tac_toe": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/tic-tac-toe/tic-tac-toe.data",
-    "filename": "tic_tac_toe.csv",
-    "domain": "education",
-    "rows": 958,
-    "cols": 10,
-    "dtypes": {"numeric": 0, "categorical": 10, "datetime": 0, "text": 0},
-    "size_class": "small",
-    "csv_params": {"header": null, "names": ["tl","tm","tr","ml","mm","mr","bl","bm","br","class"]}
-  },
-  "congressional_voting": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/voting-records/house-votes-84.data",
-    "filename": "congressional_voting.csv",
-    "domain": "social",
-    "rows": 435,
-    "cols": 17,
-    "dtypes": {"numeric": 0, "categorical": 17, "datetime": 0, "text": 0},
-    "size_class": "small",
-    "csv_params": {"header": null, "names": ["party","handicapped_infants","water_project","budget_resolution","physician_fee_freeze","el_salvador_aid","religious_groups","anti_satellite","nicaraguan_contras","mx_missile","immigration","synfuels","education_spending","superfund","crime","duty_free","south_africa"]}
-  },
-  "mammographic_mass": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/mammographic-masses/mammographic_masses.data",
-    "filename": "mammographic_mass.csv",
-    "domain": "health",
-    "rows": 961,
-    "cols": 6,
-    "dtypes": {"numeric": 5, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "small",
-    "csv_params": {"header": null, "names": ["bi_rads","age","shape","margin","density","severity"]}
-  },
-  "blood_transfusion": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/blood-transfusion/transfusion.data",
-    "filename": "blood_transfusion.csv",
-    "domain": "health",
-    "rows": 748,
-    "cols": 5,
-    "dtypes": {"numeric": 5, "categorical": 0, "datetime": 0, "text": 0},
-    "size_class": "small"
-  },
-  "climate_crashes": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00252/pop_failures.dat",
-    "filename": "climate_crashes.csv",
-    "domain": "environment",
-    "rows": 540,
-    "cols": 21,
-    "dtypes": {"numeric": 20, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "small",
-    "csv_params": {"sep": "\\s+"}
-  },
-  "planning_relax": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00230/plrx.txt",
-    "filename": "planning_relax.csv",
-    "domain": "social",
-    "rows": 182,
-    "cols": 13,
-    "dtypes": {"numeric": 12, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "small",
-    "csv_params": {"header": null, "sep": "\\s+", "names": ["a1","a2","a3","a4","a5","a6","a7","a8","a9","a10","a11","a12","class"]}
-  },
-  "connectionist_vowel": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/undocumented/connectionist-bench/vowel/vowel-context.data",
-    "filename": "connectionist_vowel.csv",
-    "domain": "technology",
-    "rows": 990,
-    "cols": 14,
-    "dtypes": {"numeric": 10, "categorical": 3, "datetime": 0, "text": 1},
-    "size_class": "small",
-    "csv_params": {"header": null, "sep": "\\s+"}
-  },
-  "hepatitis": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/hepatitis/hepatitis.data",
-    "filename": "hepatitis.csv",
-    "domain": "health",
-    "rows": 155,
-    "cols": 20,
-    "dtypes": {"numeric": 6, "categorical": 14, "datetime": 0, "text": 0},
-    "size_class": "small",
-    "csv_params": {"header": null, "names": ["class","age","sex","steroid","antivirals","fatigue","malaise","anorexia","liver_big","liver_firm","spleen_palpable","spiders","ascites","varices","bilirubin","alk_phosphate","sgot","albumin","protime","histology"]}
+    "csv_params": {
+      "header": null,
+      "names": [
+        "class",
+        "alcohol",
+        "malic_acid",
+        "ash",
+        "alcalinity_of_ash",
+        "magnesium",
+        "total_phenols",
+        "flavanoids",
+        "nonflavanoid_phenols",
+        "proanthocyanins",
+        "color_intensity",
+        "hue",
+        "od280_od315",
+        "proline"
+      ]
+    },
+    "rules": [
+      {
+        "type": "range",
+        "source": "heuristic",
+        "column": "total_phenols",
+        "min": 0.0,
+        "max": Infinity
+      },
+      {
+        "type": "unique",
+        "source": "heuristic",
+        "column": "nonflavanoid_phenols"
+      },
+      {
+        "type": "not_null",
+        "source": "heuristic",
+        "column": "nonflavanoid_phenols"
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "class"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "class",
+        "min": 0.0,
+        "max": 17.796
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "alcohol"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "alcohol",
+        "min": 0.0,
+        "max": 6.811999999999999
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "malic_acid"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "malic_acid",
+        "min": 0.0,
+        "max": 3.604
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "ash"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "ash",
+        "min": 0.0,
+        "max": 35.4
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "alcalinity_of_ash"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "alcalinity_of_ash",
+        "min": 0.0,
+        "max": 193.6
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "magnesium"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "magnesium",
+        "min": 0.0,
+        "max": 5.804
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "total_phenols"
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "flavanoids"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "flavanoids",
+        "min": 0.0,
+        "max": 8.374
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "nonflavanoid_phenols",
+        "min": 0.0,
+        "max": 9.518
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "proanthocyanins"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "proanthocyanins",
+        "min": 0.0,
+        "max": 15.344000000000001
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "color_intensity"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "color_intensity",
+        "min": 0.0,
+        "max": 11.904
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "hue"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "hue",
+        "min": 0.0,
+        "max": 12.946
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "od280_od315"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "od280_od315",
+        "min": 0.0,
+        "max": 2013.6
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "proline"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "proline",
+        "min": 0.0,
+        "max": 15.4
+      }
+    ]
   },
   "horse_colic": {
     "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/horse-colic/horse-colic.data",
@@ -482,30 +2718,47 @@
     "domain": "health",
     "rows": 300,
     "cols": 28,
-    "dtypes": {"numeric": 7, "categorical": 21, "datetime": 0, "text": 0},
+    "dtypes": {
+      "numeric": 7,
+      "categorical": 21,
+      "datetime": 0,
+      "text": 0
+    },
     "size_class": "small",
-    "csv_params": {"header": null, "sep": "\\s+", "names": ["surgery","age","hospital_number","rectal_temp","pulse","respiratory_rate","extremities_temp","peripheral_pulse","mucous_membranes","capillary_refill","pain","peristalsis","abdominal_distension","nasogastric_tube","nasogastric_reflux","nasogastric_reflux_ph","rectal_exam","abdomen","packed_cell_volume","total_protein","abdominocentesis_appearance","abdominocentesis_total_protein","outcome","surgical_lesion","type_of_lesion1","type_of_lesion2","type_of_lesion3","cp_data"]}
-  },
-  "poker_hand": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/poker/poker-hand-training-true.data",
-    "filename": "poker_hand.csv",
-    "domain": "social",
-    "rows": 25010,
-    "cols": 11,
-    "dtypes": {"numeric": 11, "categorical": 0, "datetime": 0, "text": 0},
-    "size_class": "large",
-    "csv_params": {"header": null, "names": ["s1","r1","s2","r2","s3","r3","s4","r4","s5","r5","class"]},
-    "max_rows": 20000
-  },
-  "waveform": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/waveform/waveform.data",
-    "filename": "waveform.csv",
-    "domain": "technology",
-    "rows": 5000,
-    "cols": 22,
-    "dtypes": {"numeric": 21, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "medium",
-    "csv_params": {"header": null}
+    "csv_params": {
+      "header": null,
+      "sep": "\\s+",
+      "names": [
+        "surgery",
+        "age",
+        "hospital_number",
+        "rectal_temp",
+        "pulse",
+        "respiratory_rate",
+        "extremities_temp",
+        "peripheral_pulse",
+        "mucous_membranes",
+        "capillary_refill",
+        "pain",
+        "peristalsis",
+        "abdominal_distension",
+        "nasogastric_tube",
+        "nasogastric_reflux",
+        "nasogastric_reflux_ph",
+        "rectal_exam",
+        "abdomen",
+        "packed_cell_volume",
+        "total_protein",
+        "abdominocentesis_appearance",
+        "abdominocentesis_total_protein",
+        "outcome",
+        "surgical_lesion",
+        "type_of_lesion1",
+        "type_of_lesion2",
+        "type_of_lesion3",
+        "cp_data"
+      ]
+    }
   },
   "thyroid_disease": {
     "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/thyroid-disease/new-thyroid.data",
@@ -513,46 +2766,24 @@
     "domain": "health",
     "rows": 215,
     "cols": 6,
-    "dtypes": {"numeric": 5, "categorical": 1, "datetime": 0, "text": 0},
+    "dtypes": {
+      "numeric": 5,
+      "categorical": 1,
+      "datetime": 0,
+      "text": 0
+    },
     "size_class": "small",
-    "csv_params": {"header": null, "names": ["class","t3_resin","total_thyroxin","total_triiodothyronine","tsh","max_diff_tsh"]}
-  },
-  "statlog_heart": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/statlog/heart/heart.dat",
-    "filename": "statlog_heart.csv",
-    "domain": "health",
-    "rows": 270,
-    "cols": 14,
-    "dtypes": {"numeric": 13, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "small",
-    "csv_params": {"header": null, "sep": " ", "names": ["age","sex","chest_pain","resting_bp","cholesterol","fasting_bs","resting_ecg","max_hr","exercise_angina","oldpeak","slope","major_vessels","thal","target"]}
-  },
-  "vehicle_silhouettes": {
-    "source_url": "https://raw.githubusercontent.com/selva86/datasets/master/vehicle.csv",
-    "filename": "vehicle_silhouettes.csv",
-    "domain": "transportation",
-    "rows": 846,
-    "cols": 19,
-    "dtypes": {"numeric": 18, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "small"
-  },
-  "indian_liver": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/indian_liver_patient.csv",
-    "filename": "indian_liver.csv",
-    "domain": "health",
-    "rows": 583,
-    "cols": 11,
-    "dtypes": {"numeric": 9, "categorical": 2, "datetime": 0, "text": 0},
-    "size_class": "small"
-  },
-  "chronic_kidney": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/chronic_kidney_disease.csv",
-    "filename": "chronic_kidney.csv",
-    "domain": "health",
-    "rows": 400,
-    "cols": 25,
-    "dtypes": {"numeric": 11, "categorical": 14, "datetime": 0, "text": 0},
-    "size_class": "small"
+    "csv_params": {
+      "header": null,
+      "names": [
+        "class",
+        "t3_resin",
+        "total_thyroxin",
+        "total_triiodothyronine",
+        "tsh",
+        "max_diff_tsh"
+      ]
+    }
   },
   "german_credit": {
     "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/statlog/german/german.data",
@@ -560,56 +2791,24 @@
     "domain": "finance",
     "rows": 1000,
     "cols": 21,
-    "dtypes": {"numeric": 7, "categorical": 13, "datetime": 0, "text": 1},
+    "dtypes": {
+      "numeric": 7,
+      "categorical": 13,
+      "datetime": 0,
+      "text": 1
+    },
     "size_class": "medium",
-    "csv_params": {"header": null, "sep": " "}
-  },
-  "aust_credit": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/credit-screening/crx.data",
-    "filename": "aust_credit.csv",
-    "domain": "finance",
-    "rows": 690,
-    "cols": 16,
-    "dtypes": {"numeric": 6, "categorical": 10, "datetime": 0, "text": 0},
-    "size_class": "small",
-    "csv_params": {"header": null, "names": ["a1","a2","a3","a4","a5","a6","a7","a8","a9","a10","a11","a12","a13","a14","a15","class"]}
-  },
-  "monks1": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/monks-problems/monks-1.train",
-    "filename": "monks1.csv",
-    "domain": "education",
-    "rows": 124,
-    "cols": 7,
-    "dtypes": {"numeric": 6, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "small",
-    "csv_params": {"header": null, "sep": "\\s+"}
-  },
-  "heart_failure": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/heart_failure_clinical_records_dataset.csv",
-    "filename": "heart_failure.csv",
-    "domain": "health",
-    "rows": 299,
-    "cols": 13,
-    "dtypes": {"numeric": 11, "categorical": 2, "datetime": 0, "text": 0},
-    "size_class": "small"
-  },
-  "telecom_churn": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/WA_Fn-UseC_-Telco-Customer-Churn.csv",
-    "filename": "telecom_churn.csv",
-    "domain": "technology",
-    "rows": 7043,
-    "cols": 21,
-    "dtypes": {"numeric": 3, "categorical": 17, "datetime": 0, "text": 1},
-    "size_class": "medium"
-  },
-  "mall_customers": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/Mall_Customers.csv",
-    "filename": "mall_customers.csv",
-    "domain": "finance",
-    "rows": 200,
-    "cols": 5,
-    "dtypes": {"numeric": 3, "categorical": 2, "datetime": 0, "text": 0},
-    "size_class": "small"
+    "csv_params": {
+      "header": null,
+      "sep": " "
+    },
+    "rules": [
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": 0
+      }
+    ]
   },
   "spam_sms": {
     "source_url": "https://raw.githubusercontent.com/stedy/Machine-Learning-with-R-datasets/master/sms_spam.csv",
@@ -617,8 +2816,34 @@
     "domain": "technology",
     "rows": 5559,
     "cols": 2,
-    "dtypes": {"numeric": 0, "categorical": 1, "datetime": 0, "text": 1},
-    "size_class": "medium"
+    "dtypes": {
+      "numeric": 0,
+      "categorical": 1,
+      "datetime": 0,
+      "text": 1
+    },
+    "size_class": "medium",
+    "rules": [
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "type"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "type",
+        "values": [
+          "ham",
+          "spam"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "text"
+      }
+    ]
   },
   "mushroom_clean": {
     "source_url": "https://raw.githubusercontent.com/stedy/Machine-Learning-with-R-datasets/master/mushrooms.csv",
@@ -626,17 +2851,402 @@
     "domain": "biology",
     "rows": 8124,
     "cols": 23,
-    "dtypes": {"numeric": 0, "categorical": 23, "datetime": 0, "text": 0},
-    "size_class": "medium"
-  },
-  "water_potability": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/water_potability.csv",
-    "filename": "water_potability.csv",
-    "domain": "environment",
-    "rows": 3276,
-    "cols": 10,
-    "dtypes": {"numeric": 9, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "medium"
+    "dtypes": {
+      "numeric": 0,
+      "categorical": 23,
+      "datetime": 0,
+      "text": 0
+    },
+    "size_class": "medium",
+    "rules": [
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "type"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "type",
+        "values": [
+          "e",
+          "p"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "cap_shape"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "cap_shape",
+        "values": [
+          "b",
+          "c",
+          "f",
+          "k",
+          "s",
+          "x"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "cap_surface"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "cap_surface",
+        "values": [
+          "f",
+          "g",
+          "s",
+          "y"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "cap_color"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "cap_color",
+        "values": [
+          "b",
+          "c",
+          "e",
+          "g",
+          "n",
+          "p",
+          "r",
+          "u",
+          "w",
+          "y"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "bruises"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "bruises",
+        "values": [
+          "f",
+          "t"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "odor"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "odor",
+        "values": [
+          "a",
+          "c",
+          "f",
+          "l",
+          "m",
+          "n",
+          "p",
+          "s",
+          "y"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "gill_attachment"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "gill_attachment",
+        "values": [
+          "a",
+          "f"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "gill_spacing"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "gill_spacing",
+        "values": [
+          "c",
+          "w"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "gill_size"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "gill_size",
+        "values": [
+          "b",
+          "n"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "gill_color"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "gill_color",
+        "values": [
+          "b",
+          "e",
+          "g",
+          "h",
+          "k",
+          "n",
+          "o",
+          "p",
+          "r",
+          "u",
+          "w",
+          "y"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "stalk_shape"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "stalk_shape",
+        "values": [
+          "e",
+          "t"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "stalk_root"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "stalk_root",
+        "values": [
+          "?",
+          "b",
+          "c",
+          "e",
+          "r"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "stalk_surface_above_ring"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "stalk_surface_above_ring",
+        "values": [
+          "f",
+          "k",
+          "s",
+          "y"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "stalk_surface_below_ring"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "stalk_surface_below_ring",
+        "values": [
+          "f",
+          "k",
+          "s",
+          "y"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "stalk_color_above_ring"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "stalk_color_above_ring",
+        "values": [
+          "b",
+          "c",
+          "e",
+          "g",
+          "n",
+          "o",
+          "p",
+          "w",
+          "y"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "stalk_color_below_ring"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "stalk_color_below_ring",
+        "values": [
+          "b",
+          "c",
+          "e",
+          "g",
+          "n",
+          "o",
+          "p",
+          "w",
+          "y"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "veil_type"
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "veil_color"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "veil_color",
+        "values": [
+          "n",
+          "o",
+          "w",
+          "y"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "ring_number"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "ring_number",
+        "values": [
+          "n",
+          "o",
+          "t"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "ring_type"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "ring_type",
+        "values": [
+          "e",
+          "f",
+          "l",
+          "n",
+          "p"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "spore_print_color"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "spore_print_color",
+        "values": [
+          "b",
+          "h",
+          "k",
+          "n",
+          "o",
+          "r",
+          "u",
+          "w",
+          "y"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "population"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "population",
+        "values": [
+          "a",
+          "c",
+          "n",
+          "s",
+          "v",
+          "y"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "habitat"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "habitat",
+        "values": [
+          "d",
+          "g",
+          "l",
+          "m",
+          "p",
+          "u",
+          "w"
+        ]
+      }
+    ]
   },
   "insurance_charges": {
     "source_url": "https://raw.githubusercontent.com/stedy/Machine-Learning-with-R-datasets/master/insurance.csv",
@@ -644,469 +3254,107 @@
     "domain": "finance",
     "rows": 1338,
     "cols": 7,
-    "dtypes": {"numeric": 4, "categorical": 3, "datetime": 0, "text": 0},
-    "size_class": "medium"
-  },
-  "air_quality": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/AirQualityUCI.csv",
-    "filename": "air_quality.csv",
-    "domain": "environment",
-    "rows": 9357,
-    "cols": 15,
-    "dtypes": {"numeric": 13, "categorical": 0, "datetime": 2, "text": 0},
+    "dtypes": {
+      "numeric": 4,
+      "categorical": 3,
+      "datetime": 0,
+      "text": 0
+    },
     "size_class": "medium",
-    "csv_params": {"sep": ";"}
-  },
-  "bike_sharing": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/hour.csv",
-    "filename": "bike_sharing.csv",
-    "domain": "transportation",
-    "rows": 17379,
-    "cols": 17,
-    "dtypes": {"numeric": 12, "categorical": 4, "datetime": 1, "text": 0},
-    "size_class": "large"
-  },
-  "forest_fires": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/forest-fires/forestfires.csv",
-    "filename": "forest_fires.csv",
-    "domain": "environment",
-    "rows": 517,
-    "cols": 13,
-    "dtypes": {"numeric": 11, "categorical": 2, "datetime": 0, "text": 0},
-    "size_class": "small"
-  },
-  "airfoil_noise": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00291/airfoil_self_noise.dat",
-    "filename": "airfoil_noise.csv",
-    "domain": "technology",
-    "rows": 1503,
-    "cols": 6,
-    "dtypes": {"numeric": 6, "categorical": 0, "datetime": 0, "text": 0},
-    "size_class": "medium",
-    "csv_params": {"header": null, "sep": "\t", "names": ["frequency","angle_of_attack","chord_length","free_stream_velocity","suction_side_thickness","sound_pressure"]}
-  },
-  "combined_cycle_power": {
-    "source_url": "https://raw.githubusercontent.com/selva86/datasets/master/Folds5x2_pp.csv",
-    "filename": "combined_cycle_power.csv",
-    "domain": "environment",
-    "rows": 9568,
-    "cols": 5,
-    "dtypes": {"numeric": 5, "categorical": 0, "datetime": 0, "text": 0},
-    "size_class": "medium"
-  },
-  "slump_test": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/concrete/slump/slump_test.data",
-    "filename": "slump_test.csv",
-    "domain": "materials",
-    "rows": 103,
-    "cols": 11,
-    "dtypes": {"numeric": 11, "categorical": 0, "datetime": 0, "text": 0},
-    "size_class": "small"
-  },
-  "yacht_hydrodynamics": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00243/yacht_hydrodynamics.data",
-    "filename": "yacht_hydrodynamics.csv",
-    "domain": "transportation",
-    "rows": 308,
-    "cols": 7,
-    "dtypes": {"numeric": 7, "categorical": 0, "datetime": 0, "text": 0},
-    "size_class": "small",
-    "csv_params": {"header": null, "sep": "\\s+", "names": ["longitudinal_pos","prismatic_coeff","length_disp","beam_draught","length_beam","froude_number","residuary_resistance"]}
-  },
-  "optical_interconnection": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/optical-interconnection-network/optical_interconnection_network.csv",
-    "filename": "optical_interconnection.csv",
-    "domain": "technology",
-    "rows": 640,
-    "cols": 10,
-    "dtypes": {"numeric": 9, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "small"
-  },
-  "turkiye_student": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00262/turkiye-student-evaluation_generic.csv",
-    "filename": "turkiye_student.csv",
-    "domain": "education",
-    "rows": 5820,
-    "cols": 33,
-    "dtypes": {"numeric": 28, "categorical": 5, "datetime": 0, "text": 0},
-    "size_class": "medium",
-    "csv_params": {"sep": ","},
-    "max_rows": 20000
-  },
-  "real_estate": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/real_estate.csv",
-    "filename": "real_estate.csv",
-    "domain": "housing",
-    "rows": 414,
-    "cols": 8,
-    "dtypes": {"numeric": 7, "categorical": 0, "datetime": 1, "text": 0},
-    "size_class": "small"
-  },
-  "daily_demand": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00409/Daily_Demand_Forecasting_Orders.csv",
-    "filename": "daily_demand.csv",
-    "domain": "finance",
-    "rows": 60,
-    "cols": 13,
-    "dtypes": {"numeric": 12, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "small",
-    "csv_params": {"sep": ";"}
-  },
-  "qsar_biodegradation": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00254/biodeg.csv",
-    "filename": "qsar_biodegradation.csv",
-    "domain": "environment",
-    "rows": 1055,
-    "cols": 42,
-    "dtypes": {"numeric": 41, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "medium",
-    "csv_params": {"sep": ";", "max_cols": 30}
-  },
-  "seismic_bumps": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00266/seismic-bumps.arff",
-    "filename": "seismic_bumps.csv",
-    "domain": "environment",
-    "rows": 2584,
-    "cols": 19,
-    "dtypes": {"numeric": 15, "categorical": 4, "datetime": 0, "text": 0},
-    "size_class": "medium"
-  },
-  "steel_plates_faults": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00198/Faults.NNA",
-    "filename": "steel_plates_faults.csv",
-    "domain": "materials",
-    "rows": 1941,
-    "cols": 34,
-    "dtypes": {"numeric": 27, "categorical": 7, "datetime": 0, "text": 0},
-    "size_class": "medium",
-    "csv_params": {"header": null, "sep": "\\s+", "max_cols": 30}
-  },
-  "breast_tissue": {
-    "source_url": "https://raw.githubusercontent.com/selva86/datasets/master/BreastTissue.csv",
-    "filename": "breast_tissue.csv",
-    "domain": "health",
-    "rows": 106,
-    "cols": 10,
-    "dtypes": {"numeric": 9, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "small"
-  },
-  "vertebral_column": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00212/vertebral_column_data/column_3C.dat",
-    "filename": "vertebral_column.csv",
-    "domain": "health",
-    "rows": 310,
-    "cols": 7,
-    "dtypes": {"numeric": 6, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "small",
-    "csv_params": {"header": null, "sep": " ", "names": ["pelvic_incidence","pelvic_tilt","lumbar_lordosis","sacral_slope","pelvic_radius","degree_spondylolisthesis","class"]}
-  },
-  "user_knowledge": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00257/Data_User_Modeling_Dataset_Hamdi%20Tolga%20KAHRAMAN.xls",
-    "filename": "user_knowledge.csv",
-    "domain": "education",
-    "rows": 403,
-    "cols": 6,
-    "dtypes": {"numeric": 5, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "small"
-  },
-  "teaching_assistant": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/tae/tae.data",
-    "filename": "teaching_assistant.csv",
-    "domain": "education",
-    "rows": 151,
-    "cols": 6,
-    "dtypes": {"numeric": 5, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "small",
-    "csv_params": {"header": null, "names": ["english_speaker","course_instructor","course","semester","class_size","performance"]}
-  },
-  "cmc": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/cmc/cmc.data",
-    "filename": "cmc.csv",
-    "domain": "social",
-    "rows": 1473,
-    "cols": 10,
-    "dtypes": {"numeric": 2, "categorical": 8, "datetime": 0, "text": 0},
-    "size_class": "medium",
-    "csv_params": {"header": null, "names": ["wife_age","wife_education","husband_education","num_children","wife_religion","wife_working","husband_occupation","standard_of_living","media_exposure","contraceptive_method"]}
-  },
-  "annealing": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/annealing/anneal.data",
-    "filename": "annealing.csv",
-    "domain": "materials",
-    "rows": 798,
-    "cols": 39,
-    "dtypes": {"numeric": 6, "categorical": 33, "datetime": 0, "text": 0},
-    "size_class": "small",
-    "csv_params": {"header": null, "max_cols": 30}
-  },
-  "hayes_roth": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/hayes-roth/hayes-roth.data",
-    "filename": "hayes_roth.csv",
-    "domain": "social",
-    "rows": 132,
-    "cols": 5,
-    "dtypes": {"numeric": 4, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "small",
-    "csv_params": {"header": null, "names": ["name","hobby","age","educational_level","marital_status"]}
-  },
-  "zoo": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/zoo/zoo.data",
-    "filename": "zoo.csv",
-    "domain": "biology",
-    "rows": 101,
-    "cols": 18,
-    "dtypes": {"numeric": 15, "categorical": 2, "datetime": 0, "text": 1},
-    "size_class": "small",
-    "csv_params": {"header": null, "names": ["animal_name","hair","feathers","eggs","milk","airborne","aquatic","predator","toothed","backbone","breathes","venomous","fins","legs","tail","domestic","catsize","type"]}
-  },
-  "flags": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/flags/flag.data",
-    "filename": "flags.csv",
-    "domain": "social",
-    "rows": 194,
-    "cols": 30,
-    "dtypes": {"numeric": 10, "categorical": 18, "datetime": 0, "text": 2},
-    "size_class": "small",
-    "csv_params": {"header": null, "max_cols": 30}
-  },
-  "labor_relations": {
-    "source_url": "https://raw.githubusercontent.com/renatopp/arff-datasets/master/csv/labor.csv",
-    "filename": "labor_relations.csv",
-    "domain": "social",
-    "rows": 57,
-    "cols": 17,
-    "dtypes": {"numeric": 8, "categorical": 9, "datetime": 0, "text": 0},
-    "size_class": "small"
-  },
-  "cloud": {
-    "source_url": "https://raw.githubusercontent.com/selva86/datasets/master/cloud.csv",
-    "filename": "cloud.csv",
-    "domain": "environment",
-    "rows": 108,
-    "cols": 7,
-    "dtypes": {"numeric": 7, "categorical": 0, "datetime": 0, "text": 0},
-    "size_class": "small"
-  },
-  "cpu_performance": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/cpu-performance/machine.data",
-    "filename": "cpu_performance.csv",
-    "domain": "technology",
-    "rows": 209,
-    "cols": 10,
-    "dtypes": {"numeric": 7, "categorical": 1, "datetime": 0, "text": 2},
-    "size_class": "small",
-    "csv_params": {"header": null, "names": ["vendor","model","myct","mmin","mmax","cach","chmin","chmax","prp","erp"]}
-  },
-  "auto_insurance": {
-    "source_url": "https://raw.githubusercontent.com/selva86/datasets/master/Auto_Insurance_Claims.csv",
-    "filename": "auto_insurance.csv",
-    "domain": "finance",
-    "rows": 1000,
-    "cols": 40,
-    "dtypes": {"numeric": 15, "categorical": 23, "datetime": 2, "text": 0},
-    "size_class": "medium",
-    "max_rows": 20000
-  },
-  "survey_lung_cancer": {
-    "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00488/survey%20lung%20cancer.csv",
-    "filename": "survey_lung_cancer.csv",
-    "domain": "health",
-    "rows": 309,
-    "cols": 16,
-    "dtypes": {"numeric": 14, "categorical": 2, "datetime": 0, "text": 0},
-    "size_class": "small"
-  },
-  "avocado": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/avocado.csv",
-    "filename": "avocado.csv",
-    "domain": "food_science",
-    "rows": 18249,
-    "cols": 14,
-    "dtypes": {"numeric": 8, "categorical": 4, "datetime": 1, "text": 1},
-    "size_class": "large",
-    "max_rows": 18249
-  },
-  "supermarket_sales": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/supermarket_sales.csv",
-    "filename": "supermarket_sales.csv",
-    "domain": "finance",
-    "rows": 1000,
-    "cols": 17,
-    "dtypes": {"numeric": 6, "categorical": 8, "datetime": 2, "text": 1},
-    "size_class": "medium"
-  },
-  "fifa_players": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/FIFA19.csv",
-    "filename": "fifa_players.csv",
-    "domain": "sports",
-    "rows": 18207,
-    "cols": 89,
-    "dtypes": {"numeric": 40, "categorical": 30, "datetime": 1, "text": 18},
-    "size_class": "large",
-    "max_rows": 20000
-  },
-  "nba_players": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/nba2021.csv",
-    "filename": "nba_players.csv",
-    "domain": "sports",
-    "rows": 500,
-    "cols": 30,
-    "dtypes": {"numeric": 25, "categorical": 3, "datetime": 0, "text": 2},
-    "size_class": "small"
-  },
-  "fetal_health": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/fetal_health.csv",
-    "filename": "fetal_health.csv",
-    "domain": "health",
-    "rows": 2126,
-    "cols": 22,
-    "dtypes": {"numeric": 21, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "medium"
-  },
-  "stroke_prediction": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/stroke_data.csv",
-    "filename": "stroke_prediction.csv",
-    "domain": "health",
-    "rows": 5110,
-    "cols": 12,
-    "dtypes": {"numeric": 4, "categorical": 7, "datetime": 0, "text": 1},
-    "size_class": "medium"
-  },
-  "dry_bean": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/DryBeanDataset.csv",
-    "filename": "dry_bean.csv",
-    "domain": "agriculture",
-    "rows": 13611,
-    "cols": 17,
-    "dtypes": {"numeric": 16, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "large"
-  },
-  "happiness_2019": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/2019.csv",
-    "filename": "happiness_2019.csv",
-    "domain": "social",
-    "rows": 156,
-    "cols": 9,
-    "dtypes": {"numeric": 8, "categorical": 0, "datetime": 0, "text": 1},
-    "size_class": "small"
-  },
-  "obesity_levels": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/ObesityDataSet_raw_and_data_sinthetic.csv",
-    "filename": "obesity_levels.csv",
-    "domain": "health",
-    "rows": 2111,
-    "cols": 17,
-    "dtypes": {"numeric": 7, "categorical": 9, "datetime": 0, "text": 1},
-    "size_class": "medium"
-  },
-  "e_commerce_shipping": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/E-commerce_Shipping.csv",
-    "filename": "e_commerce_shipping.csv",
-    "domain": "finance",
-    "rows": 10999,
-    "cols": 12,
-    "dtypes": {"numeric": 5, "categorical": 5, "datetime": 0, "text": 2},
-    "size_class": "large"
-  },
-  "drug_classification": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/drug200.csv",
-    "filename": "drug_classification.csv",
-    "domain": "health",
-    "rows": 200,
-    "cols": 6,
-    "dtypes": {"numeric": 2, "categorical": 4, "datetime": 0, "text": 0},
-    "size_class": "small"
-  },
-  "co2_emissions": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/CO2_Emissions_Canada.csv",
-    "filename": "co2_emissions.csv",
-    "domain": "environment",
-    "rows": 7385,
-    "cols": 12,
-    "dtypes": {"numeric": 5, "categorical": 5, "datetime": 0, "text": 2},
-    "size_class": "medium"
-  },
-  "salary_data": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/Salary_Data.csv",
-    "filename": "salary_data.csv",
-    "domain": "finance",
-    "rows": 30,
-    "cols": 2,
-    "dtypes": {"numeric": 2, "categorical": 0, "datetime": 0, "text": 0},
-    "size_class": "small"
-  },
-  "weather_austin": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/austin_weather.csv",
-    "filename": "weather_austin.csv",
-    "domain": "environment",
-    "rows": 1319,
-    "cols": 21,
-    "dtypes": {"numeric": 18, "categorical": 1, "datetime": 1, "text": 1},
-    "size_class": "medium"
-  },
-  "fires_brazil": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/amazon.csv",
-    "filename": "fires_brazil.csv",
-    "domain": "environment",
-    "rows": 6454,
-    "cols": 5,
-    "dtypes": {"numeric": 2, "categorical": 2, "datetime": 1, "text": 0},
-    "size_class": "medium"
-  },
-  "flight_price": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/flight_price.csv",
-    "filename": "flight_price.csv",
-    "domain": "transportation",
-    "rows": 10683,
-    "cols": 11,
-    "dtypes": {"numeric": 2, "categorical": 7, "datetime": 1, "text": 1},
-    "size_class": "large"
-  },
-  "calories": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/calories.csv",
-    "filename": "calories.csv",
-    "domain": "food_science",
-    "rows": 15000,
-    "cols": 2,
-    "dtypes": {"numeric": 2, "categorical": 0, "datetime": 0, "text": 0},
-    "size_class": "large"
-  },
-  "spaceship_titanic": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/spaceship-titanic-train.csv",
-    "filename": "spaceship_titanic.csv",
-    "domain": "transportation",
-    "rows": 8693,
-    "cols": 14,
-    "dtypes": {"numeric": 5, "categorical": 6, "datetime": 0, "text": 3},
-    "size_class": "medium"
-  },
-  "house_prices": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/house_prices_train.csv",
-    "filename": "house_prices.csv",
-    "domain": "housing",
-    "rows": 1460,
-    "cols": 81,
-    "dtypes": {"numeric": 38, "categorical": 43, "datetime": 0, "text": 0},
-    "size_class": "medium",
-    "max_rows": 20000
-  },
-  "laptop_prices": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/laptop_prices.csv",
-    "filename": "laptop_prices.csv",
-    "domain": "technology",
-    "rows": 1303,
-    "cols": 13,
-    "dtypes": {"numeric": 4, "categorical": 7, "datetime": 0, "text": 2},
-    "size_class": "medium"
-  },
-  "world_population": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/world_population.csv",
-    "filename": "world_population.csv",
-    "domain": "census",
-    "rows": 234,
-    "cols": 17,
-    "dtypes": {"numeric": 12, "categorical": 3, "datetime": 0, "text": 2},
-    "size_class": "small"
+    "rules": [
+      {
+        "type": "range",
+        "source": "heuristic",
+        "column": "age",
+        "min": 0.0,
+        "max": 120.0
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "age"
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "sex"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "sex",
+        "values": [
+          "female",
+          "male"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "bmi"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "bmi",
+        "min": 0.0,
+        "max": 60.56400000000001
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "children"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "children",
+        "min": 0.0,
+        "max": 6.0
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "smoker"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "smoker",
+        "values": [
+          "no",
+          "yes"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "region"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "region",
+        "values": [
+          "northeast",
+          "northwest",
+          "southeast",
+          "southwest"
+        ]
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "charges"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "charges",
+        "min": 0.0,
+        "max": 76300.138832
+      }
+    ]
   },
   "rock_mine": {
     "source_url": "https://raw.githubusercontent.com/selva86/datasets/master/Sonar.csv",
@@ -1114,26 +3362,747 @@
     "domain": "technology",
     "rows": 208,
     "cols": 61,
-    "dtypes": {"numeric": 60, "categorical": 1, "datetime": 0, "text": 0},
+    "dtypes": {
+      "numeric": 60,
+      "categorical": 1,
+      "datetime": 0,
+      "text": 0
+    },
     "size_class": "small",
-    "max_rows": 20000
-  },
-  "heart_attack": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/heart_attack.csv",
-    "filename": "heart_attack.csv",
-    "domain": "health",
-    "rows": 303,
-    "cols": 14,
-    "dtypes": {"numeric": 13, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "small"
-  },
-  "mobile_price": {
-    "source_url": "https://raw.githubusercontent.com/dsrscientist/dataset1/master/mobile_price_train.csv",
-    "filename": "mobile_price.csv",
-    "domain": "technology",
-    "rows": 2000,
-    "cols": 21,
-    "dtypes": {"numeric": 20, "categorical": 1, "datetime": 0, "text": 0},
-    "size_class": "medium"
+    "max_rows": 20000,
+    "rules": [
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V1"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V1",
+        "min": 0.0,
+        "max": 0.16422
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V2"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V2",
+        "min": 0.0,
+        "max": 0.28056000000000003
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V3"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V3",
+        "min": 0.0,
+        "max": 0.36678
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V4"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V4",
+        "min": 0.0,
+        "max": 0.51052
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V5"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V5",
+        "min": 0.0,
+        "max": 0.47986000000000006
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V6"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V6",
+        "min": 0.0,
+        "max": 0.45671999999999996
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V7"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V7",
+        "min": 0.0,
+        "max": 0.44682
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V8"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V8",
+        "min": 0.0,
+        "max": 0.5497000000000001
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V9"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V9",
+        "min": 0.0,
+        "max": 0.81786
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V10"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V10",
+        "min": 0.0,
+        "max": 0.85046
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V11"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V11",
+        "min": 0.0,
+        "max": 0.8752599999999999
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V12"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V12",
+        "min": 0.0,
+        "max": 0.84248
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V13"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V13",
+        "min": 0.0,
+        "max": 0.8520399999999999
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V14"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V14",
+        "min": 0.0,
+        "max": 1.1909399999999999
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V15"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V15",
+        "min": 0.0,
+        "max": 1.1993800000000001
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V16"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V16",
+        "min": 0.0,
+        "max": 1.1953200000000002
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V17"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V17",
+        "min": 0.0,
+        "max": 1.19302
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V18"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V18",
+        "min": 0.0,
+        "max": 1.1925
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V19"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V19",
+        "min": 0.0,
+        "max": 1.19012
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V20"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V20",
+        "min": 0.0,
+        "max": 1.18688
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V21"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V21",
+        "min": 0.0,
+        "max": 1.18976
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V22"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V22",
+        "min": 0.0,
+        "max": 1.19562
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V23"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V23",
+        "min": 0.0,
+        "max": 1.1887400000000001
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V24"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V24",
+        "min": 0.0,
+        "max": 1.19522
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V25"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V25",
+        "min": 0.0,
+        "max": 1.1952
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V26"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V26",
+        "min": 0.0,
+        "max": 1.18158
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V27"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V27",
+        "min": 0.0,
+        "max": 1.19038
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V28"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V28",
+        "min": 0.0,
+        "max": 1.19432
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V29"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V29",
+        "min": 0.0,
+        "max": 1.19712
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V30"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V30",
+        "min": 0.0,
+        "max": 1.18774
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V31"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V31",
+        "min": 0.0,
+        "max": 1.1492
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V32"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V32",
+        "min": 0.0,
+        "max": 1.10864
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V33"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V33",
+        "min": 0.0,
+        "max": 1.19046
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V34"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V34",
+        "min": 0.0,
+        "max": 1.1534
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V35"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V35",
+        "min": 0.0,
+        "max": 1.19554
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V36"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V36",
+        "min": 0.0,
+        "max": 1.1984
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V37"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V37",
+        "min": 0.0,
+        "max": 1.13262
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V38"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V38",
+        "min": 0.0,
+        "max": 1.19234
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V39"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V39",
+        "min": 0.0,
+        "max": 1.17542
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V40"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V40",
+        "min": 0.0,
+        "max": 1.1133
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V41"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V41",
+        "min": 0.0,
+        "max": 1.0722
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V42"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V42",
+        "min": 0.0,
+        "max": 0.9884
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V43"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V43",
+        "min": 0.0,
+        "max": 0.92796
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V44"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V44",
+        "min": 0.0,
+        "max": 0.93144
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V45"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V45",
+        "min": 0.0,
+        "max": 0.84408
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V46"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V46",
+        "min": 0.0,
+        "max": 0.8750399999999999
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V47"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V47",
+        "min": 0.0,
+        "max": 0.66264
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V48"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V48",
+        "min": 0.0,
+        "max": 0.40068
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V49"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V49",
+        "min": 0.0,
+        "max": 0.23772
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V50"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V50",
+        "min": 0.0,
+        "max": 0.099
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V51"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V51",
+        "min": 0.0,
+        "max": 0.12048
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V52"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V52",
+        "min": 0.0,
+        "max": 0.08492000000000001
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V53"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V53",
+        "min": 0.0,
+        "max": 0.0467
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V54"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V54",
+        "min": 0.0,
+        "max": 0.04204
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V55"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V55",
+        "min": 0.0,
+        "max": 0.05352
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V56"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V56",
+        "min": 0.0,
+        "max": 0.0472
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V57"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V57",
+        "min": 0.0,
+        "max": 0.042539999999999994
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V58"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V58",
+        "min": 0.0,
+        "max": 0.052739999999999995
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V59"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V59",
+        "min": 0.0,
+        "max": 0.043660000000000004
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "V60"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "V60",
+        "min": 0.0,
+        "max": 0.05256
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "Class"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "Class",
+        "min": 0.0,
+        "max": 1.2
+      }
+    ]
   }
 }

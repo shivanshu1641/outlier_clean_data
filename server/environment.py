@@ -73,50 +73,59 @@ _UNDO_COST_DEFAULT = 0.02
 _VALIDATE_COST_DEFAULT = 0.01
 
 LEGACY_TASK_MAP: dict[str, dict] = {
-    "titanic_easy":    {"dataset_id": "titanic",   "difficulty": "easy",   "format": "csv"},
-    "titanic_medium":  {"dataset_id": "titanic",   "difficulty": "medium", "format": "csv"},
-    "titanic_hard":    {"dataset_id": "titanic",   "difficulty": "hard",   "format": "csv"},
-    "iris_easy":       {"dataset_id": "iris",      "difficulty": "easy",   "format": "csv"},
-    "iris_medium":     {"dataset_id": "iris",      "difficulty": "medium", "format": "csv"},
-    "housing_medium":  {"dataset_id": "housing",   "difficulty": "medium", "format": "csv"},
-    "housing_hard":    {"dataset_id": "housing",   "difficulty": "hard",   "format": "csv"},
-    "diabetes_medium": {"dataset_id": "diabetes",  "difficulty": "medium", "format": "csv"},
-    "diabetes_hard":   {"dataset_id": "diabetes",  "difficulty": "hard",   "format": "csv"},
+    "titanic_easy":    {"dataset_id": "titanic",        "difficulty": "easy",   "format": "csv"},
+    "titanic_medium":  {"dataset_id": "titanic",        "difficulty": "medium", "format": "csv"},
+    "titanic_hard":    {"dataset_id": "titanic",        "difficulty": "hard",   "format": "csv"},
+    "iris_easy":       {"dataset_id": "iris",           "difficulty": "easy",   "format": "csv"},
+    "iris_medium":     {"dataset_id": "iris",           "difficulty": "medium", "format": "csv"},
+    "housing_medium":  {"dataset_id": "boston_housing",  "difficulty": "medium", "format": "csv"},
+    "housing_hard":    {"dataset_id": "boston_housing",  "difficulty": "hard",   "format": "csv"},
+    "diabetes_medium": {"dataset_id": "diabetes",       "difficulty": "medium", "format": "csv"},
+    "diabetes_hard":   {"dataset_id": "diabetes",       "difficulty": "hard",   "format": "csv"},
+    "wine_easy":       {"dataset_id": "wine_quality",   "difficulty": "easy",   "format": "csv"},
+    "wine_medium":     {"dataset_id": "wine_quality",   "difficulty": "medium", "format": "csv"},
+    "wine_hard":       {"dataset_id": "wine_quality",   "difficulty": "hard",   "format": "csv"},
+    "breast_cancer_easy":   {"dataset_id": "breast_cancer", "difficulty": "easy",   "format": "csv"},
+    "breast_cancer_medium": {"dataset_id": "breast_cancer", "difficulty": "medium", "format": "csv"},
 }
 
 
-def _load_catalog() -> list[dict]:
+def _load_catalog() -> dict[str, dict]:
+    """Load catalog.json as {dataset_name: entry_dict}."""
     with open(CATALOG_PATH) as f:
         return json.load(f)
 
 
-def _find_dataset(catalog: list[dict], dataset_id: str) -> Optional[dict]:
-    for entry in catalog:
-        if entry.get("id") == dataset_id:
-            return entry
+def _find_dataset(catalog: dict[str, dict], dataset_id: str) -> tuple[str, dict] | None:
+    """Look up a dataset by name. Returns (name, entry) or None."""
+    if dataset_id in catalog:
+        return dataset_id, catalog[dataset_id]
     return None
 
 
-def _ensure_dataset(entry: dict) -> pd.DataFrame:
-    """Load dataset from local_path, downloading if necessary."""
-    local_path = entry.get("local_path", "")
-    if local_path and Path(local_path).exists():
-        return pd.read_csv(local_path)
-    # Try to download
+def _ensure_dataset(name: str, entry: dict) -> pd.DataFrame:
+    """Load dataset CSV from data/clean/, downloading if necessary."""
+    filename = entry.get("filename", f"{name}.csv")
+    clean_dir = Path(__file__).parent.parent / DATA_DIR / "clean"
+    csv_path = clean_dir / filename
+
+    if csv_path.exists():
+        return pd.read_csv(csv_path)
+
+    # Try to download on the fly
     try:
         import sys
         tools_dir = str(Path(__file__).parent.parent / "tools")
         if tools_dir not in sys.path:
             sys.path.insert(0, tools_dir)
         from download_datasets import download_one
-        dest = Path(DATA_DIR)
-        dest.mkdir(parents=True, exist_ok=True)
-        path = download_one(entry, dest)
-        if path:
-            return pd.read_csv(path)
+        clean_dir.mkdir(parents=True, exist_ok=True)
+        ok = download_one(name, entry, clean_dir)
+        if ok and csv_path.exists():
+            return pd.read_csv(csv_path)
     except Exception:
         pass
-    raise RuntimeError(f"Dataset not available: {entry.get('id')} — run tools/download_datasets.py first")
+    raise RuntimeError(f"Dataset not available: {name} — run tools/download_datasets.py first")
 
 
 def _data_summary(df: pd.DataFrame, max_rows: int = 5) -> str:
@@ -235,28 +244,36 @@ class DataCleaningEnvironment(
     ) -> DataCleaningObservation:
         task_id = kwargs.get("task_id")
         difficulty = kwargs.get("difficulty", "medium")
+        category = kwargs.get("category")
 
         # Resolve dataset from task_id or legacy map
         catalog = _load_catalog()
-        dataset_entry = None
+        dataset_name: str | None = None
+        dataset_entry: dict | None = None
 
         if task_id and task_id in LEGACY_TASK_MAP:
             legacy = LEGACY_TASK_MAP[task_id]
             difficulty = legacy["difficulty"]
-            dataset_entry = _find_dataset(catalog, legacy["dataset_id"])
+            result = _find_dataset(catalog, legacy["dataset_id"])
+            if result:
+                dataset_name, dataset_entry = result
         elif task_id:
-            # Try direct dataset id match
-            dataset_entry = _find_dataset(catalog, task_id)
+            result = _find_dataset(catalog, task_id)
+            if result:
+                dataset_name, dataset_entry = result
 
         if dataset_entry is None:
             # Pick random dataset
             rng_pick = random.Random(seed)
-            dataset_entry = rng_pick.choice(catalog)
+            names = list(catalog.keys())
+            dataset_name = rng_pick.choice(names)
+            dataset_entry = catalog[dataset_name]
 
         self._difficulty = difficulty
+        self._category = category
         self._profile = DIFFICULTY_PROFILES[difficulty]
         self._episode_id = episode_id or str(uuid.uuid4())[:8]
-        self._dataset_name = dataset_entry.get("name", dataset_entry.get("id", "unknown"))
+        self._dataset_name = dataset_name
 
         # Reset counters
         self._explore_steps_cycle = 0
@@ -271,21 +288,31 @@ class DataCleaningEnvironment(
         self._checkpoints = []
 
         # Load clean data
-        clean_df = _ensure_dataset(dataset_entry)
+        clean_df = _ensure_dataset(dataset_name, dataset_entry)
         self._clean_df = clean_df.reset_index(drop=True)
 
         # Seeded RNGs
         np_rng = np.random.default_rng(seed if seed is not None else 42)
         py_rng = random.Random(seed if seed is not None else 42)
 
-        # Run corruption pipeline
-        pipeline = CorruptionPipeline()
-        pipeline.select_format(np_rng)  # MUST be called before corrupt()
-        dirty_df, error_map, _severity_map, pipeline_metadata = pipeline.corrupt(
-            self._clean_df, difficulty, np_rng, py_rng
-        )
+        # Load semantic rules from catalog entry
+        raw_rules = dataset_entry.get("rules", [])
+        self._rules_dicts = raw_rules
+        self._rules = []
+        if raw_rules:
+            try:
+                from server.rules.types import rule_from_dict
+            except ImportError:
+                from rules.types import rule_from_dict
+            self._rules = [rule_from_dict(r) for r in raw_rules]
 
-        self._file_format = pipeline_metadata.get("format", "csv")
+        # Run corruption pipeline
+        _seed = seed if seed is not None else 42
+        pipeline = CorruptionPipeline(seed=_seed, difficulty=difficulty, category=category)
+        self._file_format = pipeline.select_format()  # MUST be called before corrupt()
+        dirty_df, error_map, _severity_map, pipeline_metadata = pipeline.corrupt(
+            self._clean_df, rules=self._rules,
+        )
         # Normalize error_map to plain dict
         if hasattr(error_map, "model_dump"):
             self._error_map = error_map.model_dump()
@@ -502,6 +529,7 @@ class DataCleaningEnvironment(
             validate_count=self._validate_uses,
             undo_cost=profile.get("undo_cost", _UNDO_COST_DEFAULT),
             validate_cost=profile.get("validate_cost", _VALIDATE_COST_DEFAULT),
+            rules=getattr(self, "_rules", None),
         )
         self._error_summary_cache = summarize_errors(self._error_status, self._error_map)
 
@@ -553,5 +581,6 @@ class DataCleaningEnvironment(
             file_preview=format_preview(self._dirty_content, self._file_format),
             diagnosis=diagnosis,
             validate_result=validate_result,
+            semantic_rules=getattr(self, "_rules_dicts", []),
             step_info=self._make_step_info(),
         )
