@@ -932,7 +932,7 @@ FORMAT_CORRUPTION_FNS: dict[str, _CorrFn] = {
 
 _DIFFICULTY_COUNTS = {
     "easy": (1, 1),
-    "medium": (1, 2),
+    "medium": (0, 1),
     "hard": (2, 3),
 }
 

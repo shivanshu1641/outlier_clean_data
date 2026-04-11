@@ -8,6 +8,7 @@ import csv
 import json
 import logging
 import os
+import re
 import sys
 import time
 from dataclasses import asdict, dataclass
@@ -45,6 +46,37 @@ class BenchmarkResult:
     elapsed_s: float
 
 
+_SUMMARY_BASE_FIELDS = [
+    "dataset_id",
+    "category",
+    "difficulty",
+    "model",
+    "seed",
+    "reward",
+    "steps",
+    "episode_log_path",
+    "elapsed_s",
+]
+
+
+def _safe_task_key(task_key: str) -> str:
+    """Sanitize task keys for safe filesystem use."""
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", task_key)
+
+
+def _summary_fieldnames(rows: List[Dict[str, Any]]) -> List[str]:
+    """Build a stable CSV schema from all seen rows."""
+    score_fields = sorted(
+        {
+            key
+            for row in rows
+            for key in row.keys()
+            if key not in _SUMMARY_BASE_FIELDS
+        }
+    )
+    return [*_SUMMARY_BASE_FIELDS, *score_fields]
+
+
 def save_result(result: BenchmarkResult, output_dir: str | Path) -> None:
     """Append result to JSONL file and update summary CSV."""
     output_dir = Path(output_dir)
@@ -55,7 +87,7 @@ def save_result(result: BenchmarkResult, output_dir: str | Path) -> None:
     with jsonl_path.open("a") as f:
         f.write(json.dumps(asdict(result)) + "\n")
 
-    # Append to summary CSV — flatten scores into score_{key} columns
+    # Rewrite summary CSV with a stable union schema across all rows.
     csv_path = output_dir / "summary.csv"
     row = {
         k: v for k, v in asdict(result).items() if k != "scores"
@@ -63,12 +95,18 @@ def save_result(result: BenchmarkResult, output_dir: str | Path) -> None:
     for score_key, score_val in result.scores.items():
         row[f"score_{score_key}"] = score_val
 
-    write_header = not csv_path.exists()
-    with csv_path.open("a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(row.keys()))
-        if write_header:
-            writer.writeheader()
-        writer.writerow(row)
+    rows: List[Dict[str, Any]] = []
+    if csv_path.exists():
+        with csv_path.open(newline="") as f:
+            rows.extend(csv.DictReader(f))
+    rows.append(row)
+
+    fieldnames = _summary_fieldnames(rows)
+    with csv_path.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for existing_row in rows:
+            writer.writerow(existing_row)
 
 
 def load_results_summary(output_dir: str | Path) -> List[Dict[str, Any]]:
@@ -207,7 +245,7 @@ async def run_benchmark_task(
             current_reward = step_result.reward or 0.0
 
             messages = [
-                {"role": "system", "content": build_system_prompt(task.dataset_id)},
+                {"role": "system", "content": build_system_prompt()},
                 {"role": "user", "content": build_user_prompt(obs, current_reward, action_history=action_history)},
             ]
 
@@ -241,22 +279,33 @@ async def run_benchmark_task(
                 if step_result.done:
                     break
                 if total > 0 and fixed == total:
-                    await env.step(DoneAction())
+                    done_result = await env.step(DoneAction())
+                    current_reward = (
+                        done_result.reward
+                        if done_result.reward is not None
+                        else current_reward
+                    )
                     break
 
                 recent_fixed = [h["errors_fixed"] for h in action_history if h["type"] == "transform"]
                 if len(recent_fixed) >= 3 and len(set(recent_fixed[-3:])) == 1:
-                    await env.step(DoneAction())
+                    done_result = await env.step(DoneAction())
+                    current_reward = (
+                        done_result.reward
+                        if done_result.reward is not None
+                        else current_reward
+                    )
                     break
 
-    except Exception as e:
-        logger.error("Task %s failed: %s", task_key, e)
+    except Exception:
+        logger.exception("Task %s failed", task_key)
+        raise
 
     elapsed = time.time() - t0
 
     episode_dir = os.path.join("outputs", "episodes")
     os.makedirs(episode_dir, exist_ok=True)
-    episode_path = os.path.join(episode_dir, f"{task_key}.jsonl")
+    episode_path = os.path.join(episode_dir, f"{_safe_task_key(task_key)}.jsonl")
     with open(episode_path, "w") as f:
         for h in action_history:
             f.write(json.dumps(h) + "\n")

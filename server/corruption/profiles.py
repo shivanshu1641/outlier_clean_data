@@ -15,17 +15,18 @@ DIFFICULTY_PROFILES = {
         ],
     },
     "medium": {
-        "num_corruption_types": (4, 6),
-        "fraction_range": (0.08, 0.15),
-        "overlap_allowed": True,
+        "num_corruption_types": (3, 4),
+        "fraction_range": (0.05, 0.09),
+        "overlap_allowed": False,
         "format_pool": ["csv", "json", "jsonl", "excel", "tsv", "fixed_width"],
         "min_transform_steps": 4,
         "max_transform_steps": 15,
+        "max_columns": 2,  # keep medium focused on a few columns per corruption
         "allowed_corruptions": [
-            "inject_nulls", "whitespace_noise", "duplicate_rows",
+            "inject_nulls", "whitespace_noise",
             "type_mangle", "format_inconsistency", "outlier_injection",
             "date_format_mix", "category_misspell", "leading_zero_strip",
-            "typo_injection", "drop_rows", "header_in_data",
+            "typo_injection",
         ],
     },
     "hard": {

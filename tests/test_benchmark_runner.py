@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
-import tempfile
+from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
@@ -13,9 +14,11 @@ from tools.benchmark_runner import (
     BenchmarkResult,
     BenchmarkTask,
     _discover_datasets,
+    _safe_task_key,
     generate_task_matrix,
     load_config,
     load_results_summary,
+    run_benchmark_task,
     save_result,
 )
 
@@ -242,3 +245,143 @@ class TestBenchmarkResult:
         assert len(results) == 2
         assert results[0]["dataset_id"] == "titanic"
         assert results[1]["dataset_id"] == "wine_quality"
+
+    def test_save_result_keeps_stable_summary_schema(self, tmp_path: Path):
+        save_result(_SAMPLE_RESULT, tmp_path)
+
+        second = BenchmarkResult(
+            dataset_id="wine_quality",
+            category="VR",
+            difficulty="hard",
+            model="test-model",
+            seed=43,
+            reward=0.7,
+            scores={"accuracy": 0.75, "recall": 0.6},
+            steps=20,
+            episode_log_path="/tmp/ep2.log",
+            elapsed_s=5.0,
+        )
+        save_result(second, tmp_path)
+
+        csv_path = tmp_path / "summary.csv"
+        lines = csv_path.read_text().splitlines()
+        assert lines[0].startswith("dataset_id,category,difficulty,model,seed,reward,steps,episode_log_path,elapsed_s,score_accuracy,score_f1,score_recall")
+        assert len(lines) == 3
+        assert lines[1].count(",") == lines[2].count(",")
+
+
+class _FakeEnvSession:
+    def __init__(self, reset_result, step_results):
+        self._reset_result = reset_result
+        self._step_results = list(step_results)
+        self.done_actions = 0
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return None
+
+    async def reset(self, **kwargs):
+        return self._reset_result
+
+    async def step(self, action):
+        if getattr(action, "type", None) == "done":
+            self.done_actions += 1
+        return self._step_results.pop(0)
+
+
+def _make_step_result(*, reward: float, done: bool, fixed: int, total: int):
+    constraint_status = {f"err_{i}": i < fixed for i in range(total)}
+    observation = SimpleNamespace(
+        constraint_status=constraint_status,
+        task_description="Clean sample data",
+        constraints=[],
+        data_summary="sample",
+        explore_result=None,
+        transform_result=None,
+        validate_result=None,
+        step_info=None,
+        reward=reward,
+        done=done,
+    )
+    return SimpleNamespace(observation=observation, reward=reward, done=done)
+
+
+class TestRunBenchmarkTask:
+    def test_runs_without_prompt_signature_error(self, monkeypatch):
+        reset_result = _make_step_result(reward=0.0, done=False, fixed=0, total=2)
+        step_results = [
+            _make_step_result(reward=0.9, done=True, fixed=2, total=2),
+        ]
+        fake_session = _FakeEnvSession(reset_result, step_results)
+
+        monkeypatch.setattr("client.DataCleaningClient", lambda base_url: fake_session)
+        monkeypatch.setattr("inference.get_agent_action", lambda messages: ({"type": "done"}, 0.01, None))
+        monkeypatch.setattr("inference.action_from_dict", lambda action_dict: SimpleNamespace(type=action_dict["type"]))
+
+        task = BenchmarkTask(
+            dataset_id="titanic",
+            category="FP",
+            difficulty="easy",
+            model_name="gemma-4-E2B-it",
+            model_api_base="http://localhost:8080/v1",
+            model_api_key_env="OPENAI_API_KEY",
+            seed=42,
+        )
+        result = asyncio.run(run_benchmark_task(task, max_steps=1, min_call_interval=0))
+
+        assert result.reward == 0.9
+
+    def test_unexpected_failure_propagates(self, monkeypatch):
+        class FailingSession:
+            async def __aenter__(self):
+                raise RuntimeError("boom")
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return None
+
+        monkeypatch.setattr("client.DataCleaningClient", lambda base_url: FailingSession())
+
+        task = BenchmarkTask(
+            dataset_id="titanic",
+            category="FP",
+            difficulty="easy",
+            model_name="gemma-4-E2B-it",
+            model_api_base="http://localhost:8080/v1",
+            model_api_key_env="OPENAI_API_KEY",
+            seed=42,
+        )
+
+        with pytest.raises(RuntimeError, match="boom"):
+            asyncio.run(run_benchmark_task(task, max_steps=1, min_call_interval=0))
+
+    def test_auto_done_uses_final_reward(self, monkeypatch):
+        reset_result = _make_step_result(reward=0.0, done=False, fixed=0, total=2)
+        step_results = [
+            _make_step_result(reward=1.0, done=False, fixed=2, total=2),
+            _make_step_result(reward=0.97, done=True, fixed=2, total=2),
+        ]
+        fake_session = _FakeEnvSession(reset_result, step_results)
+
+        monkeypatch.setattr("client.DataCleaningClient", lambda base_url: fake_session)
+        monkeypatch.setattr("inference.get_agent_action", lambda messages: ({"type": "transform", "code": "pass"}, 0.01, None))
+        monkeypatch.setattr("inference.action_from_dict", lambda action_dict: SimpleNamespace(type=action_dict["type"]))
+
+        task = BenchmarkTask(
+            dataset_id="titanic",
+            category="FP",
+            difficulty="easy",
+            model_name="gemma-4-E2B-it",
+            model_api_base="http://localhost:8080/v1",
+            model_api_key_env="OPENAI_API_KEY",
+            seed=42,
+        )
+        result = asyncio.run(run_benchmark_task(task, max_steps=1, min_call_interval=0))
+
+        assert result.reward == 0.97
+
+    def test_safe_task_key_sanitizes_model_names(self):
+        safe = _safe_task_key("titanic_FP_easy_Qwen/Qwen2.5-72B-Instruct_42")
+        assert "/" not in safe
+        assert safe == "titanic_FP_easy_Qwen_Qwen2.5-72B-Instruct_42"

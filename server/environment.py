@@ -140,24 +140,185 @@ def _error_summary(
         lines.append(f"  {wrong} cells changed to wrong value (penalized 1.5x)")
     if unfixed:
         lines.append(f"  {unfixed} errors still unfixed")
-    # Compact corruption-type breakdown from error_map
+    # Compact corruption-type breakdown from error_map with counts and sample dirty→clean pairs
     if error_map:
         cell_errors = error_map.get("cell_errors", {})
-        by_type: dict[str, set[str]] = {}
+        by_type: dict[str, dict] = {}  # ctype -> {cols: set, count: int}
+        # Collect up to 2 sample dirty→clean pairs per corruption type
+        type_samples: dict[str, list[str]] = {}
         for key, info in cell_errors.items():
             ctype = info.get("corruption", "unknown")
             parts = key.split(",", 1)
             col = parts[1] if len(parts) == 2 else "?"
-            by_type.setdefault(ctype, set()).add(col)
+            entry = by_type.setdefault(ctype, {"cols": set(), "count": 0})
+            entry["cols"].add(col)
+            entry["count"] += 1
+            if len(type_samples.get(ctype, [])) < 2:
+                dirty = info.get("dirty_value")
+                clean = info.get("clean_value")
+                if dirty is not None and clean is not None and dirty != clean:
+                    type_samples.setdefault(ctype, []).append(
+                        f"{col}: {dirty!r} → {clean!r}"
+                    )
         if by_type:
             lines.append("  Error types:")
-            for ctype, cols in sorted(by_type.items()):
-                lines.append(f"    {ctype} in: {', '.join(sorted(cols))}")
+            for ctype, info in sorted(by_type.items(), key=lambda x: -x[1]["count"]):
+                cols = info["cols"]
+                count = info["count"]
+                lines.append(f"    {ctype} ({count} errors) in: {', '.join(sorted(cols))}")
+                for sample in type_samples.get(ctype, []):
+                    lines.append(f"      example: {sample}")
         if error_map.get("spurious_rows"):
             lines.append(f"    duplicate_rows: {len(error_map['spurious_rows'])} extra rows")
         if error_map.get("missing_rows"):
             lines.append(f"    missing_rows: {len(error_map['missing_rows'])} rows missing")
     return "\n".join(lines)
+
+
+def _remaining_error_breakdown(
+    error_status: dict[str, str],
+    error_map: dict[str, Any],
+    max_types: int = 6,
+    max_cols: int = 4,
+) -> list[str]:
+    """Return compact remaining-error lines grouped by corruption type."""
+    cell_errors = error_map.get("cell_errors", {})
+    by_type: dict[str, dict[str, Any]] = {}
+    wrong_total = 0
+
+    for key, status in error_status.items():
+        if status == "fixed":
+            continue
+        if key.startswith("spurious_") or key.startswith("missing_"):
+            continue
+
+        info = cell_errors.get(key, {})
+        ctype = info.get("corruption", "unknown")
+        try:
+            _, col = key.split(",", 1)
+        except ValueError:
+            col = "?"
+
+        entry = by_type.setdefault(ctype, {"count": 0, "wrong": 0, "columns": set()})
+        entry["count"] += 1
+        entry["columns"].add(col)
+        if status == "wrong_value":
+            entry["wrong"] += 1
+            wrong_total += 1
+
+    lines: list[str] = []
+    for ctype, info in sorted(by_type.items(), key=lambda item: (-item[1]["count"], item[0]))[:max_types]:
+        cols = sorted(info["columns"])
+        col_text = ", ".join(cols[:max_cols])
+        if len(cols) > max_cols:
+            col_text += f", +{len(cols) - max_cols} more"
+        line = f"{ctype}: {info['count']} remaining in {col_text}"
+        if info["wrong"]:
+            line += f" ({info['wrong']} wrong_value)"
+        lines.append(line)
+
+    spurious = sum(1 for k, v in error_status.items() if k.startswith("spurious_") and v != "fixed")
+    missing = sum(1 for k, v in error_status.items() if k.startswith("missing_") and v != "fixed")
+    if spurious:
+        lines.append(f"duplicate_rows: {spurious} remaining")
+    if missing:
+        lines.append(f"missing_rows: {missing} remaining")
+    if wrong_total and not any("wrong_value" in line for line in lines):
+        lines.append(f"wrong_value: {wrong_total} remaining")
+    return lines
+
+
+def _changed_columns(prev_df: pd.DataFrame, curr_df: pd.DataFrame, max_cols: int = 8) -> str:
+    """Return a compact list of columns touched by the last transform."""
+    changed: list[str] = []
+    all_cols = list(dict.fromkeys(list(prev_df.columns) + list(curr_df.columns)))
+    for col in all_cols:
+        if col not in prev_df.columns or col not in curr_df.columns:
+            changed.append(col)
+            continue
+        prev_col = prev_df[col].reset_index(drop=True)
+        curr_col = curr_df[col].reset_index(drop=True)
+        if len(prev_col) != len(curr_col) or not prev_col.equals(curr_col):
+            changed.append(col)
+
+    if not changed:
+        return "none"
+    if len(changed) <= max_cols:
+        return ", ".join(changed)
+    return ", ".join(changed[:max_cols]) + f", +{len(changed) - max_cols} more"
+
+
+def _format_transform_feedback(
+    success: bool,
+    *,
+    result: ExecutionResult,
+    data_changed: bool = False,
+    changed_columns: str = "none",
+    reward_before: float | None = None,
+    reward_after: float | None = None,
+    summary_before: dict[str, Any] | None = None,
+    summary_after: dict[str, Any] | None = None,
+    remaining_lines: list[str] | None = None,
+) -> str:
+    """Build a compact transform outcome block for the agent prompt."""
+    lines = [
+        f"Execution: {'succeeded' if success else 'failed'}",
+    ]
+
+    if reward_before is not None and reward_after is not None:
+        lines.append(
+            f"Reward delta: {reward_after - reward_before:+.4f} ({reward_before:.4f} -> {reward_after:.4f})"
+        )
+
+    if summary_before and summary_after:
+        lines.append(
+            "Errors fixed delta: "
+            f"{summary_after['fixed'] - summary_before['fixed']:+d} "
+            f"({summary_after['fixed']}/{summary_after['total_errors']})"
+        )
+        lines.append(
+            "Wrong-value delta: "
+            f"{summary_after['wrong_value'] - summary_before['wrong_value']:+d} "
+            f"({summary_after['wrong_value']} total)"
+        )
+        lines.append(
+            "Unfixed delta: "
+            f"{summary_after['unfixed'] - summary_before['unfixed']:+d} "
+            f"({summary_after['unfixed']} remaining)"
+        )
+
+    lines.append(f"Data changed: {'yes' if data_changed else 'no'}")
+    lines.append(f"Changed columns: {changed_columns}")
+
+    if remaining_lines:
+        lines.append("Remaining errors by type:")
+        lines.extend(f"  - {line}" for line in remaining_lines)
+
+    if success and result.stdout:
+        lines.append(f"Output: {result.stdout[:500]}")
+    elif not success:
+        lines.append(f"Error: {result.error}")
+        if result.stderr:
+            lines.append(f"Stderr: {result.stderr[:500]}")
+
+    return "\n".join(lines)
+
+
+def _refresh_dirty_values_from_df(error_map: dict[str, Any], df: pd.DataFrame) -> None:
+    """Align error_map dirty_value entries to the parsed DataFrame seen by the agent."""
+    for key, info in error_map.get("cell_errors", {}).items():
+        try:
+            row_str, col = key.split(",", 1)
+            row_idx = int(row_str)
+            if row_idx >= len(df) or col not in df.columns:
+                continue
+            dv = df.at[row_idx, col]
+            try:
+                info["dirty_value"] = None if pd.isna(dv) else dv
+            except (TypeError, ValueError):
+                info["dirty_value"] = dv
+        except (ValueError, IndexError, KeyError):
+            continue
 
 
 def _validate_breakdown(error_status: dict[str, str], error_map: dict, clean_df: pd.DataFrame) -> str:
@@ -343,19 +504,10 @@ class DataCleaningEnvironment(
             self._error_map = error_map
         self._dirty_df = dirty_df.reset_index(drop=True)
 
-        # Enrich error_map with dirty values for accurate grading
-        for key, info in self._error_map.get("cell_errors", {}).items():
-            try:
-                row_str, col = key.split(",", 1)
-                row_idx = int(row_str)
-                if row_idx < len(self._dirty_df) and col in self._dirty_df.columns:
-                    dv = self._dirty_df.at[row_idx, col]
-                    try:
-                        info["dirty_value"] = None if pd.isna(dv) else dv
-                    except (TypeError, ValueError):
-                        info["dirty_value"] = dv
-            except (ValueError, IndexError):
-                pass
+        # Seed dirty_value from the generated dirty frame first. After the sandbox
+        # round-trip we refresh this from current_df so grading matches what the
+        # agent actually sees in pandas.
+        _refresh_dirty_values_from_df(self._error_map, self._dirty_df)
 
         # Convert to file format and apply format corruptions
         dirty_content = convert_to_format(dirty_df, self._file_format)
@@ -384,6 +536,7 @@ class DataCleaningEnvironment(
 
         # Load initial current_df
         self._current_df = pd.read_csv(os.path.join(self._sandbox_dir, "current.csv"))
+        _refresh_dirty_values_from_df(self._error_map, self._current_df)
 
         # Save step-0 checkpoint = dirty state (before any agent transforms)
         save_checkpoint(self._sandbox_dir, 0)
@@ -456,10 +609,12 @@ class DataCleaningEnvironment(
         self._transform_steps += 1
         self._explore_steps_cycle = 0
 
+        prev_df = self._current_df.copy()
+        prev_reward = self._current_reward
+        prev_summary = dict(self._error_summary_cache)
         result = execute_transform(action.code, self._worker_proc, self._transform_steps)
 
         if result.success:
-            prev_df = self._current_df.copy()
             self._current_df = pd.read_csv(os.path.join(self._sandbox_dir, "current.csv"))
             df = self._current_df
 
@@ -470,16 +625,34 @@ class DataCleaningEnvironment(
 
             data_changed = not prev_df.equals(df)
             self._regrade()
-
-            msg = "Transform applied successfully."
+            changed_columns = _changed_columns(prev_df, df)
+            remaining_lines = _remaining_error_breakdown(self._error_status, self._error_map)
+            msg = _format_transform_feedback(
+                True,
+                result=result,
+                data_changed=data_changed,
+                changed_columns=changed_columns,
+                reward_before=prev_reward,
+                reward_after=self._current_reward,
+                summary_before=prev_summary,
+                summary_after=self._error_summary_cache,
+                remaining_lines=remaining_lines,
+            )
             if not data_changed:
                 msg += "\nWARNING: Data was not modified. Use df['col'] = df['col'].fillna(val) instead of inplace=True."
-            if result.stdout:
-                msg += f"\nOutput: {result.stdout[:500]}"
         else:
-            msg = f"Transform failed: {result.error}"
-            if result.stderr:
-                msg += f"\nStderr: {result.stderr[:500]}"
+            remaining_lines = _remaining_error_breakdown(self._error_status, self._error_map)
+            msg = _format_transform_feedback(
+                False,
+                result=result,
+                data_changed=False,
+                changed_columns="none",
+                reward_before=prev_reward,
+                reward_after=self._current_reward,
+                summary_before=prev_summary,
+                summary_after=prev_summary,
+                remaining_lines=remaining_lines,
+            )
 
         max_steps = self._profile.get("max_transform_steps", 10)
         if self._transform_steps >= max_steps:

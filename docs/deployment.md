@@ -20,7 +20,7 @@ pip install -r server/requirements.txt
 ### Run Server
 
 ```bash
-uvicorn server.app:app --port 7860 --ws-ping-interval 60 --ws-ping-timeout 120
+ENABLE_WEB_INTERFACE=true uvicorn server.app:app --port 7860 --ws-ping-interval 60 --ws-ping-timeout 120
 ```
 
 ### Run Inference
@@ -28,18 +28,23 @@ uvicorn server.app:app --port 7860 --ws-ping-interval 60 --ws-ping-timeout 120
 ```bash
 source .venv/bin/activate
 bash inference.sh                    # all tasks
-bash inference.sh titanic easy json  # specific task
+bash inference.sh titanic easy       # specific task (default fmt=csv)
+bash inference.sh titanic easy json  # specific task with explicit format
 ```
 
 ### Environment Variables
 
-| Variable                      | Description               | Default                            |
-| ----------------------------- | ------------------------- | ---------------------------------- |
-| `API_BASE_URL`                | LLM API endpoint          | `https://router.huggingface.co/v1` |
-| `MODEL_NAME`                  | LLM model name            | `Qwen/Qwen2.5-72B-Instruct`        |
-| `OPENAI_API_KEY` / `HF_TOKEN` | API token env var         | (required)                         |
-| `ENV_URL`                     | Environment server URL    | `http://localhost:7860`            |
-| `MIN_CALL_INTERVAL`           | Seconds between LLM calls | `2.5`                              |
+| Variable                      | Description                            | Default                     |
+| ----------------------------- | -------------------------------------- | --------------------------- |
+| `API_BASE_URL`                | LLM API endpoint                       | `https://api.openai.com/v1` |
+| `MODEL_NAME`                  | LLM model name                         | `gpt-4o`                    |
+| `OPENAI_API_KEY` / `HF_TOKEN` | API token env var (`HF_TOKEN` wins)    | empty                       |
+| `ENV_URL`                     | Environment server URL                 | `http://localhost:7860`     |
+| `MIN_CALL_INTERVAL`           | Seconds between LLM calls              | `2.5`                       |
+| `LOG_LEVEL`                   | Inference log verbosity                | `INFO`                      |
+| `LOG_DIR`                     | Directory for JSONL and CSV run output | `outputs/logs`              |
+
+`inference.sh` is the local convenience wrapper used in this repo. It currently points at `gemma-4-E2B-it` on a local OpenAI-compatible endpoint and overrides several of the defaults above for local runs.
 
 ## Docker (Local)
 
@@ -106,12 +111,12 @@ curl -X POST https://shivshri-openenv-dataclean.hf.space/reset \
 - [x] `inference.py` at repo root with `[START]/[STEP]/[END]` stdout logs
 - [x] Uses `from openai import OpenAI` for LLM calls
 - [x] Uses `OpenAI(base_url=..., api_key=...)` with env-configured LLM settings
-- [x] All 6 tasks produce rewards in [0.0, 1.0]
+- [x] All configured tasks produce rewards in [0.0, 1.0]
 - [x] Runtime < 20 min on 2 vCPU / 8GB
 
 ## Troubleshooting
 
-**Server won't start**: Check that `data/` and `tasks/` exist. Run `python tools/corruption/engine.py` to regenerate.
+**Server won't start**: Check that `data/` exists. Run `python tools/download_datasets.py` if the clean datasets are missing.
 
 **Sandbox errors**: Make sure you're running from the venv. Check `outputs/sandbox/{episode}/scripts/` for saved scripts.
 

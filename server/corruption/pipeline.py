@@ -65,6 +65,27 @@ class CorruptionPipeline:
         string_cols = df.select_dtypes(include=["object", "string"]).columns.tolist()
         all_cols = df.columns.tolist()
 
+        # Detect identifier-like columns: name ends with 'id'/'key'/'index', or
+        # column is numeric with all-unique integer values (surrogate key pattern).
+        _ID_SUFFIXES = ("id", "_id", "key", "index", "idx", "no", "_no")
+        identifier_cols: set[str] = set()
+        for col in all_cols:
+            col_lower = col.lower()
+            if any(col_lower == s or col_lower.endswith(s) for s in _ID_SUFFIXES):
+                identifier_cols.add(col)
+            elif col in numeric_cols:
+                series = df[col].dropna()
+                if len(series) == len(df) and series.nunique() == len(series):
+                    try:
+                        if (series == series.astype(int)).all():
+                            identifier_cols.add(col)
+                    except (ValueError, TypeError):
+                        pass
+
+        # Corruptions that should never touch identifier columns
+        _RISKY_FOR_IDS = {"outlier_injection", "type_mangle", "decimal_shift",
+                          "integer_as_float", "leading_zero_strip"}
+
         # --- choose corruption types ---
         if self.category:
             from .categories import get_corruptions_for_category
@@ -113,6 +134,9 @@ class CorruptionPipeline:
                 pool = string_cols
             else:
                 pool = all_cols
+            # Exclude identifier-like columns from corruptions that mangle values/types
+            if corruption_name in _RISKY_FOR_IDS and identifier_cols:
+                pool = [c for c in pool if c not in identifier_cols] or pool
             n_cols = max(1, len(pool) // 2)
             if max_cols is not None:
                 n_cols = min(n_cols, max_cols)

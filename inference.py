@@ -1,18 +1,19 @@
 """
 Baseline inference script for the Data Cleaning OpenEnv environment.
 
-Uses any OpenAI-compatible API endpoint. Configure via .env:
-  API_BASE_URL  — defaults to the active hosted endpoint if unset
-  API_KEY       — required via `API_KEY` or `HF_TOKEN`
-  MODEL_NAME    — e.g. qwen3, nvidia/nemotron-super-49b-v1, gpt-4o
-  ENV_URL       — http://localhost:8000
-  LOCAL_IMAGE_NAME / IMAGE_NAME — optional docker image name for local env startup
+Uses any OpenAI-compatible API endpoint. Configure via environment variables:
+  API_BASE_URL  — defaults to https://api.openai.com/v1 if unset
+  OPENAI_API_KEY / HF_TOKEN — API token (HF_TOKEN takes precedence)
+  MODEL_NAME    — e.g. gemma-4-E2B-it, qwen3, gpt-4o
+  ENV_URL       — http://localhost:7860
   LOG_LEVEL     — INFO (default) or DEBUG for full LLM I/O
   LOG_DIR       — directory for JSONL log files (default: outputs/logs)
 
 Usage:
     python inference.py                      # runs all tasks
-    python inference.py titanic_easy         # run specific task(s)
+    python inference.py titanic easy         # run one task (default fmt=csv)
+    python inference.py titanic easy json    # run one task with explicit format
+    python inference.py titanic/easy/json    # equivalent slash form
 """
 
 from __future__ import annotations
@@ -209,8 +210,8 @@ You have five action types:
 1. **explore**: Inspect the data without modifying it. Your query should be a valid pandas expression using `df` (a pandas DataFrame). Examples: `df.describe()`, `df['Age'].isnull().sum()`, `df.head(10)`
 2. **transform**: Submit Python/pandas code that operates on `df` to clean it. Available imports: pandas (pd), numpy (np), re, datetime, string, math, json, csv. The variable `df` is pre-loaded.
 3. **done**: Signal you're finished cleaning.
-- undo: Restore to a previous checkpoint. Use {"type": "undo", "step": N} where N=0 means the original dirty state.
-- validate: Get detailed error breakdown (budget: 2 per episode). Use {"type": "validate"} when stuck.
+4. **undo**: Restore to a previous checkpoint. Use {"type": "undo", "step": N} where N=0 means the original dirty state. USE THIS IMMEDIATELY when your reward or errors-fixed count drops after a transform — go back to your best state and try a different approach.
+5. **validate**: Get detailed error breakdown (budget: 2 per episode). Use {"type": "validate"} when stuck.
 
 Respond with EXACTLY one JSON object (no markdown, no explanation):
 - For explore: {"type": "explore", "query": "<pandas expression>"}
@@ -220,9 +221,12 @@ Respond with EXACTLY one JSON object (no markdown, no explanation):
 - For validate: {"type": "validate"}
 
 Strategy:
-- First explore to understand the data issues (you have 10 explores per transform cycle)
+- DIAGNOSTIC FIRST: Before any transform, explore to understand the scope. Run `df.isnull().sum()` and check value counts on columns mentioned in the error summary so you know which error type affects how many cells.
+- On medium/hard tasks, do at least one targeted explore per error type before your first transform unless the prompt already shows an explicit transform execution error you are fixing
+- Tackle the largest error group first (highest count), then work down
 - Then apply targeted transforms to fix all errors
 - Check error status after each transform
+- If your reward or errors-fixed DROPS after a transform, immediately undo to restore your best state, then try a different approach
 - Submit 'done' when all errors are fixed or you can't improve further
 - Be efficient: fewer transform steps = higher reward
 - Warning: changing a cell to the wrong value is penalized MORE than leaving it dirty
@@ -232,14 +236,141 @@ Strategy:
 
 Important rules:
 - Do NOT repeat the same explore query — check your action history below
+- If your last transform fixed 0 errors, your approach is WRONG. Do NOT repeat it. Explore the affected columns to understand what the dirty values actually look like, then try a completely different fix.
 - If your last transform didn't improve the score, try a COMPLETELY different approach
 - Your action history is shown in every observation — use it to avoid repeating mistakes
 - If you're stuck, submit 'done' rather than repeating the same failing transform
+- NEVER invent or re-sequence identifier columns (e.g. PassengerId, id, index, key). Inspect the exact dirty tokens with explore first; do not overwrite IDs with sequential integers or any fabricated values.
+- pd.to_numeric(col, errors='coerce') turns bad strings into NaN, which is NOT the same as fixing them. You must also fill those NaN values correctly afterward.
+- fillna(value, inplace=True) on a column may silently no-op in pandas 2.x. Use assignment: df['col'] = df['col'].fillna(value)
+- A single cell can have MULTIPLE corruptions (e.g. type_mangle + inject_nulls on the same column). One transform may only fix one layer — check errors after each step and apply follow-up transforms for remaining issues.
 """
 
 
 def build_system_prompt() -> str:
     return BASE_SYSTEM_PROMPT
+
+
+def _extract_remaining_error_targets(constraints: list[str] | None) -> dict[str, list[str]]:
+    """Parse compact `corruption in: col1, col2` lines from the observation."""
+    targets: dict[str, list[str]] = {}
+    for desc in constraints or []:
+        for raw_line in str(desc).splitlines():
+            line = raw_line.strip()
+            if " in: " not in line:
+                continue
+            left, right = line.split(" in: ", 1)
+            ctype = left.split()[-1].rstrip(":")
+            cols = [c.strip() for c in right.split(",") if c.strip()]
+            if cols:
+                targets[ctype] = cols
+    return targets
+
+
+def _suggest_explore_queries(obs, action_history: list[dict] | None = None) -> list[str]:
+    """Generate a few concrete explore queries from the current error summary."""
+    targets = _extract_remaining_error_targets(obs.constraints or [])
+    suggestions: list[str] = []
+
+    def add(query: str) -> None:
+        if query not in suggestions:
+            suggestions.append(query)
+
+    for ctype, cols in targets.items():
+        shown = cols[:3]
+        cols_expr = "[" + ", ".join(repr(c) for c in shown) + "]"
+
+        if ctype in {"inject_nulls", "null_injected"}:
+            add(f"df[{cols_expr}].isna().sum()")
+            if shown:
+                add(f"df[{repr(shown[0])}].value_counts(dropna=False).head(10)")
+        elif ctype == "type_mangle":
+            add(f"df[{cols_expr}].head(15)")
+            if shown:
+                add(f"pd.to_numeric(df[{repr(shown[0])}], errors='coerce').isna().sum()")
+        elif ctype in {"outlier_injection", "decimal_shift"}:
+            add(f"df[{cols_expr}].describe(include='all')")
+            if shown:
+                add(f"df[{repr(shown[0])}].sort_values().tail(10)")
+        elif ctype in {"whitespace_noise", "format_inconsistency", "category_misspell", "typo_injection"}:
+            add(f"df[{cols_expr}].head(15)")
+            if shown:
+                add(f"df[{repr(shown[0])}].value_counts(dropna=False).head(20)")
+        else:
+            add(f"df[{cols_expr}].head(15)")
+
+    if not suggestions:
+        add("df.head(10)")
+        add("df.info()")
+
+    recent_explores = {
+        h["summary"] for h in (action_history or []) if h.get("type") == "explore"
+    }
+    filtered = [q for q in suggestions if q[:100] not in recent_explores]
+    return (filtered or suggestions)[:5]
+
+
+def _explore_manual(obs) -> list[str]:
+    """Return concise exploration heuristics for the current error mix."""
+    targets = _extract_remaining_error_targets(obs.constraints or [])
+    bullets: list[str] = []
+
+    if "type_mangle" in targets:
+        bullets.append(
+            "For type_mangle: explore with `df['col'].unique()[:20]` to see the bad tokens, "
+            "then fix with `df['col'] = pd.to_numeric(df['col'], errors='coerce')`. "
+            "Do NOT use to_numeric if values are already parsed as NaN — confirm bad tokens exist first."
+        )
+    if "inject_nulls" in targets or "null_injected" in targets:
+        bullets.append(
+            "For inject_nulls: explore `df['col'].isnull().sum()` per affected column, "
+            "then fill with the column's mode or median: "
+            "`df['col'] = df['col'].fillna(df['col'].median())` for numeric, "
+            "`df['col'] = df['col'].fillna(df['col'].mode()[0])` for categorical."
+        )
+    if "outlier_injection" in targets or "decimal_shift" in targets:
+        bullets.append(
+            "For outlier_injection / decimal_shift: explore `df['col'].describe()` and "
+            "`df['col'].sort_values().tail(10)` to find shifted values. "
+            "Fix with a clip or IQR replacement — e.g. "
+            "`df.loc[df['col'] > upper, 'col'] = median_val`. "
+            "Casting dtype does NOT fix outlier values."
+        )
+    if "duplicate_rows" in targets:
+        bullets.append(
+            "For duplicate_rows: fix with `df = df.drop_duplicates()` — "
+            "this is the ONE safe use of drop; confirm duplicates exist first with `df.duplicated().sum()`."
+        )
+    if any(t in targets for t in ("whitespace_noise", "format_inconsistency", "category_misspell", "typo_injection")):
+        bullets.append(
+            "For string corruption, inspect examples or value counts before normalizing so you target the right columns."
+        )
+
+    bullets.append("Do not repeat the same explore query. After 1-2 targeted explores, either transform or validate.")
+    return bullets[:5]
+
+
+def _consecutive_explore_count(action_history: list[dict]) -> int:
+    count = 0
+    for h in reversed(action_history):
+        if h["type"] != "explore":
+            break
+        count += 1
+    return count
+
+
+def _same_query_streak(action_history: list[dict]) -> int:
+    explores = [h for h in action_history if h["type"] == "explore"]
+    if not explores:
+        return 0
+    last = explores[-1]["summary"]
+    streak = 0
+    for h in reversed(explores):
+        if h["summary"] == last:
+            streak += 1
+        else:
+            break
+    return streak
 
 
 def build_user_prompt(
@@ -248,52 +379,89 @@ def build_user_prompt(
     action_history: list[dict] | None = None,
     warnings: list[str] | None = None,
 ) -> str:
-    """Build the user message from the current observation.
-
-    Matches the lean format from the working baseline (58b3292): just task,
-    status, data summary, last result, and action history.  No file_preview,
-    target_schema, or semantic_rules — those are noise for small models.
-    """
-    parts = [
-        f"Task: {obs.task_description}",
-        "",
-        "Current status:",
-    ]
-    for desc in obs.constraints or []:
-        parts.append(f"  {desc}")
-
+    """Build a compact, decision-oriented prompt from the current observation."""
     constraint_status = obs.constraint_status or {}
     fixed = sum(1 for v in constraint_status.values() if v)
     total = len(constraint_status)
     reward = result_reward if result_reward is not None else (obs.reward or 0.0)
-    parts.extend(
-        [
-            "",
-            f"Errors fixed: {fixed}/{total}",
-            f"Current reward: {reward}",
-            "",
-            "Data summary:",
-            obs.data_summary,
-        ]
-    )
 
-    if obs.explore_result:
-        parts.extend(["", "Last explore result:", obs.explore_result])
-    if obs.transform_result:
-        parts.extend(["", "Last transform result:", obs.transform_result])
+    parts = [
+        f"Task: {obs.task_description}",
+        f"File format: {obs.file_format or 'csv'}",
+        "",
+        "Score:",
+        f"  Reward: {reward:.4f}",
+        "",
+        "Progress:",
+        f"  Errors fixed: {fixed}/{total}",
+    ]
 
     step_info = obs.step_info
     if step_info:
         parts.extend(
             [
-                "",
-                f"Explore budget: {step_info.explore_steps_used}/{step_info.explore_budget}",
-                f"Transform steps: {step_info.transform_steps_used}/{step_info.max_transform_steps}",
+                f"  Explore budget: {step_info.explore_steps_used}/{step_info.explore_budget}",
+                f"  Transform steps: {step_info.transform_steps_used}/{step_info.max_transform_steps}",
+                f"  Validate budget: {step_info.validate_uses}/{step_info.validate_budget}",
             ]
         )
 
+    if obs.constraints:
+        parts.extend(["", "Remaining errors:"])
+        for desc in obs.constraints:
+            for line in str(desc).splitlines():
+                parts.append(f"  {line}")
+
+    # On hard tasks (many errors), add a prioritized fix plan so the model doesn't flail
+    if total - fixed > 200 and obs.constraints:
+        error_text = str(obs.constraints[0]) if obs.constraints else ""
+        # Parse corruption types and their columns from the error summary
+        import re as _re
+        type_lines = _re.findall(r"(\w+) in: ([^\n]+)", error_text)
+        if type_lines:
+            # Priority order: structural first, then value-level
+            _PRIORITY = {
+                "duplicate_rows": 0, "drop_rows": 0, "header_in_data": 0,
+                "column_shift": 1, "value_swap": 1,
+                "inject_nulls": 2, "whitespace_noise": 2,
+                "type_mangle": 3, "format_inconsistency": 3,
+                "outlier_injection": 4, "decimal_shift": 4,
+                "category_misspell": 5, "typo_injection": 5,
+            }
+            sorted_types = sorted(type_lines, key=lambda t: _PRIORITY.get(t[0], 6))
+            parts.extend(["", "FIX PRIORITY (work in this order):"])
+            for i, (ctype, cols) in enumerate(sorted_types, 1):
+                parts.append(f"  {i}. {ctype} in {cols}")
+
+    if obs.diagnosis:
+        parts.extend(["", "Diagnosis:", obs.diagnosis])
+
+    explore_suggestions = _suggest_explore_queries(obs, action_history=action_history)
+    if explore_suggestions:
+        parts.extend(["", "Suggested explore queries:"])
+        parts.extend(f"  {q}" for q in explore_suggestions)
+
+    manual = _explore_manual(obs)
+    if manual:
+        parts.extend(["", "Explore guide:"])
+        parts.extend(f"  - {line}" for line in manual)
+
+    if obs.transform_result:
+        parts.extend(["", "Last action outcome:", obs.transform_result])
+    if obs.explore_result:
+        parts.extend(["", "Last explore result:", obs.explore_result])
+    if obs.validate_result:
+        parts.extend(["", "Last validate result:", obs.validate_result])
+        parts.append(
+            "\nACTION REQUIRED: The validate breakdown above shows exactly which cells are wrong "
+            "and what their expected values are. Use this to write a TARGETED transform — "
+            "do NOT repeat your previous approach. Fix the specific cells/columns listed above."
+        )
+
+    parts.extend(["", "Data summary:", obs.data_summary])
+
     if action_history:
-        parts.extend(["", "Action history:"])
+        parts.extend(["", "Recent action history:"])
         for h in action_history[-10:]:
             summary = h["summary"][:80]
             parts.append(
@@ -464,6 +632,9 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
 
         action_history: list[dict] = []
         step_rewards: list[float] = []
+        best_reward: float = current_reward
+        best_fixed: int = fixed
+        best_transform_step: int = 0  # checkpoint step for undo (0 = original)
 
         messages = [
             {"role": "system", "content": build_system_prompt()},
@@ -484,6 +655,14 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
             action_dict, latency, usage = get_agent_action(messages)
             action = action_from_dict(action_dict)
             action_type = action_dict.get("type", "done")
+
+            # Hard enforce: must explore before first transform
+            has_any_explore = any(h["type"] == "explore" for h in action_history)
+            if action_type == "transform" and not has_any_explore:
+                logger.warning("Model tried to transform before any explore — auto-injecting diagnostic explore")
+                action_dict = {"type": "explore", "query": "df.isnull().sum()"}
+                action = action_from_dict(action_dict)
+                action_type = "explore"
 
             # Log action content at INFO
             if action_type == "explore":
@@ -559,6 +738,44 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                 }
             )
 
+            # Track best state and auto-undo on significant regression
+            if action_type == "transform" and fixed > best_fixed:
+                best_reward = current_reward
+                best_fixed = fixed
+                best_transform_step = sum(1 for h in action_history if h["type"] == "transform")
+
+            if action_type == "transform" and fixed < best_fixed and best_fixed > 0:
+                regression_pct = (best_fixed - fixed) / best_fixed
+                if regression_pct >= 0.25:
+                    logger.warning(
+                        "Major regression: %d/%d fixed (was %d/%d, %.0f%% drop) — auto-undoing to step %d",
+                        fixed, total, best_fixed, total, regression_pct * 100, best_transform_step,
+                    )
+                    undo_result = await env.step(UndoAction(step=best_transform_step))
+                    obs = undo_result.observation
+                    current_reward = (
+                        undo_result.reward
+                        if undo_result.reward is not None
+                        else current_reward
+                    )
+                    step_rewards.append(current_reward)
+                    constraint_status = obs.constraint_status or {}
+                    fixed = sum(1 for v in constraint_status.values() if v)
+                    total = len(constraint_status)
+                    log_step(
+                        step_num, "undo", current_reward,
+                        done=False, errors_fixed=fixed, errors_total=total,
+                    )
+                    action_history.append(
+                        {
+                            "step": step_num,
+                            "type": "undo",
+                            "summary": f"auto-undo to step {best_transform_step}",
+                            "reward_after": current_reward,
+                            "errors_fixed": fixed,
+                        }
+                    )
+
             # Generate warnings for repeated/stale actions
             warnings: list[str] = []
             if action_type == "explore":
@@ -569,6 +786,16 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                 if query[:100] in recent_explores:
                     warnings.append(
                         "You already ran this exact explore query. Try a different query or submit a transform."
+                    )
+                same_query_streak = _same_query_streak(action_history)
+                consecutive_explores = _consecutive_explore_count(action_history)
+                if same_query_streak >= 2:
+                    warnings.append(
+                        "You repeated the same explore query multiple times. Use validate or transform instead of asking again."
+                    )
+                if consecutive_explores >= 4:
+                    warnings.append(
+                        f"You have explored {consecutive_explores} times in a row without transforming. Stop exploring and either validate or transform."
                     )
             if action_type == "transform":
                 recent_transform_fixed = [
@@ -582,8 +809,8 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                     if curr < prev:
                         warnings.append(
                             f"REGRESSION: Your last transform REDUCED errors fixed from {prev}/{total} to {curr}/{total}. "
-                            f"Your previous state was better. Submit 'done' now to lock in your best score, "
-                            f"or try a completely different approach."
+                            f"Your previous state was better. Use undo to go back: {{\"type\": \"undo\", \"step\": 0}} restores the original, "
+                            f"or use a higher step number to restore a later checkpoint. Do NOT keep transforming without undoing first."
                         )
                     elif curr == prev:
                         stale_count = 1
@@ -592,20 +819,137 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                                 stale_count += 1
                             else:
                                 break
-                        warnings.append(
-                            f"Your last {stale_count + 1} transforms fixed the same number of errors ({fixed}/{total}). "
-                            f"Try a fundamentally different approach."
-                        )
+                        if curr == 0:
+                            warnings.append(
+                                f"Your last {stale_count + 1} transforms fixed ZERO errors. "
+                                f"Your approach is fundamentally wrong. Use explore to inspect the actual dirty values "
+                                f"(e.g. df['col'].value_counts().head(20)) before trying another transform."
+                            )
+                        else:
+                            warnings.append(
+                                f"Your last {stale_count + 1} transforms fixed the same number of errors ({fixed}/{total}). "
+                                f"Try a fundamentally different approach."
+                            )
 
-            # Auto-done circuit breakers
+            # Auto-validate / auto-done circuit breakers
             recent_transform_fixed = [
                 h["errors_fixed"] for h in action_history if h["type"] == "transform"
             ]
+            should_auto_validate = False
             should_auto_done = False
 
-            # Stale: 3 consecutive transforms with same errors_fixed
+            if action_type == "explore":
+                same_query_streak = _same_query_streak(action_history)
+                consecutive_explores = _consecutive_explore_count(action_history)
+                validate_available = bool(
+                    obs.step_info and obs.step_info.validate_uses < obs.step_info.validate_budget
+                )
+                budget_exhausted = "budget exhausted" in (obs.explore_result or "").lower()
+
+                if validate_available and (
+                    same_query_streak >= 2 or consecutive_explores >= 5 or budget_exhausted
+                ):
+                    logger.warning(
+                        "Repeated explore loop detected (same_query_streak=%d consecutive_explores=%d budget_exhausted=%s) — auto-submitting validate",
+                        same_query_streak,
+                        consecutive_explores,
+                        budget_exhausted,
+                    )
+                    should_auto_validate = True
+                elif same_query_streak >= 3 or consecutive_explores >= 8:
+                    logger.warning(
+                        "Explore loop persists without progress (same_query_streak=%d consecutive_explores=%d) — auto-submitting done",
+                        same_query_streak,
+                        consecutive_explores,
+                    )
+                    should_auto_done = True
+
+            if should_auto_validate:
+                validate_result = await env.step(ValidateAction())
+                obs = validate_result.observation
+                current_reward = (
+                    validate_result.reward
+                    if validate_result.reward is not None
+                    else current_reward
+                )
+                step_rewards.append(current_reward)
+                constraint_status = obs.constraint_status or {}
+                fixed = sum(1 for v in constraint_status.values() if v)
+                total = len(constraint_status)
+                log_step(
+                    step_num + 1,
+                    "validate",
+                    current_reward,
+                    done=validate_result.done,
+                    errors_fixed=fixed,
+                    errors_total=total,
+                )
+                action_history.append(
+                    {
+                        "step": step_num + 1,
+                        "type": "validate",
+                        "summary": "",
+                        "reward_after": current_reward,
+                        "errors_fixed": fixed,
+                    }
+                )
+
+            # Stale: 2 consecutive transforms (since last validate) with same errors_fixed → auto-validate
+            # Only count transforms after the most recent validate to avoid burning both validates quickly
+            transforms_since_validate = []
+            for h in reversed(action_history):
+                if h["type"] == "validate":
+                    break
+                if h["type"] == "transform":
+                    transforms_since_validate.append(h["errors_fixed"])
+            transforms_since_validate.reverse()
+
+            last2 = transforms_since_validate[-2:] if len(transforms_since_validate) >= 2 else []
+            stale_validate_fired = False
+            if not should_auto_validate and len(last2) == 2 and len(set(last2)) == 1:
+                validate_available = bool(
+                    obs.step_info and obs.step_info.validate_uses < obs.step_info.validate_budget
+                )
+                if validate_available:
+                    logger.warning(
+                        "No improvement in last 2 transforms (%d/%d fixed) — auto-submitting validate before escalating",
+                        last2[-1],
+                        total,
+                    )
+                    validate_result = await env.step(ValidateAction())
+                    obs = validate_result.observation
+                    current_reward = (
+                        validate_result.reward
+                        if validate_result.reward is not None
+                        else current_reward
+                    )
+                    step_rewards.append(current_reward)
+                    constraint_status = obs.constraint_status or {}
+                    fixed = sum(1 for v in constraint_status.values() if v)
+                    total = len(constraint_status)
+                    log_step(
+                        step_num + 1,
+                        "validate",
+                        current_reward,
+                        done=validate_result.done,
+                        errors_fixed=fixed,
+                        errors_total=total,
+                    )
+                    action_history.append(
+                        {
+                            "step": step_num + 1,
+                            "type": "validate",
+                            "summary": "",
+                            "reward_after": current_reward,
+                            "errors_fixed": fixed,
+                        }
+                    )
+                    stale_validate_fired = True
+
+            # Stale: 3 consecutive transforms with same errors_fixed → auto-done
+            # Skip if a stale-validate just fired this iteration to avoid validate+done in same step
             last3 = recent_transform_fixed[-3:]
-            if len(last3) == 3 and len(set(last3)) == 1:
+            if not stale_validate_fired and len(last3) == 3 and len(set(last3)) == 1:
                 logger.warning(
                     "No improvement in last 3 transforms (%d/%d fixed) — auto-submitting done",
                     last3[-1],

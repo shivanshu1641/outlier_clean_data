@@ -485,6 +485,10 @@ def _cell_score_full(
                 result_is_nan = pd.isna(result_val)
             except (TypeError, ValueError):
                 result_is_nan = False
+            try:
+                clean_is_nan = pd.isna(clean_val)
+            except (TypeError, ValueError):
+                clean_is_nan = False
 
             if corruption_type in ("null_injected", "inject_nulls"):
                 if result_is_nan:
@@ -509,6 +513,17 @@ def _cell_score_full(
                 else:
                     # Unknown accepted_fill or None -- default to "any"
                     error_status[key] = "fixed"
+            elif (
+                corruption_type == "type_mangle"
+                and result_is_nan
+                and not clean_is_nan
+                and dirty_val is None
+            ):
+                # Some dirty string sentinels like "NA"/"N/A"/"null" are parsed by pandas
+                # as NaN before the agent sees them. If the agent leaves that parsed NaN
+                # untouched, it is still the original dirty state, not a new wrong value.
+                error_status[key] = "unfixed"
+                remaining_severity += severity
             elif dirty_val is not None and _values_equal(result_val, dirty_val):
                 # Result still matches dirty value — corruption unfixed
                 error_status[key] = "unfixed"

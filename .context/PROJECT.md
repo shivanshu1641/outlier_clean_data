@@ -38,7 +38,7 @@ OpenEnv environment for the Meta PyTorch Hackathon (deadline: April 8, 2026). AI
 - **Null fill tolerance** — `accepted_fill` field per null error: "any" accepts any reasonable imputation (mean, median, mode, ffill, bfill) within 0.5σ of column range, "exact" requires the clean value, "mean"/"median"/"mode" accept only that specific statistic
 - **Persistent worker** — pandas/numpy loaded once per episode; transform uses `df.copy()` in exec namespace (no CSV re-read per step); explore uses in-memory `df` directly (read-only); undo sends a `"reload"` command to resync worker state after checkpoint restore
 - **Auto-rewrite inplace=True** — worker auto-converts `df['col'].fillna(val, inplace=True)` → `df['col'] = df['col'].fillna(val)` (pandas 2.x broke chained inplace)
-- **Difficulty profiles** — easy/medium/hard profiles tune value, row, schema, and format corruption rates
+- **Difficulty profiles** — easy/medium/hard profiles now increase more gradually: easy stays focused, medium uses 3-4 corruption families with capped column spread and light format noise, and hard keeps the wide row/schema/format mix
 - **Format-aware corruption safety** — `CorruptionPipeline.select_format()` is called before `corrupt()` so raw dirty content, parser expectations, hints, and previews stay aligned
 - **Inference config** — `inference.py` reads `API_BASE_URL`, `MODEL_NAME`, and `API_KEY` (from `HF_TOKEN`/`OPENAI_API_KEY`) at import time via `os.environ.get`; validator injects LiteLLM proxy values which take precedence
 
@@ -77,43 +77,19 @@ python inference.py titanic_easy wine_hard
 python tools/download_datasets.py
 ```
 
-## Verified Results (Gemma 4 E2B, 2B params, local)
+## Benchmark Status
 
-| Task           | Errors Fixed | Reward   |
-| -------------- | ------------ | -------- |
-| titanic_easy   | 59/59        | 1.00     |
-| titanic_medium | 233/277      | 0.67     |
-| titanic_hard   | 764/958      | 0.66     |
-| wine_easy      | 255/255      | 1.00     |
-| wine_medium    | 611/836      | 0.52     |
-| wine_hard      | 1418/2312    | 0.49     |
-| **Average**    |              | **0.64** |
+The old model benchmark tables were captured before the April 2026 difficulty rebalance and are no longer comparable to the current generator. Do not use the old `titanic_medium`/`wine_medium` reward numbers as current baselines.
 
-## Verified Results (GPT-4.1 Nano, OpenAI API, with action history + loop detection)
+### Post-rebalance profile sanity check (Titanic, CSV, seeds 42-51)
 
-| Task           | Errors Fixed | Reward   |
-| -------------- | ------------ | -------- |
-| titanic_easy   | 59/59        | 0.97     |
-| titanic_medium | 233/277      | 0.66     |
-| titanic_hard   | 764/958      | 0.63     |
-| wine_easy      | 255/255      | 0.90     |
-| wine_medium    | 566/836      | 0.40     |
-| wine_hard      | 22/2312      | 0.00     |
-| **Average**    |              | **0.53** |
+| Difficulty | Typical total errors | Average total errors | Notes |
+| ---------- | -------------------- | -------------------- | ----- |
+| easy       | 33-98                | 61.5                 | Single focused corruption type |
+| medium     | 136-447              | 278.0                | 3-4 corruption types with capped column spread |
+| hard       | 1586-2895            | 2174.0               | Successful seeds only; hard-mode dtype bug still present on some seeds |
 
-## Verified Results (GPT-OSS 120B, OpenRouter free tier)
-
-| Task           | Errors Fixed | Reward   |
-| -------------- | ------------ | -------- |
-| titanic_easy   | 59/59        | 0.99     |
-| titanic_medium | 233/277      | 0.66     |
-| titanic_hard   | 764/958      | 0.57     |
-| wine_easy      | 255/255      | 0.99     |
-| wine_medium    | 546/836      | 0.39     |
-| wine_hard      | 1995/2312    | 0.67*    |
-| **Average**    |              | **0.55***|
-
-*wine_hard incomplete — rate limited mid-run
+Full model benchmarks should be rerun after the rebalance before publishing new reward baselines.
 
 ## Deployment
 

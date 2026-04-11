@@ -638,6 +638,45 @@
         "type": "not_null",
         "source": "statistical",
         "column": "mpg"
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "horsepower",
+        "values": [
+          "(diesel)",
+          "(sw)",
+          "2+2",
+          "6",
+          "@",
+          "brougham",
+          "classic",
+          "coupe",
+          "custom",
+          "deluxe",
+          "diesel",
+          "gl",
+          "hatchback",
+          "ii",
+          "l",
+          "landau",
+          "liftback",
+          "lj",
+          "royale",
+          "s",
+          "sedan",
+          "v8"
+        ]
+      },
+      {
+        "type": "enum",
+        "source": "statistical",
+        "column": "weight",
+        "values": [
+          "(sw)",
+          "(turbo)",
+          "country"
+        ]
       }
     ]
   },
@@ -871,7 +910,6 @@
         "source": "statistical",
         "column": "class",
         "values": [
-          "class",
           "e",
           "p",
           "type"
@@ -1288,7 +1326,7 @@
           "veil_type"
         ],
         "condition": "functional_dependency",
-        "hint": "Each class value maps to exactly one veil_type value: class=veil_type, type=veil_type, p=p, e=p"
+        "hint": "Each class value maps to exactly one veil_type value: type=veil_type, p=p, e=p"
       },
       {
         "type": "cross_column",
@@ -2239,7 +2277,14 @@
         "groove_length",
         "variety"
       ]
-    }
+    },
+    "rules": [
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "area"
+      }
+    ]
   },
   "haberman": {
     "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/haberman/haberman.data",
@@ -2758,7 +2803,28 @@
         "type_of_lesion3",
         "cp_data"
       ]
-    }
+    },
+    "rules": [
+      {
+        "type": "range",
+        "source": "heuristic",
+        "column": "age",
+        "min": 0.0,
+        "max": 120.0
+      },
+      {
+        "type": "range",
+        "source": "heuristic",
+        "column": "total_protein",
+        "min": 0.0,
+        "max": Infinity
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "surgery"
+      }
+    ]
   },
   "thyroid_disease": {
     "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/thyroid-disease/new-thyroid.data",
@@ -2783,7 +2849,81 @@
         "tsh",
         "max_diff_tsh"
       ]
-    }
+    },
+    "rules": [
+      {
+        "type": "range",
+        "source": "heuristic",
+        "column": "total_thyroxin",
+        "min": 0.0,
+        "max": Infinity
+      },
+      {
+        "type": "range",
+        "source": "heuristic",
+        "column": "total_triiodothyronine",
+        "min": 0.0,
+        "max": Infinity
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "class"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "class",
+        "min": 0.0,
+        "max": 172.8
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "t3_resin"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "t3_resin",
+        "min": 0.0,
+        "max": 30.26
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "total_thyroxin"
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "total_triiodothyronine"
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "tsh"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "tsh",
+        "min": -12.1,
+        "max": 67.7
+      },
+      {
+        "type": "not_null",
+        "source": "statistical",
+        "column": "max_diff_tsh"
+      },
+      {
+        "type": "range",
+        "source": "statistical",
+        "column": "max_diff_tsh",
+        "min": 0.0,
+        "max": 5.8
+      }
+    ]
   },
   "german_credit": {
     "source_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/statlog/german/german.data",
@@ -3730,378 +3870,6 @@
         "column": "V30",
         "min": 0.0,
         "max": 1.18774
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V31"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V31",
-        "min": 0.0,
-        "max": 1.1492
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V32"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V32",
-        "min": 0.0,
-        "max": 1.10864
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V33"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V33",
-        "min": 0.0,
-        "max": 1.19046
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V34"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V34",
-        "min": 0.0,
-        "max": 1.1534
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V35"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V35",
-        "min": 0.0,
-        "max": 1.19554
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V36"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V36",
-        "min": 0.0,
-        "max": 1.1984
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V37"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V37",
-        "min": 0.0,
-        "max": 1.13262
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V38"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V38",
-        "min": 0.0,
-        "max": 1.19234
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V39"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V39",
-        "min": 0.0,
-        "max": 1.17542
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V40"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V40",
-        "min": 0.0,
-        "max": 1.1133
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V41"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V41",
-        "min": 0.0,
-        "max": 1.0722
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V42"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V42",
-        "min": 0.0,
-        "max": 0.9884
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V43"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V43",
-        "min": 0.0,
-        "max": 0.92796
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V44"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V44",
-        "min": 0.0,
-        "max": 0.93144
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V45"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V45",
-        "min": 0.0,
-        "max": 0.84408
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V46"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V46",
-        "min": 0.0,
-        "max": 0.8750399999999999
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V47"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V47",
-        "min": 0.0,
-        "max": 0.66264
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V48"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V48",
-        "min": 0.0,
-        "max": 0.40068
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V49"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V49",
-        "min": 0.0,
-        "max": 0.23772
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V50"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V50",
-        "min": 0.0,
-        "max": 0.099
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V51"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V51",
-        "min": 0.0,
-        "max": 0.12048
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V52"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V52",
-        "min": 0.0,
-        "max": 0.08492000000000001
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V53"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V53",
-        "min": 0.0,
-        "max": 0.0467
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V54"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V54",
-        "min": 0.0,
-        "max": 0.04204
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V55"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V55",
-        "min": 0.0,
-        "max": 0.05352
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V56"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V56",
-        "min": 0.0,
-        "max": 0.0472
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V57"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V57",
-        "min": 0.0,
-        "max": 0.042539999999999994
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V58"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V58",
-        "min": 0.0,
-        "max": 0.052739999999999995
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V59"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V59",
-        "min": 0.0,
-        "max": 0.043660000000000004
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "V60"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "V60",
-        "min": 0.0,
-        "max": 0.05256
-      },
-      {
-        "type": "not_null",
-        "source": "statistical",
-        "column": "Class"
-      },
-      {
-        "type": "range",
-        "source": "statistical",
-        "column": "Class",
-        "min": 0.0,
-        "max": 1.2
       }
     ]
   }

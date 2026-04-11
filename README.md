@@ -138,14 +138,11 @@ Explores are cheap but not free. Timed-out explores cost 3x a successful one. Th
 
 ## Tasks
 
-| Task             | Dataset                  | Errors | Difficulty                         |
-| ---------------- | ------------------------ | ------ | ---------------------------------- |
-| `titanic_easy`   | Titanic (891 rows)       | 59     | Easy -- nulls, whitespace          |
-| `titanic_medium` | Titanic (891 rows)       | 277    | Medium -- + type errors            |
-| `titanic_hard`   | Titanic (891 rows)       | 958    | Hard -- + outliers, dupes, format  |
-| `wine_easy`      | Wine Quality (1599 rows) | 255    | Easy -- nulls                      |
-| `wine_medium`    | Wine Quality (1599 rows) | 836    | Medium -- + dupes, types, outliers |
-| `wine_hard`      | Wine Quality (1599 rows) | 2312   | Hard -- + heavy nulls, whitespace  |
+| Task family      | Dataset                  | Error count | Difficulty                         |
+| ---------------- | ------------------------ | ----------- | ---------------------------------- |
+| `*_easy`         | Any catalog dataset      | Dynamic     | Focused cleanup, csv-only, light corruption |
+| `*_medium`       | Any catalog dataset      | Dynamic     | 3-4 corruption types, capped columns, light format noise |
+| `*_hard`         | Any catalog dataset      | Dynamic     | Wide corruption mix, row-level ops, heavier format noise |
 
 ## Sandbox Isolation
 
@@ -165,51 +162,19 @@ Agent code runs in a subprocess with:
 - 30s transform timeout, 10s explore timeout
 - 2GB memory limit
 
-## Benchmark Results
+## Benchmark Status
 
-### Gemma 4 E2B (2B params, local, 8K context)
+The old benchmark tables were measured before the April 2026 difficulty rebalance and are no longer current. The generator now uses a more gradual curve, especially for `medium`, so those earlier reward numbers should be treated as historical only.
 
-| Task           | Errors Fixed | Steps | Reward   | Notes                                          |
-| -------------- | ------------ | ----- | -------- | ---------------------------------------------- |
-| titanic_easy   | 59/59        | 2     | 0.99     | Explore penalty: -0.01                         |
-| titanic_medium | 233/277      | 6     | 0.66     | Soft done triggered, context overflow on retry |
-| titanic_hard   | 764/958      | 7     | 0.64     | Soft done triggered, context overflow on retry |
-| wine_easy      | 255/255      | 2     | 0.99     | Explore penalty: -0.01                         |
-| wine_medium    | 591/836      | 6     | 0.50     | Soft done triggered, context overflow on retry |
-| wine_hard      | 1418/2312    | 8     | 0.48     | Soft done triggered, context overflow on retry |
-| **Average**    |              |       | **0.71** |                                                |
+### Post-rebalance profile sanity check (Titanic, CSV, seeds 42-51)
 
-### GPT-4.1 Nano (OpenAI API, with action history + loop detection)
+| Difficulty | Typical total errors | Average total errors | Notes |
+| ---------- | -------------------- | -------------------- | ----- |
+| easy       | 33-98                | 61.5                 | Single focused corruption type |
+| medium     | 136-447              | 278.0                | 3-4 corruption types with capped column spread |
+| hard       | 1586-2895            | 2174.0               | Successful seeds only; some hard seeds still hit the dtype bug |
 
-| Task           | Errors Fixed | Steps | Reward   | Notes                                                      |
-| -------------- | ------------ | ----- | -------- | ---------------------------------------------------------- |
-| titanic_easy   | 59/59        | 4     | 0.97     | 3 explores, auto-done on all fixed                         |
-| titanic_medium | 233/277      | 5     | 0.66     | Soft done triggered, second done finalizes                 |
-| titanic_hard   | 764/958      | 9     | 0.63     | Auto-done after 3 stale transforms at 764 fixed            |
-| wine_easy      | 255/255      | 4     | 0.90     | 2 explores, auto-done on all fixed                         |
-| wine_medium    | 566/836      | 13    | 0.40     | Heavy explores (10), soft done + second done               |
-| wine_hard      | 22/2312      | 7     | 0.00     | Model gives up early — complexity beyond Nano's capability |
-| **Average**    |              |       | **0.53** |                                                            |
-
-### GPT-OSS 120B (OpenRouter, free tier)
-
-| Task           | Errors Fixed | Steps | Reward     | Notes                                                 |
-| -------------- | ------------ | ----- | ---------- | ----------------------------------------------------- |
-| titanic_easy   | 59/59        | 2     | 0.99       | 1 explore + 1 transform, auto-done on all fixed       |
-| titanic_medium | 233/277      | 4     | 0.66       | Auto-done after 3 stale transforms                    |
-| titanic_hard   | 764/958      | 18    | 0.57       | Heavy explores (12), auto-done after stale transforms |
-| wine_easy      | 255/255      | 2     | 0.99       | 1 explore + 1 transform, auto-done on all fixed       |
-| wine_medium    | 546/836      | 10    | 0.39       | Auto-done after 3 stale transforms                    |
-| wine_hard      | 1995/2312    | 12\*  | 0.67\*     | \*Rate limited mid-run — partial result               |
-| **Average**    |              |       | **0.55\*** | \*wine_hard incomplete                                |
-
-### Key Observations
-
-- **Gemma 4 E2B (2B, local)** outperforms **GPT-4.1 Nano** despite being much smaller — likely because Gemma writes more comprehensive transforms per step
-- **Action history + loop detection** prevents the worst failure modes: titanic_medium improved from 0.37 to 0.66 (no more repeated transforms), titanic_hard auto-dones at peak instead of spiraling down
-- **Auto-done circuit breakers** work: stale detection (3 transforms, same errors fixed) and regression detection (2 consecutive transforms reducing errors) prevent wasted steps
-- **Soft done** works correctly but the 2B local model hits context limits on retry; larger-context models would benefit more
-- **Explore penalty** is visible: titanic_easy scores 0.97 (not 1.0) due to explore steps costing 0.01 each
+Full model reward tables should be rerun against the rebalanced generator before publishing new baselines.
 
 ## Environment Variables
 

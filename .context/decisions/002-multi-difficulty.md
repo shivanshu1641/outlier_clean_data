@@ -14,11 +14,11 @@ Each dataset supports three difficulty profiles:
 
 Profiles live in `server/corruption/profiles.py` and are applied dynamically at `reset()` time, not generated into static task JSON files.
 
-| difficulty | corruption fraction | corruption types |
-|-----------|--------------------|--------------------|
-| easy      | 5-10%             | 1-2 types (nulls, whitespace) |
-| medium    | 12-15%            | 3-4 types (+ type_mangle, duplicates, outliers) |
-| hard      | 30%               | all 5-6 types |
+| difficulty | profile shape |
+|-----------|----------------|
+| easy      | 1 focused corruption type, low per-corruption fractions, csv only |
+| medium    | 3-4 corruption types, capped to a few columns, no row-level ops by default, 0-1 format corruptions |
+| hard      | 7-10 corruption types, wide column spread, row-level ops and heavy format noise enabled |
 
 ## Consequences
 - Any catalog dataset can run at easy, medium, or hard
