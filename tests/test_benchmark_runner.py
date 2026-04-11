@@ -10,10 +10,13 @@ import pytest
 import yaml
 
 from tools.benchmark_runner import (
+    BenchmarkResult,
     BenchmarkTask,
     _discover_datasets,
     generate_task_matrix,
     load_config,
+    load_results_summary,
+    save_result,
 )
 
 # ---------------------------------------------------------------------------
@@ -165,3 +168,77 @@ class TestGenerateTaskMatrix:
         tasks = generate_task_matrix(config_with_discovered)
         dataset_ids = {t.dataset_id for t in tasks}
         assert dataset_ids == {"alpha", "beta"}
+
+
+# ---------------------------------------------------------------------------
+# TestBenchmarkResult
+# ---------------------------------------------------------------------------
+
+_SAMPLE_RESULT = BenchmarkResult(
+    dataset_id="titanic",
+    category="FP",
+    difficulty="easy",
+    model="test-model",
+    seed=42,
+    reward=0.85,
+    scores={"accuracy": 0.9, "f1": 0.8},
+    steps=10,
+    episode_log_path="/tmp/ep.log",
+    elapsed_s=3.14,
+)
+
+
+class TestBenchmarkResult:
+    def test_result_has_required_fields(self):
+        r = _SAMPLE_RESULT
+        assert r.dataset_id == "titanic"
+        assert r.category == "FP"
+        assert r.difficulty == "easy"
+        assert r.model == "test-model"
+        assert r.seed == 42
+        assert r.reward == 0.85
+        assert r.scores == {"accuracy": 0.9, "f1": 0.8}
+        assert r.steps == 10
+        assert r.episode_log_path == "/tmp/ep.log"
+        assert r.elapsed_s == 3.14
+
+    def test_save_and_load_results(self, tmp_path: Path):
+        save_result(_SAMPLE_RESULT, tmp_path)
+
+        # JSONL file exists
+        jsonl_path = tmp_path / "results.jsonl"
+        assert jsonl_path.exists()
+
+        # summary CSV exists
+        csv_path = tmp_path / "summary.csv"
+        assert csv_path.exists()
+
+        # load_results_summary returns correct data
+        results = load_results_summary(tmp_path)
+        assert len(results) == 1
+        r = results[0]
+        assert r["dataset_id"] == "titanic"
+        assert r["reward"] == 0.85
+        assert r["scores"] == {"accuracy": 0.9, "f1": 0.8}
+
+    def test_save_appends_to_existing(self, tmp_path: Path):
+        save_result(_SAMPLE_RESULT, tmp_path)
+
+        second = BenchmarkResult(
+            dataset_id="wine_quality",
+            category="VR",
+            difficulty="hard",
+            model="test-model",
+            seed=43,
+            reward=0.7,
+            scores={"accuracy": 0.75},
+            steps=20,
+            episode_log_path="/tmp/ep2.log",
+            elapsed_s=5.0,
+        )
+        save_result(second, tmp_path)
+
+        results = load_results_summary(tmp_path)
+        assert len(results) == 2
+        assert results[0]["dataset_id"] == "titanic"
+        assert results[1]["dataset_id"] == "wine_quality"

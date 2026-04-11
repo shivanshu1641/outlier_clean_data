@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import csv
 import json
-from dataclasses import dataclass
+import os
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -22,6 +24,60 @@ class BenchmarkTask:
     model_api_base: str
     model_api_key_env: str
     seed: int
+
+
+@dataclass
+class BenchmarkResult:
+    dataset_id: str
+    category: str
+    difficulty: str
+    model: str
+    seed: int
+    reward: float
+    scores: Dict[str, Any]
+    steps: int
+    episode_log_path: str
+    elapsed_s: float
+
+
+def save_result(result: BenchmarkResult, output_dir: str | Path) -> None:
+    """Append result to JSONL file and update summary CSV."""
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Append to JSONL
+    jsonl_path = output_dir / "results.jsonl"
+    with jsonl_path.open("a") as f:
+        f.write(json.dumps(asdict(result)) + "\n")
+
+    # Append to summary CSV — flatten scores into score_{key} columns
+    csv_path = output_dir / "summary.csv"
+    row = {
+        k: v for k, v in asdict(result).items() if k != "scores"
+    }
+    for score_key, score_val in result.scores.items():
+        row[f"score_{score_key}"] = score_val
+
+    write_header = not csv_path.exists()
+    with csv_path.open("a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=list(row.keys()))
+        if write_header:
+            writer.writeheader()
+        writer.writerow(row)
+
+
+def load_results_summary(output_dir: str | Path) -> List[Dict[str, Any]]:
+    """Load all results from JSONL file. Returns empty list if file doesn't exist."""
+    jsonl_path = Path(output_dir) / "results.jsonl"
+    if not jsonl_path.exists():
+        return []
+    results = []
+    with jsonl_path.open() as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                results.append(json.loads(line))
+    return results
 
 
 def load_config(
