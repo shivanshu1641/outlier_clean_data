@@ -45,18 +45,16 @@ from openenv.core import Environment
 
 try:
     from .corruption.format_corruptions import apply_format_corruptions, convert_to_format, format_preview
-    from .corruption.hints import generate_format_hints, generate_hints
     from .corruption.pipeline import CorruptionPipeline
     from .corruption.profiles import DIFFICULTY_PROFILES
     from .grader import grade, summarize_errors
-    from .sandbox import ExecutionResult, create_sandbox, execute_explore, execute_transform, terminate_worker
+    from .sandbox import ExecutionResult, create_sandbox, execute_explore, execute_transform, reload_worker_df, restore_checkpoint, save_checkpoint, terminate_worker
 except ImportError:
     from corruption.format_corruptions import apply_format_corruptions, convert_to_format, format_preview
-    from corruption.hints import generate_format_hints, generate_hints
     from corruption.pipeline import CorruptionPipeline
     from corruption.profiles import DIFFICULTY_PROFILES
     from grader import grade, summarize_errors
-    from sandbox import ExecutionResult, create_sandbox, execute_explore, execute_transform, terminate_worker
+    from sandbox import ExecutionResult, create_sandbox, execute_explore, execute_transform, reload_worker_df, restore_checkpoint, save_checkpoint, terminate_worker
 
 ActionType = Union[ExploreAction, TransformAction, DoneAction, UndoAction, ValidateAction]
 
@@ -128,7 +126,11 @@ def _target_schema(df: pd.DataFrame) -> dict[str, str]:
     return {col: str(df[col].dtype) for col in df.columns}
 
 
-def _error_summary(error_status: dict[str, str], summary: dict[str, Any]) -> str:
+def _error_summary(
+    error_status: dict[str, str],
+    summary: dict[str, Any],
+    error_map: dict[str, Any] | None = None,
+) -> str:
     total = summary.get("total_errors", 0)
     fixed = summary.get("fixed", 0)
     wrong = summary.get("wrong_value", 0)
@@ -138,6 +140,23 @@ def _error_summary(error_status: dict[str, str], summary: dict[str, Any]) -> str
         lines.append(f"  {wrong} cells changed to wrong value (penalized 1.5x)")
     if unfixed:
         lines.append(f"  {unfixed} errors still unfixed")
+    # Compact corruption-type breakdown from error_map
+    if error_map:
+        cell_errors = error_map.get("cell_errors", {})
+        by_type: dict[str, set[str]] = {}
+        for key, info in cell_errors.items():
+            ctype = info.get("corruption", "unknown")
+            parts = key.split(",", 1)
+            col = parts[1] if len(parts) == 2 else "?"
+            by_type.setdefault(ctype, set()).add(col)
+        if by_type:
+            lines.append("  Error types:")
+            for ctype, cols in sorted(by_type.items()):
+                lines.append(f"    {ctype} in: {', '.join(sorted(cols))}")
+        if error_map.get("spurious_rows"):
+            lines.append(f"    duplicate_rows: {len(error_map['spurious_rows'])} extra rows")
+        if error_map.get("missing_rows"):
+            lines.append(f"    missing_rows: {len(error_map['missing_rows'])} rows missing")
     return "\n".join(lines)
 
 
@@ -204,10 +223,11 @@ class DataCleaningEnvironment(
         self._sandbox_dir: str = ""
         self._worker_proc = None
         self._current_df: pd.DataFrame = pd.DataFrame()
-        self._checkpoints: list[pd.DataFrame] = []  # index 0 = dirty_df, index N = after transform N
+        self._checkpoint_steps: int = 0  # number of filesystem checkpoints saved (0 = none yet)
         self._error_status: dict[str, str] = {}
         self._error_summary_cache: dict[str, Any] = {}
         self._current_reward: float = 0.0
+        self._reward_baseline: float = 0.0
         self._explore_steps_cycle: int = 0
         self._explore_steps_total: int = 0
         self._explore_timeouts: int = 0
@@ -218,6 +238,27 @@ class DataCleaningEnvironment(
         self._done_count: int = 0
         self._step_count: int = 0
         self._dataset_name: str = ""
+        # Grading caches — avoid recomputing stable scores every step
+        self._cached_schema_score: float | None = None
+        self._cached_row_mapping: dict | None = None
+        self._reward_stale: bool = True
+
+    def __del__(self) -> None:
+        """Ensure worker is cleaned up even if close() was never called."""
+        try:
+            self.close()
+        except Exception:
+            pass
+
+    def close(self) -> None:
+        """Clean up sandbox worker and directory."""
+        if self._worker_proc is not None:
+            terminate_worker(self._worker_proc)
+            self._worker_proc = None
+        if self._sandbox_dir and os.path.isdir(self._sandbox_dir):
+            import shutil
+            shutil.rmtree(self._sandbox_dir, ignore_errors=True)
+            self._sandbox_dir = ""
 
     def reset(
         self,
@@ -263,7 +304,10 @@ class DataCleaningEnvironment(
         self._done = False
         self._done_count = 0
         self._step_count = 0
-        self._checkpoints = []
+        self._cached_schema_score = None
+        self._cached_row_mapping = None
+        self._reward_stale = True
+        self._checkpoint_steps = 0
 
         # Load clean data
         clean_df = _ensure_dataset(dataset_name, dataset_entry)
@@ -299,6 +343,20 @@ class DataCleaningEnvironment(
             self._error_map = error_map
         self._dirty_df = dirty_df.reset_index(drop=True)
 
+        # Enrich error_map with dirty values for accurate grading
+        for key, info in self._error_map.get("cell_errors", {}).items():
+            try:
+                row_str, col = key.split(",", 1)
+                row_idx = int(row_str)
+                if row_idx < len(self._dirty_df) and col in self._dirty_df.columns:
+                    dv = self._dirty_df.at[row_idx, col]
+                    try:
+                        info["dirty_value"] = None if pd.isna(dv) else dv
+                    except (TypeError, ValueError):
+                        info["dirty_value"] = dv
+            except (ValueError, IndexError):
+                pass
+
         # Convert to file format and apply format corruptions
         dirty_content = convert_to_format(dirty_df, self._file_format)
         dirty_content, fmt_meta = apply_format_corruptions(
@@ -327,8 +385,14 @@ class DataCleaningEnvironment(
         # Load initial current_df
         self._current_df = pd.read_csv(os.path.join(self._sandbox_dir, "current.csv"))
 
-        # Initial grade
+        # Save step-0 checkpoint = dirty state (before any agent transforms)
+        save_checkpoint(self._sandbox_dir, 0)
+        self._checkpoint_steps = 1  # next transform will be saved as step 1
+
+        # Initial grade — capture baseline (dirty data already-correct components)
         self._regrade()
+        self._reward_baseline = self._current_reward
+        self._current_reward = 0.0
 
         return self._make_observation()
 
@@ -399,10 +463,10 @@ class DataCleaningEnvironment(
             self._current_df = pd.read_csv(os.path.join(self._sandbox_dir, "current.csv"))
             df = self._current_df
 
-            # Save checkpoint: index 0 = dirty_df (before any transforms), index N = after transform N
-            if len(self._checkpoints) == 0:
-                self._checkpoints.append(self._dirty_df.copy())
-            self._checkpoints.append(df.copy())
+            # Save filesystem checkpoint after successful transform
+            # step 0 = dirty state (saved at reset), step N = after transform N
+            save_checkpoint(self._sandbox_dir, self._checkpoint_steps)
+            self._checkpoint_steps += 1
 
             data_changed = not prev_df.equals(df)
             self._regrade()
@@ -427,10 +491,14 @@ class DataCleaningEnvironment(
 
         return self._make_observation(transform_result=msg)
 
+    def _ensure_graded(self) -> None:
+        """Regrade only if reward is stale (after a transform)."""
+        if self._reward_stale:
+            self._regrade()
+
     def _handle_done(self) -> DataCleaningObservation:
         self._done_count += 1
-        self._current_df = pd.read_csv(os.path.join(self._sandbox_dir, "current.csv"))
-        self._regrade()
+        self._ensure_graded()  # no-op if already graded; _current_df already up-to-date
 
         if self._done_count == 1 and self._current_reward < 1.0:
             unfixed = sum(1 for s in self._error_status.values() if s != "fixed")
@@ -451,24 +519,29 @@ class DataCleaningEnvironment(
         self._undo_count += 1
         step = action.step
 
-        if not self._checkpoints:
+        if self._checkpoint_steps <= 1:
             return self._make_observation(transform_result="Nothing to undo — no transforms applied yet.")
 
-        # checkpoint[0] = dirty_df, checkpoint[N] = after transform N
-        if step < len(self._checkpoints):
-            restore_df = self._checkpoints[step].copy()
-        else:
+        max_step = self._checkpoint_steps - 1
+        if step > max_step:
             return self._make_observation(
-                transform_result=f"Invalid undo step {step}. Valid range: 0–{len(self._checkpoints)-1}."
+                transform_result=f"Invalid undo step {step}. Valid range: 0–{max_step}."
             )
 
-        # Write restored df to sandbox CSV
-        csv_path = os.path.join(self._sandbox_dir, "current.csv")
-        restore_df.to_csv(csv_path, index=False)
-        self._current_df = restore_df
+        # Restore filesystem checkpoint and re-read current.csv
+        if not restore_checkpoint(self._sandbox_dir, step):
+            return self._make_observation(
+                transform_result=f"Checkpoint for step {step} not found."
+            )
+        self._current_df = pd.read_csv(os.path.join(self._sandbox_dir, "current.csv"))
 
-        # Truncate checkpoints to step (keep up to and including step)
-        self._checkpoints = self._checkpoints[:step + 1]
+        # Sync worker's in-memory df to the restored state so next explore/transform
+        # runs against the correct checkpoint, not stale post-undo data
+        if self._worker_proc is not None:
+            reload_worker_df(self._worker_proc)
+
+        # Truncate checkpoint count to step (discard checkpoints after restored step)
+        self._checkpoint_steps = step + 1
 
         self._regrade()
         return self._make_observation(
@@ -483,8 +556,7 @@ class DataCleaningEnvironment(
             )
 
         self._validate_uses += 1
-        self._current_df = pd.read_csv(os.path.join(self._sandbox_dir, "current.csv"))
-        self._regrade()
+        self._ensure_graded()  # no-op if already graded; _current_df already up-to-date
 
         breakdown = _validate_breakdown(self._error_status, self._error_map, self._clean_df)
         return self._make_observation(validate_result=breakdown)
@@ -493,7 +565,8 @@ class DataCleaningEnvironment(
 
     def _regrade(self) -> None:
         profile = self._profile
-        self._error_status, self._current_reward = grade(
+        cached_rm = None  # Always recompute — row content may change without count change
+        self._error_status, self._current_reward, ss, rm = grade(
             self._clean_df,
             self._current_df,
             self._error_map,
@@ -509,8 +582,18 @@ class DataCleaningEnvironment(
             undo_cost=profile.get("undo_cost", _UNDO_COST_DEFAULT),
             validate_cost=profile.get("validate_cost", _VALIDATE_COST_DEFAULT),
             rules=getattr(self, "_rules", None),
+            cached_schema_score=self._cached_schema_score,
+            cached_row_mapping=cached_rm,
         )
+        self._cached_schema_score = ss
+        self._cached_row_mapping = rm
+        # Normalize: subtract baseline so unfixed=0.0, fully fixed=1.0
+        if self._reward_baseline < 1.0:
+            self._current_reward = max(0.0, round(
+                (self._current_reward - self._reward_baseline) / (1.0 - self._reward_baseline), 4
+            ))
         self._error_summary_cache = summarize_errors(self._error_status, self._error_map)
+        self._reward_stale = False
 
     def _make_step_info(self) -> StepInfo:
         profile = self._profile
@@ -535,14 +618,6 @@ class DataCleaningEnvironment(
         validate_result: Optional[str] = None,
     ) -> DataCleaningObservation:
         df = self._current_df
-        profile = self._profile
-        hint_level = profile.get("hint_level", "categorical")
-
-        # Build diagnosis from hints
-        col_stats = {col: df[col].dropna().tolist() for col in df.columns if len(df[col].dropna()) > 0}
-        diagnosis = generate_hints(self._error_map, hint_level, col_stats=col_stats)
-        if self._fmt_metadata:
-            diagnosis += "\n\n" + generate_format_hints(self._fmt_metadata, hint_level)
 
         return DataCleaningObservation(
             task_id=f"{self._dataset_name}_{self._difficulty}",
@@ -550,7 +625,7 @@ class DataCleaningEnvironment(
                 f"Clean the {self._dataset_name} dataset (difficulty: {self._difficulty}). "
                 f"The data has been corrupted — restore it to its clean form."
             ),
-            constraints=[_error_summary(self._error_status, self._error_summary_cache)],
+            constraints=[_error_summary(self._error_status, self._error_summary_cache, self._error_map)],
             data_summary=_data_summary(df),
             explore_result=explore_result,
             transform_result=transform_result,
@@ -558,8 +633,9 @@ class DataCleaningEnvironment(
             file_format=self._file_format,
             target_schema=_target_schema(self._clean_df),
             file_preview=format_preview(self._dirty_content, self._file_format),
-            diagnosis=diagnosis,
             validate_result=validate_result,
             semantic_rules=getattr(self, "_rules_dicts", []),
             step_info=self._make_step_info(),
+            reward=self._current_reward,
+            done=self._done,
         )

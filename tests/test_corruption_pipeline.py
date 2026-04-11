@@ -179,6 +179,21 @@ class TestSelectFormatBeforeCorrupt:
 class TestErrorMapStructure:
     """Error map keys must be valid."""
 
+    def _corrupt_with_only(
+        self,
+        sample_df: pd.DataFrame,
+        corruptions: list[str],
+    ) -> tuple[pd.DataFrame, dict, dict, dict]:
+        pipe = CorruptionPipeline(seed=42, difficulty="medium")
+        pipe.select_format()
+        pipe.profile = {
+            **pipe.profile,
+            "allowed_corruptions": corruptions,
+            "num_corruption_types": (len(corruptions), len(corruptions)),
+            "fraction_range": (0.2, 0.2),
+        }
+        return pipe.corrupt(sample_df)
+
     def test_error_map_keys_valid(self, sample_df: pd.DataFrame):
         pipe = CorruptionPipeline(seed=42, difficulty="medium")
         pipe.select_format()
@@ -194,7 +209,7 @@ class TestErrorMapStructure:
             assert key.isdigit(), f"Invalid spurious_rows key: {key}"
 
         for key in error_map["missing_rows"]:
-            assert key.startswith("missing_"), f"Invalid missing_rows key: {key}"
+            assert key.isdigit(), f"Invalid missing_rows key: {key}"
 
         # Every cell_error should have required fields
         for key, info in error_map["cell_errors"].items():
@@ -203,6 +218,51 @@ class TestErrorMapStructure:
             assert "corruption" in info
             assert isinstance(info["severity"], (int, float))
             assert info["corruption"] in CORRUPTION_SEVERITY
+
+    def test_missing_rows_keys_strip_internal_prefix(self, sample_df: pd.DataFrame):
+        _, error_map, _, _ = self._corrupt_with_only(sample_df, ["drop_rows"])
+
+        assert error_map["missing_rows"]
+        for key in error_map["missing_rows"]:
+            assert key.isdigit()
+            assert not key.startswith("missing_")
+
+    def test_row_error_entries_include_corruption_type(self, sample_df: pd.DataFrame):
+        _, error_map, _, _ = self._corrupt_with_only(
+            sample_df,
+            ["drop_rows", "duplicate_rows"],
+        )
+
+        row_errors = [
+            *error_map["missing_rows"].values(),
+            *error_map["spurious_rows"].values(),
+        ]
+        assert row_errors
+        for info in row_errors:
+            assert info["corruption"] in CORRUPTION_SEVERITY
+
+    def test_severity_map_covers_every_error_map_entry(self, sample_df: pd.DataFrame):
+        _, error_map, severity_map, _ = self._corrupt_with_only(
+            sample_df,
+            ["drop_rows", "duplicate_rows", "type_mangle"],
+        )
+
+        expected_total = sum(
+            info["severity"]
+            for group in error_map.values()
+            for info in group.values()
+        )
+
+        assert severity_map["total_severity"] == pytest.approx(expected_total)
+        assert sum(severity_map["by_type"].values()) == pytest.approx(expected_total)
+        assert sum(severity_map["by_column"].values()) == pytest.approx(expected_total)
+        for key in error_map["cell_errors"]:
+            _, col = key.split(",", 1)
+            assert col in severity_map["by_column"]
+        if error_map["missing_rows"]:
+            assert "__missing_rows__" in severity_map["by_column"]
+        if error_map["spurious_rows"]:
+            assert "__spurious_rows__" in severity_map["by_column"]
 
 
 class TestPerformance:

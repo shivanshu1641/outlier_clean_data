@@ -134,13 +134,18 @@ def _detect_collateral_damage(
     clean_df: pd.DataFrame,
     result_df: pd.DataFrame,
     error_map: dict[str, Any],
+    row_mapping: dict[int, int] | None = None,
 ) -> float:
     """Detect cells that were correct in dirty data but got corrupted by the agent.
 
     Returns total collateral severity to add to remaining_severity.
+
+    Uses row_mapping to align result rows to clean rows so that reordered
+    DataFrames are compared correctly.
     """
     cell_errors = error_map.get("cell_errors", {})
-    # Build set of (row, col) that are known errors — skip these
+
+    # Build set of known error cells for fast lookup
     error_cells: set[tuple[int, str]] = set()
     for key in cell_errors:
         try:
@@ -149,20 +154,25 @@ def _detect_collateral_damage(
         except (ValueError, IndexError):
             pass
 
-    collateral = 0.0
-    # Only check columns and rows present in both clean and result
     shared_cols = set(clean_df.columns) & set(result_df.columns)
-    shared_idx = set(clean_df.index) & set(result_df.index)
 
-    for col in shared_cols:
-        clean_col = clean_df[col]
-        result_col = result_df[col]
-        for idx in shared_idx:
-            if (idx, col) in error_cells:
+    collateral = 0.0
+    for clean_idx in clean_df.index:
+        # Use row_mapping to find the corresponding result row
+        if row_mapping is None:
+            result_idx = clean_idx
+        else:
+            result_idx = row_mapping.get(clean_idx, clean_idx)
+        if row_mapping and clean_idx not in row_mapping:
+            continue
+        if result_idx not in result_df.index:
+            continue
+        for col in shared_cols:
+            if (clean_idx, col) in error_cells:
                 continue
-            clean_val = clean_col.at[idx]
             try:
-                result_val = result_col.at[idx]
+                clean_val = clean_df.at[clean_idx, col]
+                result_val = result_df.at[result_idx, col]
             except KeyError:
                 continue
             if not _values_equal(clean_val, result_val):
@@ -179,19 +189,18 @@ def _check_spurious_row(
     """Check if a spurious (duplicate) row is still present in the result.
 
     Spurious rows are extra rows appended beyond the clean data length.
-    Fixed = result doesn't have that row index, OR result is same length as clean.
+    Fixed = result doesn't have that row index.
     """
     try:
         row_idx = int(row_str)
     except ValueError:
         return False  # can't parse → assume still present
 
-    # If the row index doesn't exist in result, it's been removed
-    if row_idx not in result_df.index:
-        return True  # fixed
+    if row_idx < 0:
+        return False  # invalid row id → assume still present
 
-    # If result has been trimmed to clean length or shorter, spurious rows are gone
-    if len(result_df) <= len(clean_df):
+    # If the row index no longer exists in result, it's been removed
+    if row_idx not in result_df.index:
         return True  # fixed
 
     return False  # still present
@@ -435,11 +444,42 @@ def _cell_score_full(
             remaining_severity += severity
             continue
 
-        if _values_equal(result_val, clean_val):
-            error_status[key] = "fixed"
+        corruption_type = info.get("corruption", "")
+        accepted_fill = info.get("accepted_fill")
+
+        if corruption_type in ("whitespace_noise", "format_inconsistency"):
+            # Whitespace corruption: require exact string match — float() strips
+            # whitespace so _values_equal would give false positives
+            if str(result_val) == str(clean_val):
+                error_status[key] = "fixed"
+            else:
+                try:
+                    result_stripped = str(result_val).strip()
+                    clean_stripped = str(clean_val).strip()
+                    if result_stripped.lower() == clean_stripped.lower():
+                        # Content matches but formatting doesn't → still corrupted
+                        error_status[key] = "unfixed"
+                        remaining_severity += severity
+                    else:
+                        error_status[key] = "wrong_value"
+                        remaining_severity += severity * WRONG_VALUE_MULTIPLIER
+                except Exception:
+                    error_status[key] = "wrong_value"
+                    remaining_severity += severity * WRONG_VALUE_MULTIPLIER
+        elif _values_equal(result_val, clean_val):
+            # Cross-check with dirty_value — float() strips leading zeros,
+            # coerces type_mangle, etc., giving false "fixed" results.
+            # Use repr() to preserve type info (str("42") == str(42) but repr differs)
+            dirty_val = info.get("dirty_value")
+            if (dirty_val is not None
+                    and repr(result_val) == repr(dirty_val)
+                    and repr(clean_val) != repr(dirty_val)):
+                error_status[key] = "unfixed"
+                remaining_severity += severity
+            else:
+                error_status[key] = "fixed"
         else:
-            corruption_type = info.get("corruption", "")
-            accepted_fill = info.get("accepted_fill")
+            dirty_val = info.get("dirty_value")
 
             try:
                 result_is_nan = pd.isna(result_val)
@@ -469,21 +509,12 @@ def _cell_score_full(
                 else:
                     # Unknown accepted_fill or None -- default to "any"
                     error_status[key] = "fixed"
-            elif corruption_type in ("whitespace_noise", "format_inconsistency"):
-                try:
-                    result_stripped = str(result_val).strip()
-                    clean_stripped = str(clean_val).strip()
-                    if result_stripped.lower() == clean_stripped.lower():
-                        error_status[key] = "fixed"
-                    else:
-                        error_status[key] = "wrong_value"
-                        remaining_severity += severity * WRONG_VALUE_MULTIPLIER
-                except Exception:
-                    error_status[key] = "wrong_value"
-                    remaining_severity += severity * WRONG_VALUE_MULTIPLIER
+            elif dirty_val is not None and _values_equal(result_val, dirty_val):
+                # Result still matches dirty value — corruption unfixed
+                error_status[key] = "unfixed"
+                remaining_severity += severity
             else:
-                # Other corruptions (type_mangle, outlier, etc.)
-                # Graduated penalty: near-miss gets partial credit
+                # Agent changed value to something other than clean or dirty
                 dist = _numeric_distance(result_val, clean_val)
                 if dist is not None and dist <= NEAR_MISS_THRESHOLD:
                     fraction = dist / NEAR_MISS_THRESHOLD
@@ -519,7 +550,7 @@ def _cell_score_full(
             remaining_severity += severity * 0.5  # partial credit for attempt
 
     # ── Collateral damage ────────────────────────────────────────────────
-    collateral_severity = _detect_collateral_damage(clean_df, result_df, error_map)
+    collateral_severity = _detect_collateral_damage(clean_df, result_df, error_map, row_mapping)
     total_severity += collateral_severity
     remaining_severity += collateral_severity
 
@@ -605,7 +636,9 @@ def grade(
     validate_cost: float = 0.01,
     rules: list | None = None,
     cross_column_maps: dict | None = None,
-) -> tuple[dict[str, str], float]:
+    cached_schema_score: float | None = None,
+    cached_row_mapping: dict[int, int] | None = None,
+) -> tuple[dict[str, str], float, float, dict[int, int]]:
     """Grade the agent's result using multi-level scoring.
 
     Four scoring dimensions:
@@ -614,28 +647,11 @@ def grade(
         - Cell (0.55): severity-weighted cell error resolution
         - Distribution (0.10): imputation quality for null-filled columns
 
-    Args:
-        clean_df: Ground truth DataFrame.
-        result_df: Agent's cleaned DataFrame.
-        error_map: Dict with keys "cell_errors", "spurious_rows", "missing_rows".
-        transform_steps: Number of transform steps the agent used.
-        min_transform_steps: Minimum expected steps (efficiency baseline).
-        max_transform_steps: Maximum allowed steps.
-        explore_steps: Total number of explore actions taken.
-        explore_timeouts: Number of explore actions that timed out or failed.
-        undo_count: Number of undo actions taken.
-        validate_count: Number of validate actions taken.
-        explore_cost_per_step: Penalty per successful explore action.
-        explore_timeout_cost: Penalty per timed-out/failed explore action.
-        undo_cost: Penalty per undo action.
-        validate_cost: Penalty per validate action.
-
     Returns:
-        (error_status, reward) where error_status maps each error key to one of
-        "fixed", "wrong_value", or "unfixed", and reward is in [0.0, 1.0].
+        (error_status, reward, schema_score_val, row_mapping).
     """
-    s_score = schema_score(clean_df, result_df)
-    row_map = match_rows_by_content(clean_df, result_df)
+    s_score = cached_schema_score if cached_schema_score is not None else schema_score(clean_df, result_df)
+    row_map = cached_row_mapping if cached_row_mapping is not None else match_rows_by_content(clean_df, result_df)
     r_score = row_score(clean_df, result_df, error_map)
 
     # Identify imputed columns (those with null errors)
@@ -674,7 +690,7 @@ def grade(
     )
 
     reward = round(min(1.0, constraint * efficiency), 4)
-    return error_status, reward
+    return error_status, reward, s_score, row_map
 
 
 def _compute_semantic(

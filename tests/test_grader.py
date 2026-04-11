@@ -6,6 +6,7 @@ import pytest
 from server.grader import (
     grade, schema_score, row_score, cell_score, distribution_score,
     match_rows_by_content, _values_equal, _dtypes_compatible,
+    _detect_collateral_damage, _check_spurious_row,
 )
 
 @pytest.fixture
@@ -88,6 +89,18 @@ class TestRowScore:
         s = row_score(clean_df, result, error_map)
         assert s < 1.0
 
+    def test_spurious_row_still_present_even_if_result_trimmed(self):
+        clean = pd.DataFrame({"id": [1, 2], "name": ["Alice", "Bob"]})
+        result = pd.DataFrame(
+            {"id": [1, 999], "name": ["Alice", "Alice"]},
+            index=[0, 2],
+        )
+
+        assert not _check_spurious_row(clean, result, "2")
+
+    def test_spurious_negative_row_id_is_not_fixed(self, clean_df):
+        assert not _check_spurious_row(clean_df, clean_df, "-1")
+
 class TestCellScore:
     def test_perfect(self, clean_df, error_map_cell):
         mapping = match_rows_by_content(clean_df, clean_df)
@@ -105,6 +118,49 @@ class TestCellScore:
         mapping = match_rows_by_content(clean_df, clean_df)
         s = cell_score(clean_df, clean_df, {"cell_errors": {}}, mapping)
         assert s == pytest.approx(1.0)
+
+    def test_collateral_damage_uses_row_mapping_for_reordered_rows(self):
+        clean = pd.DataFrame({"id": [1, 2, 3], "name": ["Alice", "Bob", "Cara"]})
+        result = clean.iloc[[2, 0, 1]].reset_index(drop=True)
+        mapping = match_rows_by_content(clean, result)
+
+        collateral = _detect_collateral_damage(
+            clean,
+            result,
+            {"cell_errors": {}},
+            mapping,
+        )
+
+        assert collateral == pytest.approx(0.0)
+
+    def test_collateral_damage_skips_dropped_rows_missing_from_mapping(self):
+        clean = pd.DataFrame({"id": [1, 2, 3], "name": ["Alice", "Bob", "Cara"]})
+        result = clean.drop(index=1).reset_index(drop=True)
+        mapping = match_rows_by_content(clean, result)
+
+        collateral = _detect_collateral_damage(
+            clean,
+            result,
+            {"cell_errors": {}},
+            mapping,
+        )
+
+        assert collateral == pytest.approx(0.0)
+
+    @pytest.mark.parametrize("mapping", [None, {}])
+    def test_collateral_damage_falls_back_to_clean_index_without_mapping(self, mapping):
+        clean = pd.DataFrame({"id": [1, 2], "name": ["Alice", "Bob"]})
+        result = clean.copy()
+        result.at[1, "name"] = "Bobby"
+
+        collateral = _detect_collateral_damage(
+            clean,
+            result,
+            {"cell_errors": {}},
+            mapping,
+        )
+
+        assert collateral == pytest.approx(0.5)
 
 class TestDistributionScore:
     def test_perfect(self, clean_df):
@@ -124,18 +180,39 @@ class TestDistributionScore:
 class TestGrade:
     def test_perfect_score(self, clean_df):
         error_map = {"cell_errors": {}, "spurious_rows": {}, "missing_rows": {}}
-        _, reward = grade(clean_df, clean_df, error_map, 2, 2, 10)
+        _, reward, *_ = grade(clean_df, clean_df, error_map, 2, 2, 10)
         assert reward >= 0.9
 
     def test_reward_in_range(self, clean_df, error_map_cell):
-        _, reward = grade(clean_df, clean_df, error_map_cell, 3, 2, 10)
+        _, reward, *_ = grade(clean_df, clean_df, error_map_cell, 3, 2, 10)
         assert 0.0 <= reward <= 1.0
 
     def test_undo_cost(self, clean_df):
         error_map = {"cell_errors": {}, "spurious_rows": {}, "missing_rows": {}}
-        _, r1 = grade(clean_df, clean_df, error_map, 2, 2, 10, undo_count=0)
-        _, r2 = grade(clean_df, clean_df, error_map, 2, 2, 10, undo_count=5)
+        _, r1, *_ = grade(clean_df, clean_df, error_map, 2, 2, 10, undo_count=0)
+        _, r2, *_ = grade(clean_df, clean_df, error_map, 2, 2, 10, undo_count=5)
         assert r1 > r2
+
+    def test_grade_passes_row_mapping_to_cell_scoring(self):
+        clean = pd.DataFrame({"id": [1, 2], "name": ["Alice", "Bob"]})
+        result = clean.iloc[[1, 0]].reset_index(drop=True)
+        error_map = {
+            "cell_errors": {
+                "0,name": {
+                    "severity": 1.0,
+                    "clean_value": "Alice",
+                    "corruption": "typo_noise",
+                    "accepted_fill": None,
+                },
+            },
+            "spurious_rows": {},
+            "missing_rows": {},
+        }
+
+        error_status, _, _, row_mapping = grade(clean, result, error_map, 2, 2, 10)
+
+        assert row_mapping[0] == 1
+        assert error_status["0,name"] == "fixed"
 
 
 def test_performance_20k_rows():

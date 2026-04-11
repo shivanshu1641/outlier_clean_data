@@ -30,3 +30,4 @@ docs/
 .vscode/
 *.swp
 .DS_Store
+.worktrees/

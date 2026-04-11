@@ -70,7 +70,7 @@ class CorruptionPipeline:
             from .categories import get_corruptions_for_category
             allowed = get_corruptions_for_category(self.category)
         else:
-            allowed = None  # no restriction
+            allowed = self.profile.get("allowed_corruptions")  # None = all types
 
         if self.category == "CP":
             min_types, max_types = 7, min(10, len(CORRUPTION_REGISTRY))
@@ -91,7 +91,11 @@ class CorruptionPipeline:
         selected = self.py_rng.sample(
             applicable, min(num_types, len(applicable))
         )
-        selected.sort()  # deterministic ordering
+        # Row-level ops first: they reset/shift the index, so cell-level ops
+        # must record keys against the final row structure. Sort key is
+        # (is_cell_op, name) — row ops first, alphabetical within each group.
+        _ROW_CORRUPTIONS = {"drop_rows", "duplicate_rows", "header_in_data"}
+        selected.sort(key=lambda c: (c not in _ROW_CORRUPTIONS, c))
 
         frac_min, frac_max = self.profile["fraction_range"]
         applied_corruptions: list[dict] = []
@@ -102,16 +106,17 @@ class CorruptionPipeline:
             meta = CORRUPTION_REGISTRY[corruption_name]
             fraction = self.py_rng.uniform(frac_min, frac_max)
 
+            max_cols = self.profile.get("max_columns")
             if meta["requires_numeric"]:
-                target_cols = self.py_rng.sample(
-                    numeric_cols, max(1, len(numeric_cols) // 2)
-                )
+                pool = numeric_cols
             elif meta["requires_string"]:
-                target_cols = self.py_rng.sample(
-                    string_cols, max(1, len(string_cols) // 2)
-                )
+                pool = string_cols
             else:
-                target_cols = all_cols
+                pool = all_cols
+            n_cols = max(1, len(pool) // 2)
+            if max_cols is not None:
+                n_cols = min(n_cols, max_cols)
+            target_cols = self.py_rng.sample(pool, min(n_cols, len(pool)))
 
             extra_kwargs = {}
             if corruption_name == "business_rule_violation" and self._rules:
@@ -141,14 +146,17 @@ class CorruptionPipeline:
         for entry in error_log:
             key = entry["key"]
             if key.startswith("missing_"):
-                missing_rows[key] = {
+                row_key = key.replace("missing_", "", 1)
+                missing_rows[row_key] = {
                     "severity": entry["severity"],
                     "clean_values": entry.get("clean_values", {}),
+                    "corruption": entry.get("corruption", "drop_rows"),
                 }
             elif key.startswith("spurious_"):
                 row_key = key.replace("spurious_", "", 1)
                 spurious_rows[row_key] = {
-                    "severity": entry["severity"]
+                    "severity": entry["severity"],
+                    "corruption": entry.get("corruption", "duplicate_rows"),
                 }
             else:
                 cell_errors[key] = {
@@ -174,10 +182,34 @@ class CorruptionPipeline:
             + sum(e["severity"] for e in missing_rows.values())
         )
         by_type: dict[str, float] = {}
+        by_column: dict[str, float] = {}
         for e in cell_errors.values():
             t = e["corruption"]
             by_type[t] = by_type.get(t, 0) + e["severity"]
-        severity_map = {"total_severity": total_severity, "by_type": by_type}
+        for key, e in cell_errors.items():
+            try:
+                _, col = key.split(",", 1)
+            except ValueError:
+                col = "__unknown__"
+            by_column[col] = by_column.get(col, 0) + e["severity"]
+        # Include row-level corruptions in the by_type breakdown
+        for e in spurious_rows.values():
+            t = e.get("corruption", "duplicate_rows")  # default for backward compat
+            by_type[t] = by_type.get(t, 0) + e["severity"]
+            by_column["__spurious_rows__"] = (
+                by_column.get("__spurious_rows__", 0) + e["severity"]
+            )
+        for e in missing_rows.values():
+            t = e.get("corruption", "drop_rows")  # default for backward compat
+            by_type[t] = by_type.get(t, 0) + e["severity"]
+            by_column["__missing_rows__"] = (
+                by_column.get("__missing_rows__", 0) + e["severity"]
+            )
+        severity_map = {
+            "total_severity": total_severity,
+            "by_type": by_type,
+            "by_column": by_column,
+        }
 
         pipeline_metadata = {
             "difficulty": self.difficulty,
