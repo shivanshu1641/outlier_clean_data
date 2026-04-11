@@ -64,6 +64,8 @@ GITHUB_MIRRORS: dict[str, tuple[str, dict | None]] = {
     "mushroom": ("https://raw.githubusercontent.com/stedy/Machine-Learning-with-R-datasets/master/mushrooms.csv",
                  None),
     "seeds": ("https://raw.githubusercontent.com/selva86/datasets/master/seeds.csv", None),
+    "wine_quality": ("https://raw.githubusercontent.com/dsrscientist/dataset1/master/winequality-red.csv",
+                     {"sep": ";"}),
     "horse_colic": ("https://raw.githubusercontent.com/jbrownlee/Datasets/master/horse-colic.csv",
                     {"header": None, "sep": r"\s+"}),
     "thyroid_disease": ("https://raw.githubusercontent.com/jbrownlee/Datasets/master/new-thyroid.csv",
@@ -268,8 +270,9 @@ def main() -> None:
         catalog=catalog,
         dest_dir=args.dest,
     )
-    if not all(results.values()):
-        sys.exit(1)
+    failed = [k for k, v in results.items() if not v]
+    if failed:
+        log.warning("failed to download %d datasets: %s", len(failed), ", ".join(failed))
 
 
 if __name__ == "__main__":
