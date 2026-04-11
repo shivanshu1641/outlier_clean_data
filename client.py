@@ -13,9 +13,11 @@ from models import (
     DoneAction,
     ExploreAction,
     TransformAction,
+    UndoAction,
+    ValidateAction,
 )
 
-ActionType = Union[ExploreAction, TransformAction, DoneAction]
+ActionType = Union[ExploreAction, TransformAction, DoneAction, UndoAction, ValidateAction]
 
 
 class DataCleaningClient(
