@@ -15,11 +15,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY models.py .
 COPY client.py .
 COPY server/ server/
-COPY data/ data/
 COPY datasets/ datasets/
 COPY tools/ tools/
 COPY openenv.yaml .
 COPY __init__.py .
+
+# Download clean datasets at build time (no CSVs in git)
+RUN python tools/download_datasets.py
 
 # Create output directories
 RUN mkdir -p outputs/sandbox outputs/logs outputs/evals outputs/benchmark outputs/episodes
