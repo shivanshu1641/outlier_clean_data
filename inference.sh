@@ -6,4 +6,4 @@ export MODEL_NAME=gemma-4-E2B-it
 export ENV_URL=http://localhost:7860
 export MIN_CALL_INTERVAL=0
 
-python inference.py "$@"
+.venv/bin/python inference.py "$@"

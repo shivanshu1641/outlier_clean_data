@@ -12,11 +12,19 @@ from models import ActionWrapper, DataCleaningObservation
 from server.environment import DataCleaningEnvironment
 from openenv.core import create_app
 
+
+def _gradio_builder(*args, **kwargs):
+    """Custom Gradio UI builder for the openenv /web endpoint."""
+    from ui.app import create_app as create_ui_app
+    return create_ui_app()
+
+
 app = create_app(
     env=DataCleaningEnvironment,
     action_cls=ActionWrapper,
     observation_cls=DataCleaningObservation,
     env_name="data_cleaning_env",
+    gradio_builder=_gradio_builder,
 )
 
 

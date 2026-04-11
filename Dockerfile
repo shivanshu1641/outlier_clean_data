@@ -11,10 +11,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY server/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy project files required by the environment server
+# Copy project files
 COPY models.py .
 COPY client.py .
 COPY server/ server/
+COPY ui/ ui/
 COPY datasets/ datasets/
 COPY tools/ tools/
 COPY openenv.yaml .
@@ -28,6 +29,7 @@ RUN mkdir -p outputs/sandbox outputs/logs outputs/evals outputs/benchmark output
 
 ENV SANDBOX_BASE=/app/outputs/sandbox
 ENV DATA_DIR=/app/data
+ENV ENABLE_WEB_INTERFACE=true
 
 EXPOSE 7860
 
