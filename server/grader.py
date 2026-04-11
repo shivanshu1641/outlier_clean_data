@@ -600,6 +600,8 @@ def grade(
     validate_count: int = 0,
     undo_cost: float = 0.02,
     validate_cost: float = 0.01,
+    rules: list | None = None,
+    cross_column_maps: dict | None = None,
 ) -> tuple[dict[str, str], float]:
     """Grade the agent's result using multi-level scoring.
 
@@ -643,7 +645,14 @@ def grade(
     c_score, error_status = _cell_score_full(clean_df, result_df, error_map, row_map)
     d_score = distribution_score(clean_df, result_df, imputed_cols)
 
-    constraint = s_score * 0.15 + r_score * 0.20 + c_score * 0.55 + d_score * 0.10
+    # Semantic score (5th dimension)
+    sem_score = _compute_semantic(result_df, rules, cross_column_maps)
+
+    # Weights: with rules present, use 5-dimension; otherwise legacy 4-dimension
+    if rules:
+        constraint = s_score * 0.15 + r_score * 0.15 + c_score * 0.50 + d_score * 0.10 + sem_score * 0.10
+    else:
+        constraint = s_score * 0.15 + r_score * 0.20 + c_score * 0.55 + d_score * 0.10
 
     transform_excess = max(0, transform_steps - min_transform_steps)
     transform_penalty = transform_excess / (max_transform_steps * 2) if max_transform_steps > 0 else 0
@@ -660,6 +669,21 @@ def grade(
 
     reward = round(min(1.0, constraint * efficiency), 4)
     return error_status, reward
+
+
+def _compute_semantic(
+    result_df: pd.DataFrame,
+    rules: list | None,
+    cross_column_maps: dict | None,
+) -> float:
+    """Compute semantic score. Returns 1.0 if no rules."""
+    if not rules:
+        return 1.0
+    try:
+        from server.rules.validator import compute_semantic_score
+    except ImportError:
+        from rules.validator import compute_semantic_score
+    return compute_semantic_score(result_df, rules, cross_column_maps)
 
 
 # ── Summary Helper ───────────────────────────────────────────────────────────
