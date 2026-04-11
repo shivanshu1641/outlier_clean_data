@@ -10,6 +10,44 @@
 
 ---
 
+## Codex Verification Errata (MUST READ BEFORE IMPLEMENTING)
+
+Codex verified this plan against the actual codebase and found these critical discrepancies. **Implementers must apply these corrections when working on the corresponding tasks:**
+
+### E1: `CORRUPTION_REGISTRY` is a dict, not a list
+Actual structure: `dict[str, dict[str, Any]]` keyed by corruption name:
+```python
+{"inject_nulls": {"fn": inject_nulls, "requires_numeric": False, "requires_string": False}, ...}
+```
+**Fix:** Everywhere the plan references `entry["name"]` or iterates as a list, use `CORRUPTION_REGISTRY.keys()` or `.items()` instead. Affects Tasks 8 and 9.
+
+### E2: `catalog.json` is an object, not a list
+Actual structure: `{"titanic": {...}, "adult_income": {...}, ...}` — a dict keyed by dataset ID.
+**Fix:** The enricher (Task 4) must iterate `catalog.items()` not `for entry in catalog`. The enricher test fixtures must also use dict-shaped catalogs. Affects Tasks 4, 11.
+
+### E3: Clean CSV directory is `data/clean/`, not `datasets/clean/`
+**Fix:** Replace all `datasets/clean/` references with `data/clean/`.
+
+### E4: `environment.py:282-286` has existing signature mismatch
+The current code calls `CorruptionPipeline()` (no args), `select_format(np_rng)`, and `corrupt(df, difficulty, np_rng, py_rng)` — but the actual pipeline API is `__init__(seed, difficulty)`, `select_format()` (no args), `corrupt(clean_df)` (one arg). **This is a pre-existing bug.** Task 10 must fix this to: `CorruptionPipeline(seed=..., difficulty=..., category=...)`, `fmt = pipeline.select_format()`, `corrupt(clean_df, rules=...)`.
+
+### E5: `pipeline_metadata` has no `"format"` key
+The pipeline doesn't return the selected format in metadata. Task 9 must add `self._selected_format` to the pipeline and include it in metadata, or return it from `select_format()` and have environment store it.
+
+### E6: Dual-import fallback required
+All runtime imports of `server.rules.*` inside server modules must use `try/except` fallback: `try: from server.rules.X import Y` / `except: from rules.X import Y`. Affects Tasks 5, 6, 7.
+
+### E7: `semantic_rules` field needs `Field(default_factory=list)`
+Pydantic mutable default. Task 7 must use: `semantic_rules: List[Dict] = Field(default_factory=list)`.
+
+### E8: `rule_type` not preserved in error_map
+`pipeline.py:131-137` only copies `severity`, `clean_value`, `corruption`, `accepted_fill`. Task 6 must add `rule_type` to the copy block.
+
+### E9: `corruptions_applied` in metadata contains dicts
+Format: `[{"type": "inject_nulls", "fraction": 0.1, "columns": [...]}]`. Task 9 tests must check `meta["corruptions_applied"]` entries' `"type"` key, not plain strings.
+
+---
+
 ## File Structure
 
 ### New Files
