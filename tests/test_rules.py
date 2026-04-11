@@ -13,6 +13,7 @@ try:
         rule_from_dict,
         rule_to_dict,
     )
+    from server.rules.inferrer import infer_rules
     from server.rules.validator import Violation, compute_semantic_score, validate
 except ImportError:
     from rules.types import (
@@ -26,6 +27,7 @@ except ImportError:
         rule_from_dict,
         rule_to_dict,
     )
+    from rules.inferrer import infer_rules
     from rules.validator import Violation, compute_semantic_score, validate
 
 
@@ -308,3 +310,151 @@ class TestValidator:
             source="manual",
         )
         assert validate(df, [rule]) == []
+
+
+class TestInferrerDomainHeuristics:
+    def test_age_column_gets_range_rule(self):
+        df = pd.DataFrame({"age": [25, 35, 45, 55]})
+        rules = infer_rules(df)
+        range_rules = [
+            rule
+            for rule in rules
+            if rule.rule_type == "range" and rule.column == "age"
+        ]
+        assert len(range_rules) == 1
+        assert range_rules[0].min_val == 0
+        assert range_rules[0].max_val == 120
+        assert range_rules[0].source == "heuristic"
+
+    def test_email_column_gets_regex_rule(self):
+        df = pd.DataFrame({"email": ["a@b.com", "c@d.org"]})
+        rules = infer_rules(df)
+        regex_rules = [
+            rule
+            for rule in rules
+            if rule.rule_type == "regex" and rule.column == "email"
+        ]
+        assert len(regex_rules) == 1
+        assert regex_rules[0].source == "heuristic"
+
+    def test_id_column_gets_unique_and_not_null(self):
+        df = pd.DataFrame({"passenger_id": [1, 2, 3]})
+        rules = infer_rules(df)
+        unique_rules = [
+            rule
+            for rule in rules
+            if rule.rule_type == "unique" and rule.column == "passenger_id"
+        ]
+        not_null_rules = [
+            rule
+            for rule in rules
+            if rule.rule_type == "not_null" and rule.column == "passenger_id"
+        ]
+        assert len(unique_rules) == 1
+        assert len(not_null_rules) == 1
+
+    def test_salary_column_gets_nonneg_range(self):
+        df = pd.DataFrame({"salary": [50000, 80000, 120000]})
+        rules = infer_rules(df)
+        range_rules = [
+            rule
+            for rule in rules
+            if rule.rule_type == "range" and rule.column == "salary"
+        ]
+        assert len(range_rules) == 1
+        assert range_rules[0].min_val == 0
+        assert range_rules[0].max_val == float("inf")
+        assert range_rules[0].source == "heuristic"
+
+
+class TestInferrerStatistical:
+    def test_numeric_column_gets_expanded_range(self):
+        df = pd.DataFrame({"score": [10.0, 20.0, 30.0, 40.0, 50.0]})
+        rules = infer_rules(df)
+        range_rules = [
+            rule
+            for rule in rules
+            if rule.rule_type == "range" and rule.column == "score"
+        ]
+        assert len(range_rules) == 1
+        rule = range_rules[0]
+        assert rule.min_val == 0
+        assert rule.max_val == pytest.approx(58.0)
+        assert rule.source == "statistical"
+
+    def test_categorical_column_gets_enum(self):
+        df = pd.DataFrame({"color": ["red", "blue", "green", "red", "blue"]})
+        rules = infer_rules(df)
+        enum_rules = [
+            rule
+            for rule in rules
+            if rule.rule_type == "enum" and rule.column == "color"
+        ]
+        assert len(enum_rules) == 1
+        assert set(enum_rules[0].values) == {"red", "blue", "green"}
+
+    def test_high_cardinality_column_no_enum(self):
+        df = pd.DataFrame({"name": [f"person_{i}" for i in range(50)]})
+        rules = infer_rules(df)
+        enum_rules = [
+            rule
+            for rule in rules
+            if rule.rule_type == "enum" and rule.column == "name"
+        ]
+        assert len(enum_rules) == 0
+
+    def test_no_null_column_gets_not_null_rule(self):
+        df = pd.DataFrame({"val": [1, 2, 3, 4, 5]})
+        rules = infer_rules(df)
+        not_null_rules = [
+            rule
+            for rule in rules
+            if rule.rule_type == "not_null" and rule.column == "val"
+        ]
+        assert len(not_null_rules) == 1
+
+    def test_column_with_nulls_no_not_null_rule(self):
+        df = pd.DataFrame({"val": [1, None, 3, None, 5]})
+        rules = infer_rules(df)
+        not_null_rules = [
+            rule
+            for rule in rules
+            if rule.rule_type == "not_null" and rule.column == "val"
+        ]
+        assert len(not_null_rules) == 0
+
+
+class TestInferrerCrossColumn:
+    def test_detects_functional_dependency(self):
+        df = pd.DataFrame({
+            "code": ["A", "B", "A", "C", "B", "A", "C"],
+            "name": [
+                "Alpha",
+                "Beta",
+                "Alpha",
+                "Charlie",
+                "Beta",
+                "Alpha",
+                "Charlie",
+            ],
+        })
+        rules = infer_rules(df)
+        cross_column_rules = [
+            rule for rule in rules if rule.rule_type == "cross_column"
+        ]
+        assert len(cross_column_rules) >= 1
+        assert any(
+            "code" in rule.columns and "name" in rule.columns
+            for rule in cross_column_rules
+        )
+
+    def test_no_false_dependency_on_numeric_columns(self):
+        df = pd.DataFrame({
+            "x": [1, 2, 3, 4, 5],
+            "y": [10, 20, 30, 40, 50],
+        })
+        rules = infer_rules(df)
+        cross_column_rules = [
+            rule for rule in rules if rule.rule_type == "cross_column"
+        ]
+        assert len(cross_column_rules) == 0
