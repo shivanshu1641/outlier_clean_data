@@ -9,6 +9,8 @@ import pandas as pd
 
 from server.corruption.categories import CATEGORY_FORMAT_MAP, CATEGORY_CORRUPTION_MAP
 
+_PROJECT_ROOT = Path(__file__).parent.parent
+
 
 # ── Category assignment ────────────────────────────────────────────────────────
 
@@ -61,6 +63,10 @@ def load_results(benchmark_dir: str = "outputs/benchmark") -> pd.DataFrame:
     """Load benchmark results. Tries benchmark_runner's results.jsonl first,
     falls back to inference.py's results.csv in outputs/logs/."""
 
+    # Resolve relative paths against project root (not CWD)
+    if not os.path.isabs(benchmark_dir):
+        benchmark_dir = str(_PROJECT_ROOT / benchmark_dir)
+
     # Primary: benchmark_runner output (has category field)
     jsonl_path = os.path.join(benchmark_dir, "results.jsonl")
     if os.path.exists(jsonl_path):
@@ -89,7 +95,7 @@ def load_results(benchmark_dir: str = "outputs/benchmark") -> pd.DataFrame:
             return df
 
     # Fallback: inference.py's results.csv (no category — infer it)
-    csv_path = os.path.join("outputs/logs", "results.csv")
+    csv_path = str(_PROJECT_ROOT / "outputs" / "logs" / "results.csv")
     if not os.path.exists(csv_path):
         return pd.DataFrame()
 
@@ -136,8 +142,10 @@ def load_episode_log(path: str) -> list[dict]:
     return events
 
 
-def list_episode_files(log_dir: str = "outputs/episodes") -> list[dict]:
+def list_episode_files(log_dir: str = "outputs/benchmark/episodes") -> list[dict]:
     """List available episode JSONL files with metadata from their first event."""
+    if not os.path.isabs(log_dir):
+        log_dir = str(_PROJECT_ROOT / log_dir)
     if not os.path.isdir(log_dir):
         return []
     episodes = []
@@ -170,6 +178,8 @@ def list_episode_files(log_dir: str = "outputs/episodes") -> list[dict]:
 
 def load_catalog(catalog_path: str = "datasets/catalog.json") -> dict:
     """Load the dataset catalog."""
+    if not os.path.isabs(catalog_path):
+        catalog_path = str(_PROJECT_ROOT / catalog_path)
     if not os.path.exists(catalog_path):
         return {}
     with open(catalog_path) as f:
