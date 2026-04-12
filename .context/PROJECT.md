@@ -74,24 +74,43 @@ OpenEnv environment for the Meta PyTorch Hackathon (deadline: April 8, 2026). AI
 
 ```bash
 source .venv/bin/activate
+
+# ── Environment Server ────────────────────────────────────────
 # Run server (with WebSocket keepalive for long LLM calls)
 uvicorn server.app:app --port 8000 --ws-ping-interval 60 --ws-ping-timeout 120
-# Run agent (all 25 eval tasks)
-python inference.py
-# Run specific tasks
-python inference.py titanic_easy wine_medium
-# Download/update dataset catalog inputs
-python tools/download_datasets.py
-# Generate all task artifacts (clean, dirty, error_map, severity_map)
-python tools/corruption/engine.py
 
-# ── Benchmark ──────────────────────────────────────────────────
+# ── Inference (single model, requires running env server + LLM server) ──
+# Via wrapper script (has pre-flight checks for env server + LLM API)
+./inference.sh                              # all 25 eval tasks
+./inference.sh titanic/easy/csv             # single task
+# Or directly
+python inference.py
+python inference.py titanic_easy wine_medium
+# Environment variables for inference.sh:
+#   API_BASE_URL   (default: http://localhost:8080/v1)
+#   OPENAI_API_KEY (default: dummy)
+#   MODEL_NAME     (default: gemma-4-E2B-it-Q4_K_M)
+#   ENV_URL        (default: http://localhost:7860)
+#   MIN_CALL_INTERVAL (default: 0)
+
+# ── Benchmark (multi-model, auto-manages llama-server lifecycle) ──
 # Full benchmark: all 6 models × 6 categories × 3 difficulties × all datasets
+# Requires: env server running, all model GGUFs in ~/models/
+# See docs/setup-llama-mac.md for model downloads
 ./run_benchmark.sh
 # Filter by model/category/difficulty
 ./run_benchmark.sh --models "Qwen3.5-0.8B-UD-Q4_K_XL" --categories FP VR --difficulties easy medium
-# Single model via benchmark_runner directly (server must be running)
+# Single model via benchmark_runner directly (llama-server must be running)
 python -m tools.benchmark_runner --model-name "Qwen3.5-0.8B-UD-Q4_K_XL" --api-base http://localhost:8080/v1
+# Benchmark models (6):
+#   Qwen3.5-0.8B-UD-Q4_K_XL, Qwen3.5-2B-UD-Q4_K_XL, Qwen3.5-9B-UD-Q4_K_XL
+#   gemma-4-E2B-it-Q4_K_M, gemma-4-E4B-it-Q4_K_M, Qwen3-4B-Q4_K_M
+# Output: outputs/benchmark/{results.jsonl, summary.csv, episodes/*.jsonl}
+# Resumable: skips already-completed (dataset, category, difficulty, model, seed) combos
+
+# ── Data & Datasets ───────────────────────────────────────────
+python tools/download_datasets.py           # download/update dataset catalog inputs
+python tools/corruption/engine.py           # generate all task artifacts
 
 # ── UI ─────────────────────────────────────────────────────────
 # Launch Gradio dashboard (reads from outputs/benchmark/)
