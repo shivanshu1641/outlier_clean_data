@@ -64,7 +64,7 @@ There are no pre-built dirty files. Everything is generated at runtime.
     .step(action)       → StepResult
 
 [Inference]  inference.py
-  for task in eval_task_ids:   # 25 pinned (dataset, difficulty, format) combos
+  for task in EVAL_TASKS:      # 18 pinned (dataset, difficulty, format) triples
     obs = env.reset(task_id)
     while not done:
       action = llm(system_prompt, obs)   # explore / transform / undo / validate / done
@@ -86,7 +86,7 @@ There are no pre-built dirty files. Everything is generated at runtime.
 | `server/environment.py` | Episode lifecycle: generative reset, action dispatch, checkpoint/undo coordination, observation building, `LEGACY_TASK_MAP` |
 | `server/sandbox.py` | AST safety scanning, persistent worker management, raw-format file setup, CSV working copy, filesystem checkpoints, atexit cleanup |
 | `server/worker.py` | Agent code execution with restricted builtins + pandas/numpy/io/openpyxl/yaml/lxml namespace, auto-rewrite `inplace=True` |
-| `inference.py` | 25-task eval suite, LLM orchestration, prompt building, action parsing, auto-undo on regression |
+| `inference.py` | 18-task eval suite, LLM orchestration, prompt building, action parsing, auto-transforms, auto-undo on regression with best_reward preservation, post-undo warnings |
 | `tools/benchmark_runner.py` | CLI benchmark orchestrator: task matrix, inference runs, JSONL + CSV result persistence |
 | `ui/` | Gradio dashboard: leaderboard, episode explorer, dataset catalog browser |
 | `datasets/catalog.json` | 25 dataset entries with semantic rules, used by the generative environment |
@@ -136,7 +136,7 @@ Row score uses **content-based matching** (not index-based). The grader builds a
 - Dropped rows: credited if row is absent in both
 - Duplicate rows: credited if eliminated
 - Reordered rows: correctly aligned before comparison (no phantom collateral damage)
-- CSV round-trip type normalization: `6.0 → "6"` so float/int variants match
+- Cross-type numeric normalization: `6.0`, `"6.0"`, `6` all normalize to `"6"` so float/int/str variants match
 
 ### Efficiency costs
 
@@ -223,13 +223,13 @@ Hard difficulty enables row-level operations (drop rows, duplicate rows, header 
 
 ## Eval Task Suite
 
-`inference.py` runs 25 pinned (dataset, difficulty, format) combinations. Legacy task IDs (`titanic_easy`, etc.) are mapped through `LEGACY_TASK_MAP` in `environment.py` for backward compatibility.
+`inference.py` runs 18 pinned (dataset, difficulty, format) triples — 3 per dataset. Legacy task IDs (`titanic_easy`, etc.) are mapped through `LEGACY_TASK_MAP` in `environment.py` for backward compatibility.
 
 | Dataset | Easy | Medium | Hard |
 |---------|------|--------|------|
-| Titanic | csv, tsv | csv, json | csv, json, xml |
+| Titanic | csv | csv | csv |
 | Iris | csv | csv, jsonl | — |
-| Boston Housing | — | csv, json | csv, xml |
-| Diabetes | — | csv, jsonl | csv, json |
-| Wine Quality | csv | csv, json | csv, xml |
+| Boston Housing | — | csv | csv, json |
+| Diabetes | — | csv | csv, json |
+| Wine Quality | csv | csv | csv |
 | Breast Cancer | csv | csv, jsonl | — |

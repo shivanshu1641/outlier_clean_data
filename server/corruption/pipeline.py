@@ -132,11 +132,21 @@ class CorruptionPipeline:
             applicable.append(name)
 
         selected = self.py_rng.sample(applicable, min(num_types, len(applicable)))
-        # Row-level ops first: they reset/shift the index, so cell-level ops
-        # must record keys against the final row structure. Sort key is
-        # (is_cell_op, name) — row ops first, alphabetical within each group.
-        _ROW_CORRUPTIONS = {"drop_rows", "duplicate_rows", "header_in_data"}
-        selected.sort(key=lambda c: (c not in _ROW_CORRUPTIONS, c))
+        # Ordering: drop_rows/header_in_data FIRST (they shift indices that
+        # cell-level ops must record against). duplicate_rows LAST (only
+        # appends — running it after cell corruptions keeps duplicates as
+        # exact copies so drop_duplicates() can remove them).
+        _EARLY_ROW_OPS = {"drop_rows", "header_in_data"}
+        _LATE_ROW_OPS = {"duplicate_rows"}
+
+        def _corruption_order(c: str) -> tuple[int, str]:
+            if c in _EARLY_ROW_OPS:
+                return (0, c)
+            if c in _LATE_ROW_OPS:
+                return (2, c)
+            return (1, c)
+
+        selected.sort(key=_corruption_order)
 
         frac_min, frac_max = self.profile["fraction_range"]
         applied_corruptions: list[dict] = []

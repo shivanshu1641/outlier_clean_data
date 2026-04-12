@@ -1,4 +1,0 @@
-{"event": "task_start", "timestamp": 1775997402.274517, "task_id": "titanic_easy_auto", "model": "gemma-4-E2B-it", "api_base": "http://localhost:8080/v1", "category": "FP", "seed": 42}
-{"event": "diagnostic_phase", "timestamp": 1775997402.274709, "n_explores": 1, "has_validate": false}
-{"event": "step", "timestamp": 1775997402.274766, "step": 1, "action_type": "transform", "action_content": "pass", "reward": 0.9, "errors_fixed": 2, "errors_total": 2, "llm_latency_s": 0.01}
-{"event": "task_end", "timestamp": 1775997402.274806, "task_id": "titanic_easy_auto", "final_reward": 0.9, "total_steps": 1, "elapsed_s": 0.0, "category": "FP", "seed": 42}

@@ -207,15 +207,15 @@ After the agent transforms `current.csv`, the grader compares the result against
 
 ## Eval Task Suite
 
-`inference.py` runs a fixed 25-task suite of pinned (dataset, difficulty, format) combinations:
+`inference.py` runs a fixed 18-task suite of pinned (dataset, difficulty, format) combinations (3 per dataset):
 
 | Dataset | Easy | Medium | Hard |
 |---------|------|--------|------|
-| Titanic | csv, tsv | csv, json | csv, json, xml |
+| Titanic | csv | csv | csv |
 | Iris | csv | csv, jsonl | — |
-| Boston Housing | — | csv, json | csv, xml |
-| Diabetes | — | csv, jsonl | csv, json |
-| Wine Quality | csv | csv, json | csv, xml |
+| Boston Housing | — | csv | csv, json |
+| Diabetes | — | csv | csv, json |
+| Wine Quality | csv | csv | csv |
 | Breast Cancer | csv | csv, jsonl | — |
 
 ## Key Gotchas for LLM Agents
@@ -263,17 +263,44 @@ Agent code runs in a subprocess with:
 - **Persistent worker** — pandas/numpy loaded once per episode; undo sends a `"reload"` command to resync the worker's in-memory DataFrame after checkpoint restore
 - **Auto-rewrite `inplace=True`** — worker converts `df['col'].fillna(val, inplace=True)` → `df['col'] = df['col'].fillna(val)` automatically (pandas 2.x broke chained inplace)
 
-## Benchmark Status
+## Benchmark Results
 
-The old benchmark tables were measured before the April 2026 difficulty rebalance and are no longer comparable. The generator now uses a more gradual curve with capped column spread at medium difficulty. Full model benchmarks should be rerun.
+Local GGUF models via `llama-server`, 4 tasks each (titanic easy/medium, wine_quality easy/medium), seed 42, April 12 2026.
 
-### Post-rebalance profile sanity check (Titanic, CSV, seeds 42–51)
+### Leaderboard
 
-| Difficulty | Typical errors | Average errors | Notes |
-|------------|----------------|----------------|-------|
-| Easy | 33–98 | 61.5 | Single focused corruption type |
-| Medium | 136–447 | 278.0 | 3–4 types, capped column spread |
-| Hard | 1,586–2,895 | 2,174.0 | Successful seeds only; some seeds still hit a dtype bug |
+| Model | Params | titanic easy | titanic med | wine easy | wine med | **Avg** |
+|-------|--------|:----------:|:-----------:|:---------:|:--------:|:-------:|
+| Qwen3-4B | 4B | 0.81 | 0.19 | **0.95** | 0.00 | **0.49** |
+| gemma-4-E4B | 4B | 0.81 | **0.20** | 0.80 | **0.05** | 0.47 |
+| gemma-4-E2B | 2B | 0.81 | 0.19 | 0.80 | 0.02 | 0.46 |
+| Qwen3.5-2B | 2B | 0.81 | 0.18 | 0.80 | 0.03 | 0.46 |
+| Qwen3.5-9B | 9B | 0.81 | 0.19 | 0.80 | 0.03 | 0.46 |
+| Qwen3.5-0.8B | 0.8B | 0.81 | 0.11 | 0.80 | 0.03 | 0.44 |
+
+### Key Observations
+
+**Easy tasks are solved by auto-transforms.** All models score 0.80–0.81 on titanic easy (whitespace noise → auto-fixed) and 0.80–0.96 on wine_quality easy (duplicate rows → auto-fixed). The LLM never needs to generate meaningful code.
+
+**Medium tasks expose model limitations.** titanic medium has 360 errors across 4 corruption types (nulls, type mangling, whitespace, outliers). Models fix 70–140/360 (19–39%) before getting stuck in duplicate-transform loops. The pattern: auto-transforms fix nulls → model tries Fare type fix → gets blocked repeating → hits 5-block auto-done.
+
+**wine_quality medium is a failure case for all models.** 654 errors, models fix 118–123 via auto-transforms then produce transforms that introduce wrong values (1.5x penalty) causing auto-undo → duplicate block → early termination. Final rewards 0.00–0.05.
+
+**Model size doesn't help much in this range.** Qwen3.5-9B (9B) scores identically to gemma-4-E2B (2B) on 3/4 tasks. The bottleneck is transform diversity after undo, not raw capability. Qwen3-4B won on wine_quality easy only because it explored instead of submitting a redundant `drop_duplicates()`.
+
+### Failure Modes
+
+1. **Duplicate transform loop**: After undo, models regenerate the same code → blocked 5x → auto-done. This is the #1 cause of early termination.
+2. **Wrong-value penalty from `pd.to_numeric(errors='coerce')`**: Coercing sentinels to NaN instead of imputing the correct value triggers 1.5x penalty → reward drops → auto-undo.
+3. **IQR outlier fixes backfire**: Models apply aggressive IQR clipping to columns with business_rule_violation corruptions, introducing wrong values.
+
+### Difficulty Profile
+
+| Difficulty | Typical errors | Corruption types | Notes |
+|------------|----------------|------------------|-------|
+| Easy | 33–98 | 1 focused type | Auto-transforms handle it |
+| Medium | 136–447 | 3–4 types | Capped column spread, models stall at ~40% |
+| Hard | 1,586–2,895 | 7–10 types | Not benchmarked in this run |
 
 ## Environment Variables
 

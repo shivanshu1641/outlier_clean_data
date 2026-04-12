@@ -399,10 +399,14 @@ def _suggest_explore_queries(
     return (filtered or suggestions)[:5]
 
 
-def _explore_manual(obs) -> list[str]:
+def _explore_manual(obs, action_history: list[dict] | None = None) -> list[str]:
     """Return concise exploration heuristics for the current error mix."""
     targets = _extract_remaining_error_targets(obs.constraints or [])
     bullets: list[str] = []
+    # Track which transforms were already attempted so we don't recommend blocked code
+    _tried_codes = " ".join(
+        h.get("summary", "") for h in (action_history or []) if h.get("type") == "transform"
+    )
 
     if "type_mangle" in targets:
         bullets.append(
@@ -428,10 +432,18 @@ def _explore_manual(obs) -> list[str]:
             "Casting dtype does NOT fix outlier values."
         )
     if "duplicate_rows" in targets:
-        bullets.append(
-            "For duplicate_rows: fix with `df = df.drop_duplicates()` — "
-            "this is the ONE safe use of drop; confirm duplicates exist first with `df.duplicated().sum()`."
-        )
+        if "drop_duplicates" in _tried_codes:
+            bullets.append(
+                "For duplicate_rows: `drop_duplicates()` was already tried. "
+                "Remaining duplicates may not be exact matches. Try identifying them by "
+                "comparing against known-good rows or removing rows with suspiciously "
+                "similar values."
+            )
+        else:
+            bullets.append(
+                "For duplicate_rows: fix with `df = df.drop_duplicates()` — "
+                "this is the ONE safe use of drop; confirm duplicates exist first with `df.duplicated().sum()`."
+            )
     if any(
         t in targets
         for t in (
@@ -643,7 +655,7 @@ def build_user_prompt(
         parts.extend(["", "Suggested explore queries:"])
         parts.extend(f"  {q}" for q in explore_suggestions)
 
-    manual = _explore_manual(obs)
+    manual = _explore_manual(obs, action_history=action_history)
     if manual:
         parts.extend(["", "Explore guide:"])
         parts.extend(f"  - {line}" for line in manual)
@@ -1097,6 +1109,7 @@ async def run_task(
         # before the LLM starts. This handles types small models struggle with.
         auto_action_history: list[dict] = []
         auto_step = 0
+        last_good_checkpoint = 0  # checkpoint 0 = dirty baseline from reset
         targets = _extract_remaining_error_targets(obs.constraints)
         _SAFE_TEMPLATES: dict[str, callable] = {
             "duplicate_rows": lambda _col: "df = df.drop_duplicates()",
@@ -1127,6 +1140,7 @@ async def run_task(
                             "Auto-transform %s: %d/%d fixed, reward=%.4f",
                             ctype, new_fixed, total, current_reward,
                         )
+                        last_good_checkpoint = auto_step
                         auto_action_history.append({
                             "step": auto_step, "type": "transform",
                             "summary": f"auto: {code[:60]}",
@@ -1134,7 +1148,10 @@ async def run_task(
                         })
                         fixed = new_fixed
                     else:
-                        logger.warning("Auto-transform %s regressed %d->%d, skipping", ctype, fixed, new_fixed)
+                        logger.warning("Auto-transform %s regressed %d->%d, undoing", ctype, fixed, new_fixed)
+                        undo_result = await env.step(UndoAction(step=last_good_checkpoint))
+                        obs = undo_result.observation
+                        current_reward = undo_result.reward if undo_result.reward is not None else current_reward
                 except Exception as exc:
                     logger.warning("Auto-transform %s failed: %s", ctype, exc)
             else:
@@ -1152,6 +1169,7 @@ async def run_task(
                                 "Auto-transform %s(%s): %d/%d fixed, reward=%.4f",
                                 ctype, col, new_fixed, total, current_reward,
                             )
+                            last_good_checkpoint = auto_step
                             auto_action_history.append({
                                 "step": auto_step, "type": "transform",
                                 "summary": f"auto: {code[:60]}",
@@ -1159,7 +1177,10 @@ async def run_task(
                             })
                             fixed = new_fixed
                         else:
-                            logger.warning("Auto-transform %s(%s) regressed %d->%d, skipping", ctype, col, fixed, new_fixed)
+                            logger.warning("Auto-transform %s(%s) regressed %d->%d, undoing", ctype, col, fixed, new_fixed)
+                            undo_result = await env.step(UndoAction(step=last_good_checkpoint))
+                            obs = undo_result.observation
+                            current_reward = undo_result.reward if undo_result.reward is not None else current_reward
                     except Exception as exc:
                         logger.warning("Auto-transform %s(%s) failed: %s", ctype, col, exc)
 
@@ -1306,9 +1327,20 @@ async def run_task(
                     for c in tried_codes:
                         for col_match in __import__("re").findall(r"df\['([^']+)'\]", c):
                             tried_cols.add(col_match)
+                    # Identify which corruption type the blocked code targeted
+                    blocked_types = set()
+                    for ctype in remaining:
+                        if ctype.replace("_", "") in new_code.replace("_", ""):
+                            blocked_types.add(ctype)
+                    # Also detect row-level ops by code pattern
+                    if "drop_duplicates" in new_code:
+                        blocked_types.add("duplicate_rows")
+
                     # Find untried corruption types (types with columns not yet attempted)
                     untried = []
                     for ctype, cols in remaining.items():
+                        if ctype in blocked_types:
+                            continue  # skip the type we just blocked
                         untried_cols = [c for c in cols if c not in tried_cols] if cols else []
                         if untried_cols or (not cols and ctype not in str(tried_codes)):
                             untried.append((ctype, untried_cols))
@@ -1324,9 +1356,13 @@ async def run_task(
                         else:
                             block_warning += f"\n>>> TRY THIS: Fix '{next_type}' next."
                     elif remaining:
-                        # All types tried but some still unfixed — suggest re-approach
-                        first_type = next(iter(remaining))
-                        block_warning += f"\n>>> Your previous attempt at '{first_type}' didn't fully work. Try a different approach for it."
+                        # All types tried — suggest a fundamentally different approach
+                        remaining_types = list(remaining.keys())
+                        block_warning += (
+                            f"\n>>> All corruption types have been attempted. "
+                            f"Try a COMPLETELY DIFFERENT approach for: {', '.join(remaining_types)}. "
+                            f"Use explore to inspect actual values before transforming."
+                        )
 
                     messages[-1] = {
                         "role": "user",
@@ -1640,7 +1676,7 @@ async def run_task(
                     and obs.step_info.validate_uses < obs.step_info.validate_budget
                 )
 
-                if stale_count >= 1 and validate_available:
+                if stale_count >= 2 and validate_available:
                     # Tier 2: auto-validate to give the model exact cell-level info
                     logger.warning(
                         "Escalation tier 2: %d stale transforms — auto-validate", stale_count

@@ -431,8 +431,9 @@ def _validate_breakdown(
             info = cell_errors.get(key, {})
             corruption = info.get("corruption", "unknown")
             clean_val = info.get("clean_value")
+            row_part, col_part = key.split(",", 1)
             lines.append(
-                f"  [{status}] key={key!r}  corruption={corruption}  expected={clean_val!r}"
+                f"  [{status}] row={row_part} col='{col_part}'  corruption={corruption}  expected={clean_val!r}"
             )
         if len(unfixed_cells) > 20:
             lines.append(f"  ... and {len(unfixed_cells)-20} more")
@@ -914,7 +915,7 @@ class DataCleaningEnvironment(
             self._cached_schema_score = None
             self._cached_schema_columns = schema_columns
 
-        self._error_status, self._current_reward, ss, rm = grade(
+        self._error_status, self._current_reward, ss, rm, constraint = grade(
             self._clean_df,
             self._current_df,
             self._error_map,
@@ -941,17 +942,19 @@ class DataCleaningEnvironment(
         self._cached_schema_score = ss
         self._cached_row_mapping = rm
         # Normalize: subtract baseline so unfixed=0.0, fully fixed=1.0
-        raw_reward = self._current_reward
+        # Both baseline and progress use the constraint score (no efficiency)
+        # so that step-count penalties don't push reward below baseline.
+        # Efficiency is applied as a multiplier on the normalized progress
+        # so it still incentivizes fewer steps without zeroing out real fixes.
+        raw_reward = self._current_reward  # constraint * efficiency
+        efficiency = raw_reward / constraint if constraint > 0 else 1.0
         if self._reward_baseline is None:
-            self._reward_baseline = raw_reward
+            self._reward_baseline = constraint
         if self._reward_baseline < 1.0:
+            normalized_progress = (constraint - self._reward_baseline) / (1.0 - self._reward_baseline)
             self._current_reward = max(
                 0.0,
-                round(
-                    (raw_reward - self._reward_baseline)
-                    / (1.0 - self._reward_baseline),
-                    4,
-                ),
+                round(normalized_progress * efficiency, 4),
             )
         self._error_summary_cache = summarize_errors(
             self._error_status, self._error_map

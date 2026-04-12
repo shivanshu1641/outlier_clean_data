@@ -686,7 +686,7 @@ def grade(
     cross_column_maps: dict | None = None,
     cached_schema_score: float | None = None,
     cached_row_mapping: dict[int, int] | None = None,
-) -> tuple[dict[str, str], float, float, dict[int, int]]:
+) -> tuple[dict[str, str], float, float, dict[int, int], float]:
     """Grade the agent's result using multi-level scoring.
 
     Four scoring dimensions:
@@ -696,7 +696,8 @@ def grade(
         - Distribution (0.10): imputation quality for null-filled columns
 
     Returns:
-        (error_status, reward, schema_score_val, row_mapping).
+        (error_status, reward, schema_score_val, row_mapping, constraint).
+        ``constraint`` is the raw quality score before efficiency penalty.
     """
     s_score = (
         cached_schema_score
@@ -755,7 +756,7 @@ def grade(
     )
 
     reward = round(min(1.0, constraint * efficiency), 4)
-    return error_status, reward, s_score, row_map
+    return error_status, reward, s_score, row_map, constraint
 
 
 def _compute_semantic(

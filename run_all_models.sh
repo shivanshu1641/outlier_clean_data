@@ -11,7 +11,7 @@ CONTEXT=32768
 if [ $# -gt 0 ]; then
   TASKS=("$@")
 else
-  TASKS=(titanic/easy/csv titanic/medium/csv wine_quality/easy/csv wine_quality/medium/csv)
+  TASKS=(titanic/easy/csv titanic/medium/csv wine_quality/easy/csv wine_quality/medium/csv titanic/hard/csv wine_quality/hard/csv)
 fi
 
 # Parallel arrays — name[i] maps to gguf[i]. Comment out to skip.

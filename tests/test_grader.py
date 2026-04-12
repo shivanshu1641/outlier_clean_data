@@ -209,7 +209,7 @@ class TestGrade:
             "missing_rows": {},
         }
 
-        error_status, _, _, row_mapping = grade(clean, result, error_map, 2, 2, 10)
+        error_status, _, _, row_mapping, _ = grade(clean, result, error_map, 2, 2, 10)
 
         assert row_mapping[0] == 1
         assert error_status["0,name"] == "fixed"

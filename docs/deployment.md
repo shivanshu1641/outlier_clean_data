@@ -30,7 +30,7 @@ ENABLE_WEB_INTERFACE=true uvicorn server.app:app --port 7860 --ws-ping-interval 
 llama-server -m ~/models/gemma-4-E2B-it-Q4_K_M.gguf -c 8192 --port 8080 -ngl 99
 
 # Via wrapper script (pre-flight checks for env server + LLM API)
-./inference.sh                              # all 25 eval tasks
+./inference.sh                              # all 18 eval tasks
 ./inference.sh titanic/easy/csv             # single task
 
 # Or directly
@@ -54,7 +54,7 @@ API_BASE_URL="https://api.groq.com/openai/v1" MODEL_NAME="llama-3.3-70b" python 
 Automatically starts/stops llama-server per model. Requires env server running + model GGUFs in `~/models/`.
 
 ```bash
-# Full benchmark: 6 models × 6 categories × 3 difficulties × all datasets (~450 tasks)
+# Full benchmark: 6 models × all datasets × 3 difficulties
 ./run_benchmark.sh
 
 # Filter by model/category/difficulty

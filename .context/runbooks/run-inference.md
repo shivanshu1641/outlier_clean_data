@@ -3,13 +3,23 @@
 ## Command
 ```bash
 source .venv/bin/activate
-python inference.py                              # default 14-task eval suite
-python inference.py titanic easy                 # specific dataset + difficulty
-python inference.py titanic/easy titanic/medium  # slash syntax also works
+python inference.py                                  # all 18 eval tasks
+python inference.py titanic easy                     # single task (default fmt=csv)
+python inference.py titanic easy json                # explicit format
+python inference.py titanic/easy/json                # slash syntax also works
 ```
 
 ## Eval suite
-`inference.py` defines a 14-task eval suite (`EVAL_TASKS`) as `(dataset_id, difficulty)` tuples spanning 5 datasets × 2-3 difficulties: titanic, iris, boston_housing, diabetes, wine_quality, breast_cancer.
+`inference.py` defines an 18-task eval suite (`EVAL_TASKS`) as `(dataset_id, difficulty, format)` triples — 3 per dataset across 6 datasets: titanic, iris, boston_housing, diabetes, wine_quality, breast_cancer.
+
+| Dataset | Easy | Medium | Hard |
+|---------|------|--------|------|
+| Titanic | csv | csv | csv |
+| Iris | csv | csv, jsonl | — |
+| Boston Housing | — | csv | csv, json |
+| Diabetes | — | csv | csv, json |
+| Wine Quality | csv | csv | csv |
+| Breast Cancer | csv | csv, jsonl | — |
 
 ## Benchmark runner
 For systematic model evaluation across categories:

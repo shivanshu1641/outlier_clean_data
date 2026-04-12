@@ -1,4 +1,0 @@
-dataset_id,category,difficulty,model,seed,reward,steps,episode_log_path,elapsed_s
-thyroid_disease,CP,hard,gemma-4-E2B-it-Q4_K_M,42,0.1089,5,outputs/benchmark/episodes/thyroid_disease_CP_hard_gemma-4-E2B-it-Q4_K_M_42.jsonl,117.83
-wine_quality,FP,easy,gemma-4-E2B-it-Q4_K_M,42,0.0,5,outputs/benchmark/episodes/wine_quality_FP_easy_gemma-4-E2B-it-Q4_K_M_42.jsonl,75.96
-abalone,MD,hard,gemma-4-E2B-it-Q4_K_M,42,0.4197,6,outputs/benchmark/episodes/abalone_MD_hard_gemma-4-E2B-it-Q4_K_M_42.jsonl,63.53

@@ -14,7 +14,7 @@ OpenEnv environment for the Meta PyTorch Hackathon (deadline: April 8, 2026). AI
 - **Dockerfile** (root) — HF Spaces deployment on port 7860; builds from `pyproject.toml`, installs lxml system deps, copies datasets/tools; `tini` for zombie reaping
 - **models.py** — Pydantic types: ExploreAction, TransformAction, DoneAction, UndoAction, ValidateAction, ErrorMap, CellError, RowError, Observation, State
 - **client.py** — EnvClient subclass (WebSocket)
-- **inference.py** — Baseline agent using any OpenAI-compatible API; 25-task eval suite (6 datasets × difficulty × format); undo/validate support; auto-undo on 25%+ regression; auto-validate on budget exhaustion; enriched prompt fields (`file_format`, `file_preview`, `diagnosis`, `validate_result`, `suggested_explore_queries`, `remaining_errors_by_type`)
+- **inference.py** — Baseline agent using any OpenAI-compatible API; 18-task eval suite (6 datasets × 3 per dataset, pinned difficulty+format triples); auto-transforms (duplicate_rows, inject_nulls with median/mode, whitespace_noise); undo/validate support; auto-undo on 25%+ regression with best_reward preservation and post-undo warnings; auto-validate on budget exhaustion; enriched prompt fields (`file_format`, `file_preview`, `diagnosis`, `validate_result`, `suggested_explore_queries`, `remaining_errors_by_type`)
 - **server/corruption/pipeline.py** — Runtime `CorruptionPipeline`: `select_format()` must be called before `corrupt()`; 22 value corruptions; multi-format raw inputs; ~40 format-specific corruptions; 3 difficulty profiles; 3-level hints; 6 benchmark categories
 - **server/corruption/categories.py** — 6 benchmark categories (FP/VR/MD/SR/SV/CP) mapping to corruption subsets and format pools
 - **server/rules/** — 7 semantic rule types (Range, Regex, Enum, Dtype, NotNull, Unique, CrossColumn), auto-inferred from clean data, validated in grading
@@ -81,7 +81,7 @@ uvicorn server.app:app --port 8000 --ws-ping-interval 60 --ws-ping-timeout 120
 
 # ── Inference (single model, requires running env server + LLM server) ──
 # Via wrapper script (has pre-flight checks for env server + LLM API)
-./inference.sh                              # all 25 eval tasks
+./inference.sh                              # all 18 eval tasks
 ./inference.sh titanic/easy/csv             # single task
 # Or directly
 python inference.py
@@ -94,7 +94,7 @@ python inference.py titanic_easy wine_medium
 #   MIN_CALL_INTERVAL (default: 0)
 
 # ── Benchmark (multi-model, auto-manages llama-server lifecycle) ──
-# Full benchmark: all 6 models × 6 categories × 3 difficulties × all datasets
+# Full benchmark: all 6 models × all datasets × 3 difficulties
 # Requires: env server running, all model GGUFs in ~/models/
 # See docs/setup-llama-mac.md for model downloads
 ./run_benchmark.sh
@@ -196,7 +196,7 @@ Full model benchmarks should be rerun after the rebalance before publishing new 
 - `server/grader.py` — Multi-level reward formula, content-based row matching with numeric normalization, collateral damage via row_mapping, semantic scoring, validation diagnostics
 - `server/app.py` — FastAPI wiring, optional Gradio at `/web`
 - `client.py` — WebSocket client
-- `inference.py` — LLM agent baseline (model-agnostic), 25-task eval suite, auto-undo on regression, NaN coerce warnings in prompt
+- `inference.py` — LLM agent baseline (model-agnostic), 18-task eval suite, auto-transforms (duplicate_rows, inject_nulls median/mode, whitespace_noise), auto-undo on regression with best_reward preservation, post-undo warnings, NaN coerce warnings in prompt
 - `server/corruption/pipeline.py` — Runtime `CorruptionPipeline`, format selection (`select_format()` before `corrupt()`), corruption orchestration
 - `server/corruption/value_corruptions.py` — 22 value-level corruption types
 - `server/corruption/format_corruptions.py` — 9 file formats and format-specific corruptions
@@ -221,18 +221,18 @@ Full model benchmarks should be rerun after the rebalance before publishing new 
 
 ## Task IDs
 
-- `inference.py` defines a 25-task eval suite in `EVAL_TASK_IDS` — pinned (dataset, difficulty, format) combinations across 6 datasets
+- `inference.py` defines an 18-task eval suite in `EVAL_TASKS` — pinned (dataset, difficulty, format) triples, 3 per dataset across 6 datasets
 - Legacy IDs such as `titanic_easy`, `titanic_medium`, `titanic_hard`, `wine_easy`, `wine_medium`, and `wine_hard` are mapped through `LEGACY_TASK_MAP` in `environment.py` for backward compatibility
 
-## Eval Task Suite (25 tasks)
+## Eval Task Suite (18 tasks — 3 per dataset)
 
 | Dataset | Easy | Medium | Hard |
 |---------|------|--------|------|
-| Titanic | csv, tsv | csv, json | csv, json, xml |
+| Titanic | csv | csv | csv |
 | Iris | csv | csv, jsonl | — |
-| Boston Housing | — | csv, json | csv, xml |
-| Diabetes | — | csv, jsonl | csv, json |
-| Wine Quality | csv | csv, json | csv, xml |
+| Boston Housing | — | csv | csv, json |
+| Diabetes | — | csv | csv, json |
+| Wine Quality | csv | csv | csv |
 | Breast Cancer | csv | csv, jsonl | — |
 
 ## Grading Formula

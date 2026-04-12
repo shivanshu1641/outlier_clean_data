@@ -70,18 +70,18 @@ env_url: "http://localhost:7860"
 ## Output
 
 Results written to `outputs/benchmark/`:
-- `results_<timestamp>.jsonl` — one JSON line per episode
-- `summary_<timestamp>.csv` — pivot table (model × category × difficulty)
+- `results.jsonl` — one JSON line per episode (append-mode, resumable)
+- `summary.csv` — pivot table (model × category × difficulty)
+- `episodes/*.jsonl` — per-task step-by-step JSONL logs
 
-Load results:
-```python
-from server.benchmark import BenchmarkResult
-results = BenchmarkResult.load("outputs/benchmark/results_<timestamp>.jsonl")
-```
+Resumable: skips already-completed `(dataset, category, difficulty, model, seed)` combos.
+
+Retries: up to 3 attempts with backoff on `CAPACITY_REACHED` errors.
 
 ## Tips
 
 - For a quick smoke-test, use `--categories FP --difficulties easy --datasets iris`
 - Use `seeds_per_combo: 3` in config for statistically meaningful averages
+- For local GGUF models via llama-server, use `run_benchmark.sh` which auto-manages the server lifecycle per model
 - For local Ollama models, set `api_base: "http://localhost:11434/v1"` and `api_key_env` to any env var (can be empty)
 - Results from multiple runs accumulate in the output dir; the Leaderboard UI tab reads all of them
