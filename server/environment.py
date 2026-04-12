@@ -164,6 +164,28 @@ def _target_schema(df: pd.DataFrame) -> dict[str, str]:
     return {col: str(df[col].dtype) for col in df.columns}
 
 
+def _build_cross_column_maps(
+    clean_df: pd.DataFrame, rules: list | None
+) -> dict[str, dict]:
+    """Build lookup maps for functional-dependency cross-column rules."""
+    maps: dict[str, dict] = {}
+    for rule in rules or []:
+        if (
+            getattr(rule, "rule_type", None) != "cross_column"
+            or getattr(rule, "condition", None) != "functional_dependency"
+            or len(getattr(rule, "columns", [])) != 2
+        ):
+            continue
+        col_a, col_b = rule.columns
+        if col_a not in clean_df.columns or col_b not in clean_df.columns:
+            continue
+        mapping = {}
+        for _, row in clean_df[[col_a, col_b]].dropna().iterrows():
+            mapping.setdefault(str(row[col_a]), row[col_b])
+        maps[f"{col_a}->{col_b}"] = mapping
+    return maps
+
+
 def _error_summary(
     error_status: dict[str, str],
     summary: dict[str, Any],
@@ -468,7 +490,7 @@ class DataCleaningEnvironment(
         self._error_status: dict[str, str] = {}
         self._error_summary_cache: dict[str, Any] = {}
         self._current_reward: float = 0.0
-        self._reward_baseline: float = 0.0
+        self._reward_baseline: float | None = None
         self._explore_steps_cycle: int = 0
         self._explore_steps_total: int = 0
         self._explore_timeouts: int = 0
@@ -481,7 +503,9 @@ class DataCleaningEnvironment(
         self._dataset_name: str = ""
         # Grading caches — avoid recomputing stable scores every step
         self._cached_schema_score: float | None = None
+        self._cached_schema_columns: list[str] | None = None
         self._cached_row_mapping: dict | None = None
+        self._cross_column_maps: dict[str, dict] = {}
         self._reward_stale: bool = True
 
     def __del__(self) -> None:
@@ -522,6 +546,11 @@ class DataCleaningEnvironment(
             result = _find_dataset(catalog, task_id)
             if result:
                 dataset_name, dataset_entry = result
+            else:
+                available = ", ".join(sorted(catalog.keys()))
+                raise ValueError(
+                    f"Invalid task_id {task_id!r}. Available dataset IDs: {available}"
+                )
 
         if dataset_entry is None:
             # Pick random dataset
@@ -546,8 +575,12 @@ class DataCleaningEnvironment(
         self._done = False
         self._done_count = 0
         self._step_count = 0
+        self._current_reward = 0.0
+        self._reward_baseline = None
         self._cached_schema_score = None
+        self._cached_schema_columns = None
         self._cached_row_mapping = None
+        self._cross_column_maps = {}
         self._reward_stale = True
         self._checkpoint_steps = 0
 
@@ -569,6 +602,9 @@ class DataCleaningEnvironment(
             except ImportError:
                 from rules.types import rule_from_dict
             self._rules = [rule_from_dict(r) for r in raw_rules]
+        self._cross_column_maps = _build_cross_column_maps(
+            self._clean_df, self._rules
+        )
 
         # Run corruption pipeline
         _seed = seed if seed is not None else 42
@@ -633,7 +669,6 @@ class DataCleaningEnvironment(
 
         # Initial grade — capture baseline (dirty data already-correct components)
         self._regrade()
-        self._reward_baseline = self._current_reward
         self._current_reward = 0.0
 
         return self._make_observation()
@@ -687,13 +722,17 @@ class DataCleaningEnvironment(
 
         self._explore_steps_cycle += 1
         self._explore_steps_total += 1
+        self._reward_stale = True
 
         result = execute_explore(
             action.query, self._worker_proc, self._explore_steps_total
         )
         if not result.success:
-            self._explore_timeouts += 1
+            error_text = f"{result.error or ''} {result.stderr or ''}".lower()
+            if "timeout" in error_text or "timed out" in error_text:
+                self._explore_timeouts += 1
 
+        self._ensure_graded()
         return self._make_observation(
             explore_result=result.stdout if result.success else f"Error: {result.error}"
         )
@@ -755,15 +794,7 @@ class DataCleaningEnvironment(
                 remaining_lines=remaining_lines,
             )
 
-        max_steps = self._profile.get("max_transform_steps", 10)
-        # Scale hard cap with corruption count so complex tasks get enough steps
-        n_ctypes = len(set(
-            info.get("corruption") for info in self._error_map.get("cell_errors", {}).values()
-            if info.get("corruption")
-        ))
-        if self._error_map.get("row_errors"):
-            n_ctypes += 1
-        max_steps = max(max_steps, n_ctypes * 3)
+        _, max_steps = self._effective_transform_bounds()
         if self._transform_steps >= max_steps:
             self._done = True
             msg += "\nMax transform steps reached. Episode ending."
@@ -826,8 +857,9 @@ class DataCleaningEnvironment(
         if self._worker_proc is not None:
             reload_worker_df(self._worker_proc)
 
-        # Truncate checkpoint count to step (discard checkpoints after restored step)
+        # Truncate checkpoint count and transform steps to restored step
         self._checkpoint_steps = step + 1
+        self._transform_steps = step
 
         self._regrade()
         return self._make_observation(
@@ -842,6 +874,7 @@ class DataCleaningEnvironment(
             )
 
         self._validate_uses += 1
+        self._reward_stale = True
         self._ensure_graded()  # no-op if already graded; _current_df already up-to-date
 
         breakdown = _validate_breakdown(
@@ -851,25 +884,35 @@ class DataCleaningEnvironment(
 
     # ── Helpers ──────────────────────────────────────────────────────────────
 
-    def _regrade(self) -> None:
-        profile = self._profile
-        cached_rm = (
-            None  # Always recompute — row content may change without count change
-        )
-        # Scale min_transform_steps to actual corruption count so tasks with
-        # many corruption types aren't penalised for the minimum required work.
+    def _effective_transform_bounds(self) -> tuple[int, int]:
+        """Return min/max transform counts after scaling for corruption count."""
         corruption_types = set()
         for info in self._error_map.get("cell_errors", {}).values():
             ct = info.get("corruption")
             if ct:
                 corruption_types.add(ct)
-        if self._error_map.get("row_errors"):
+        if self._error_map.get("spurious_rows") or self._error_map.get(
+            "missing_rows"
+        ):
             corruption_types.add("row_errors")
-        profile_min = profile.get("min_transform_steps", 2)
-        effective_min = max(profile_min, len(corruption_types))
-        # Scale max_transform_steps so penalty spreads over a wider window
-        profile_max = profile.get("max_transform_steps", 10)
-        effective_max = max(profile_max, len(corruption_types) * 3)
+
+        profile_min = self._profile.get("min_transform_steps", 2)
+        profile_max = self._profile.get("max_transform_steps", 10)
+        return (
+            max(profile_min, len(corruption_types)),
+            max(profile_max, len(corruption_types) * 3),
+        )
+
+    def _regrade(self) -> None:
+        profile = self._profile
+        cached_rm = (
+            None  # Always recompute — row content may change without count change
+        )
+        effective_min, effective_max = self._effective_transform_bounds()
+        schema_columns = self._current_df.columns.tolist()
+        if self._cached_schema_columns != schema_columns:
+            self._cached_schema_score = None
+            self._cached_schema_columns = schema_columns
 
         self._error_status, self._current_reward, ss, rm = grade(
             self._clean_df,
@@ -891,17 +934,21 @@ class DataCleaningEnvironment(
             undo_cost=profile.get("undo_cost", _UNDO_COST_DEFAULT),
             validate_cost=profile.get("validate_cost", _VALIDATE_COST_DEFAULT),
             rules=getattr(self, "_rules", None),
+            cross_column_maps=getattr(self, "_cross_column_maps", None),
             cached_schema_score=self._cached_schema_score,
             cached_row_mapping=cached_rm,
         )
         self._cached_schema_score = ss
         self._cached_row_mapping = rm
         # Normalize: subtract baseline so unfixed=0.0, fully fixed=1.0
+        raw_reward = self._current_reward
+        if self._reward_baseline is None:
+            self._reward_baseline = raw_reward
         if self._reward_baseline < 1.0:
             self._current_reward = max(
                 0.0,
                 round(
-                    (self._current_reward - self._reward_baseline)
+                    (raw_reward - self._reward_baseline)
                     / (1.0 - self._reward_baseline),
                     4,
                 ),
@@ -913,14 +960,15 @@ class DataCleaningEnvironment(
 
     def _make_step_info(self) -> StepInfo:
         profile = self._profile
+        effective_min, effective_max = self._effective_transform_bounds()
         return StepInfo(
             done=self._done,
             reward=self._current_reward,
             explore_steps_used=self._explore_steps_cycle,
             explore_budget=profile.get("explore_budget", _EXPLORE_BUDGET_DEFAULT),
             transform_steps_used=self._transform_steps,
-            max_transform_steps=profile.get("max_transform_steps", 10),
-            min_transform_steps=profile.get("min_transform_steps", 2),
+            max_transform_steps=effective_max,
+            min_transform_steps=effective_min,
             done_count=self._done_count,
             undo_count=self._undo_count,
             validate_uses=self._validate_uses,

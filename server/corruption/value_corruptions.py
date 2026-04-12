@@ -57,10 +57,42 @@ CORRUPTION_SEVERITY: dict[str, float] = {
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _get_clean_val(clean_df: pd.DataFrame | None, df: pd.DataFrame, idx: int, col: str) -> Any:
-    """Get clean value from original clean_df if available and in bounds, else from current df."""
-    if clean_df is not None and idx < len(clean_df) and col in clean_df.columns:
-        return clean_df.at[idx, col]
+_CLEAN_INDEX_MAP_ATTR = "_clean_index_map"
+
+
+class _CleanIndexMap(dict):
+    """Mapping wrapper that avoids expensive deep-copies through DataFrame.attrs."""
+
+    def __deepcopy__(self, memo):
+        return self
+
+
+def _get_clean_index_map(df: pd.DataFrame, row_mapping: dict | None = None) -> dict:
+    """Return current-row-index -> clean-row-index mapping."""
+    if row_mapping is not None:
+        return row_mapping
+    mapping = df.attrs.get(_CLEAN_INDEX_MAP_ATTR)
+    return mapping if isinstance(mapping, dict) else {}
+
+
+def _error_key(df: pd.DataFrame, idx: int, col: str) -> str:
+    """Build error_map key using the clean row index (not dirty post-drop index)."""
+    clean_idx = _get_clean_index_map(df).get(idx, idx)
+    return f"{clean_idx},{col}"
+
+
+def _get_clean_val(
+    clean_df: pd.DataFrame | None, df: pd.DataFrame, idx: int, col: str
+) -> Any:
+    """Get clean value from original clean_df if available, else current df."""
+    clean_idx = _get_clean_index_map(df).get(idx, idx)
+    if (
+        clean_idx is not None
+        and clean_df is not None
+        and clean_idx in clean_df.index
+        and col in clean_df.columns
+    ):
+        return clean_df.at[clean_idx, col]
     return df.at[idx, col]
 
 
@@ -115,7 +147,7 @@ def inject_nulls(
                 val = _get_clean_val(clean_df, df, idx, col)
                 if not pd.isna(val):
                     error_log.append({
-                        "key": f"{idx},{col}",
+                        "key": _error_key(df, idx, col),
                         "severity": severity,
                         "clean_value": _safe_clean_value(val),
                         "corruption": "inject_nulls",
@@ -155,7 +187,7 @@ def type_mangle(
             garb = garbage[int(rng.integers(0, len(garbage)))]
             if error_log is not None:
                 error_log.append({
-                    "key": f"{idx},{col}",
+                    "key": _error_key(df, idx, col),
                     "severity": severity,
                     "clean_value": _safe_clean_value(clean_val),
                     "corruption": "type_mangle",
@@ -180,11 +212,19 @@ def duplicate_rows(
 ) -> pd.DataFrame:
     """Insert exact duplicate rows."""
     rng = rng or np.random.default_rng(42)
+    row_mapping = _get_clean_index_map(df, kwargs.get("row_mapping"))
     n_dupes = max(1, int(len(df) * fraction))
     severity = CORRUPTION_SEVERITY["duplicate_rows"]
     dupe_pos = rng.choice(len(df), size=n_dupes, replace=True)
     dupes = df.iloc[dupe_pos].copy()
     result = pd.concat([df, dupes], ignore_index=True)
+    new_mapping = _CleanIndexMap({
+        int(pos): row_mapping.get(idx, idx) for pos, idx in enumerate(df.index)
+    })
+    for i, pos in enumerate(dupe_pos):
+        src_idx = df.index[int(pos)]
+        new_mapping[len(df) + i] = row_mapping.get(src_idx, src_idx)
+    result.attrs[_CLEAN_INDEX_MAP_ATTR] = new_mapping
     if error_log is not None:
         start_idx = len(df)
         for i in range(n_dupes):
@@ -236,7 +276,7 @@ def whitespace_noise(
                 new_val = val.replace(" ", "  ", 1) if " " in val else "  " + val
             if error_log is not None:
                 error_log.append({
-                    "key": f"{idx},{col}",
+                    "key": _error_key(df, idx, col),
                     "severity": severity,
                     "clean_value": _safe_clean_value(clean_val),
                     "corruption": "whitespace_noise",
@@ -277,7 +317,7 @@ def format_inconsistency(
                 df.at[idx, col] = new_val
                 if error_log is not None:
                     error_log.append({
-                        "key": f"{idx},{col}",
+                        "key": _error_key(df, idx, col),
                         "severity": severity,
                         "clean_value": _safe_clean_value(clean_val),
                         "corruption": "format_inconsistency",
@@ -323,7 +363,7 @@ def outlier_injection(
             new_val = col_mean + col_std * multiplier if rng.random() > 0.5 else col_mean - col_std * multiplier
             if error_log is not None:
                 error_log.append({
-                    "key": f"{idx},{col}",
+                    "key": _error_key(df, idx, col),
                     "severity": severity,
                     "clean_value": _safe_clean_value(clean_val),
                     "corruption": "outlier_injection",
@@ -348,22 +388,37 @@ def drop_rows(
 ) -> pd.DataFrame:
     """Randomly remove rows from the DataFrame."""
     rng = rng or np.random.default_rng(42)
+    row_mapping = _get_clean_index_map(df, kwargs.get("row_mapping"))
     n_drop = max(1, int(len(df) * fraction))
     severity = CORRUPTION_SEVERITY["drop_rows"]
     drop_positions = rng.choice(len(df), size=n_drop, replace=False)
     drop_indices = df.index[drop_positions]
     if error_log is not None:
         for idx in drop_indices:
+            clean_idx = row_mapping.get(idx, idx)
             row_values = {}
-            if clean_df is not None and idx < len(clean_df):
-                row_values = clean_df.iloc[idx].to_dict()
+            if (
+                clean_idx is not None
+                and clean_df is not None
+                and clean_idx in clean_df.index
+            ):
+                row_values = clean_df.loc[clean_idx].to_dict()
             error_log.append({
-                "key": f"missing_{idx}",
+                "key": f"missing_{clean_idx}",
                 "severity": severity,
-                "clean_values": {k: _safe_clean_value(v) for k, v in row_values.items()},
+                "clean_values": {
+                    k: _safe_clean_value(v) for k, v in row_values.items()
+                },
                 "corruption": "drop_rows",
             })
-    return df.drop(index=drop_indices).reset_index(drop=True)
+    result = df.drop(index=drop_indices).reset_index(drop=True)
+    dropped = set(drop_indices)
+    remaining_indices = [idx for idx in df.index if idx not in dropped]
+    result.attrs[_CLEAN_INDEX_MAP_ATTR] = _CleanIndexMap({
+        new_idx: row_mapping.get(old_idx, old_idx)
+        for new_idx, old_idx in enumerate(remaining_indices)
+    })
+    return result
 
 
 # ===================================================================
@@ -408,7 +463,7 @@ def decimal_shift(
             df.at[idx, col] = fval * shift
             if error_log is not None:
                 error_log.append({
-                    "key": f"{idx},{col}",
+                    "key": _error_key(df, idx, col),
                     "severity": severity,
                     "clean_value": _safe_clean_value(clean_val),
                     "corruption": "decimal_shift",
@@ -508,7 +563,7 @@ def typo_injection(
                 df.at[idx, col] = new_val
                 if error_log is not None:
                     error_log.append({
-                        "key": f"{idx},{col}",
+                        "key": _error_key(df, idx, col),
                         "severity": severity,
                         "clean_value": _safe_clean_value(clean_val),
                         "corruption": "typo_injection",
@@ -577,7 +632,7 @@ def date_format_mix(
                 df.at[idx, col] = new_val
                 if error_log is not None:
                     error_log.append({
-                        "key": f"{idx},{col}",
+                        "key": _error_key(df, idx, col),
                         "severity": severity,
                         "clean_value": _safe_clean_value(clean_val),
                         "corruption": "date_format_mix",
@@ -664,7 +719,7 @@ def abbreviation_mix(
                         break
             if replaced and error_log is not None:
                 error_log.append({
-                    "key": f"{idx},{col}",
+                    "key": _error_key(df, idx, col),
                     "severity": severity,
                     "clean_value": _safe_clean_value(clean_val),
                     "corruption": "abbreviation_mix",
@@ -705,7 +760,7 @@ def leading_zero_strip(
                     df.at[idx, col] = new_val
                     if error_log is not None:
                         error_log.append({
-                            "key": f"{idx},{col}",
+                            "key": _error_key(df, idx, col),
                             "severity": severity,
                             "clean_value": _safe_clean_value(clean_val),
                             "corruption": "leading_zero_strip",
@@ -718,7 +773,7 @@ def leading_zero_strip(
                     df.at[idx, col] = new_val
                     if error_log is not None:
                         error_log.append({
-                            "key": f"{idx},{col}",
+                            "key": _error_key(df, idx, col),
                             "severity": severity,
                             "clean_value": _safe_clean_value(clean_val),
                             "corruption": "leading_zero_strip",
@@ -743,6 +798,7 @@ def header_in_data(
     """Insert the header row as a data row at one or more random positions."""
     df = df.copy()
     rng = rng or np.random.default_rng(42)
+    row_mapping = _get_clean_index_map(df, kwargs.get("row_mapping"))
     severity = CORRUPTION_SEVERITY["header_in_data"]
     n_inserts = max(1, int(len(df) * fraction))
     header_row = pd.DataFrame([df.columns.tolist()], columns=df.columns)
@@ -761,6 +817,21 @@ def header_in_data(
         inserted_count += 1
     pieces.append(df.iloc[prev:])
     result = pd.concat(pieces, ignore_index=True)
+    inserted = set()
+    offset = 0
+    for insert_pos in insert_positions:
+        inserted.add(int(insert_pos) + offset)
+        offset += 1
+    old_pos = 0
+    new_mapping = _CleanIndexMap()
+    for new_idx in range(len(result)):
+        if new_idx in inserted:
+            new_mapping[new_idx] = None
+        else:
+            old_idx = df.index[old_pos]
+            new_mapping[new_idx] = row_mapping.get(old_idx, old_idx)
+            old_pos += 1
+    result.attrs[_CLEAN_INDEX_MAP_ATTR] = new_mapping
 
     if error_log is not None:
         # The inserted header rows are spurious rows
@@ -833,7 +904,7 @@ def category_misspell(
                 df.at[idx, col] = new_val
                 if error_log is not None:
                     error_log.append({
-                        "key": f"{idx},{col}",
+                        "key": _error_key(df, idx, col),
                         "severity": severity,
                         "clean_value": _safe_clean_value(clean_val),
                         "corruption": "category_misspell",
@@ -901,7 +972,7 @@ def business_rule_violation(
             df.at[idx, col] = new_val
             if error_log is not None:
                 error_log.append({
-                    "key": f"{idx},{col}",
+                    "key": _error_key(df, idx, col),
                     "severity": severity,
                     "clean_value": _safe_clean_value(clean_val),
                     "corruption": "business_rule_violation",
@@ -948,6 +1019,8 @@ def _rule_aware_violation(
                 else:
                     spread = abs(rule.max_val - rule.min_val) * 0.5 + 1
                     bad_val = rule.max_val + float(rng.uniform(1, spread))
+            if pd.api.types.is_integer_dtype(df[col].dtype):
+                bad_val = int(round(bad_val))
             df.at[int(idx), col] = bad_val
         elif isinstance(rule, EnumRule):
             bad_val = f"INVALID_{int(rng.integers(100, 999))}"
@@ -964,7 +1037,7 @@ def _rule_aware_violation(
 
         if error_log is not None:
             error_log.append({
-                "key": f"{int(idx)},{col}",
+                "key": _error_key(df, int(idx), col),
                 "severity": severity,
                 "clean_value": _safe_clean_value(clean_val),
                 "corruption": "business_rule_violation",
@@ -1044,7 +1117,7 @@ def encoding_noise(
                 df.at[idx, col] = new_val
                 if error_log is not None:
                     error_log.append({
-                        "key": f"{idx},{col}",
+                        "key": _error_key(df, idx, col),
                         "severity": severity,
                         "clean_value": _safe_clean_value(clean_val),
                         "corruption": "encoding_noise",
@@ -1172,7 +1245,7 @@ def unicode_homoglyph(
                 df.at[idx, col] = new_val
                 if error_log is not None:
                     error_log.append({
-                        "key": f"{idx},{col}",
+                        "key": _error_key(df, idx, col),
                         "severity": severity,
                         "clean_value": _safe_clean_value(clean_val),
                         "corruption": "unicode_homoglyph",
@@ -1239,7 +1312,7 @@ def html_entity_leak(
                 df.at[idx, col] = new_val
                 if error_log is not None:
                     error_log.append({
-                        "key": f"{idx},{col}",
+                        "key": _error_key(df, idx, col),
                         "severity": severity,
                         "clean_value": _safe_clean_value(clean_val),
                         "corruption": "html_entity_leak",
@@ -1370,7 +1443,7 @@ def unit_inconsistency(
             df.at[idx, col] = new_val
             if error_log is not None:
                 error_log.append({
-                    "key": f"{idx},{col}",
+                    "key": _error_key(df, idx, col),
                     "severity": severity,
                     "clean_value": _safe_clean_value(clean_val),
                     "corruption": "unit_inconsistency",

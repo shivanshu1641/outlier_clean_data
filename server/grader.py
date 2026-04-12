@@ -151,12 +151,20 @@ def _detect_collateral_damage(
     """
     cell_errors = error_map.get("cell_errors", {})
 
-    # Build set of known error cells for fast lookup
+    result_to_clean = (
+        {result_idx: clean_idx for clean_idx, result_idx in row_mapping.items()}
+        if row_mapping
+        else {}
+    )
+
+    # Build set of known error cells for fast lookup, keyed by clean row index.
     error_cells: set[tuple[int, str]] = set()
     for key in cell_errors:
         try:
             row_str, col = _parse_error_key(key)
-            error_cells.add((int(row_str), col))
+            result_idx = int(row_str)
+            clean_idx = result_to_clean.get(result_idx, result_idx)
+            error_cells.add((clean_idx, col))
         except (ValueError, IndexError):
             pass
 
@@ -226,30 +234,25 @@ def _check_missing_row(
     except ValueError:
         return "unfixed"
 
-    if row_idx not in result_df.index:
-        return "unfixed"
-
-    # Row exists — verify content matches clean data
     if row_idx not in clean_df.index:
         return "fixed"  # can't verify, benefit of doubt
 
     clean_row = clean_df.loc[row_idx]
-    result_row = result_df.loc[row_idx]
-    matches = 0
-    total = 0
-    for col in clean_df.columns:
-        if col not in result_df.columns:
-            continue
-        total += 1
-        if _values_equal(clean_row.get(col), result_row.get(col)):
-            matches += 1
+    shared_cols = [col for col in clean_df.columns if col in result_df.columns]
+    if not shared_cols:
+        return "fixed"
 
-    if total == 0:
-        return "fixed"
-    match_ratio = matches / total
-    if match_ratio >= 0.8:
-        return "fixed"
-    elif match_ratio >= 0.3:
+    best_ratio = 0.0
+    for result_idx in result_df.index:
+        matches = 0
+        for col in shared_cols:
+            if _values_equal(clean_row.get(col), result_df.at[result_idx, col]):
+                matches += 1
+        best_ratio = max(best_ratio, matches / len(shared_cols))
+        if best_ratio >= 0.8:
+            return "fixed"
+
+    if best_ratio >= 0.3:
         return "wrong_value"  # partially restored
     return "unfixed"
 
@@ -309,7 +312,8 @@ def _row_hash(row) -> str:
     """Compute a deterministic hash for a row.
 
     Normalizes numeric values so that int/float representations match
-    after CSV round-trips (e.g. ``6`` and ``6.0`` hash identically).
+    after CSV round-trips (e.g. ``6`` and ``6.0`` hash identically)
+    and across dtype differences (str "0.0" matches float 0.0).
     """
     parts = []
     for val in row:
@@ -317,15 +321,14 @@ def _row_hash(row) -> str:
             parts.append("__NA__")
         else:
             # Normalize numeric values: 6.0 → "6", 3.14 → "3.14"
+            # Both float 0.0 and string "0.0" normalize to "0".
             try:
                 fv = float(val)
-                if fv == int(fv) and not (
-                    isinstance(val, str) and val.strip() != str(int(fv))
-                ):
+                if fv == int(fv):
                     parts.append(str(int(fv)))
                 else:
                     parts.append(str(fv))
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, OverflowError):
                 parts.append(str(val).strip().lower())
     return "|".join(parts)
 
@@ -440,8 +443,18 @@ def _cell_score_full(
             remaining_severity += severity
             continue
 
-        # Use row_mapping to find the actual result row index
-        mapped_idx = row_mapping.get(row_idx, row_idx) if row_mapping else row_idx
+        # Use row_mapping to find the actual result row index.
+        # If row_mapping exists but doesn't contain this row, the row was
+        # not matched by content — mark as unfixed rather than falling back
+        # to index (which points to a different row after drop_duplicates).
+        if row_mapping:
+            mapped_idx = row_mapping.get(row_idx)
+            if mapped_idx is None:
+                error_status[key] = "unfixed"
+                remaining_severity += severity
+                continue
+        else:
+            mapped_idx = row_idx
 
         if str(mapped_idx) not in result_index:
             error_status[key] = "unfixed"

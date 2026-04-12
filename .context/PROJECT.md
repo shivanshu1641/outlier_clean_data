@@ -9,7 +9,7 @@ OpenEnv environment for the Meta PyTorch Hackathon (deadline: April 8, 2026). AI
 - **server/environment.py** — Core Environment class; generates corrupted episodes at `reset()` via `CorruptionPipeline`; supports `explore`, `transform`, `done`, checkpoint-backed `undo`, and budgeted `validate`; contains `LEGACY_TASK_MAP` for backward-compatible task IDs
 - **server/sandbox.py** — Persistent worker process per episode; accepts dirty content and file format; writes raw input file plus normalized CSV working copy; exposes filesystem-backed checkpoints for undo; atexit cleanup of all active workers
 - **server/worker.py** — Worker process: re-reads CSV each step, auto-rewrites `inplace=True` patterns, exposes pandas/numpy plus `io`, `openpyxl`, `yaml`, and `lxml`; restricted `__builtins__` allowlist; `_BoundedStringIO` stdout cap; 2GB memory limit (Linux); `"reload"` command resyncs in-memory df after undo
-- **server/grader.py** — Multi-level grader: schema, row, cell, distribution, and semantic scores; content-based row matching with numeric normalization (`6.0 → "6"` for CSV round-trip); collateral damage detection via row_mapping; action-cost parameters; `accepted_fill` logic with 0.5σ margin
+- **server/grader.py** — Multi-level grader: schema, row, cell, distribution, and semantic scores; content-based row matching with cross-type numeric normalization (`6.0`/`"6.0"`/`6` all normalize to `"6"`); collateral damage detection via row_mapping; action-cost parameters; `accepted_fill` logic with 0.5σ margin
 - **server/app.py** — FastAPI via `openenv.core.create_app()`, health endpoint at `/`, optional Gradio dashboard at `/web` via `ENABLE_WEB_INTERFACE`
 - **Dockerfile** (root) — HF Spaces deployment on port 7860; builds from `pyproject.toml`, installs lxml system deps, copies datasets/tools; `tini` for zombie reaping
 - **models.py** — Pydantic types: ExploreAction, TransformAction, DoneAction, UndoAction, ValidateAction, ErrorMap, CellError, RowError, Observation, State
@@ -19,7 +19,7 @@ OpenEnv environment for the Meta PyTorch Hackathon (deadline: April 8, 2026). AI
 - **server/corruption/categories.py** — 6 benchmark categories (FP/VR/MD/SR/SV/CP) mapping to corruption subsets and format pools
 - **server/rules/** — 7 semantic rule types (Range, Regex, Enum, Dtype, NotNull, Unique, CrossColumn), auto-inferred from clean data, validated in grading
 - **datasets/** — 25-entry dataset catalog plus download pipeline in `tools/download_datasets.py`
-- **tools/benchmark_runner.py** — Config-driven benchmark orchestrator: dataset×category×difficulty×model×seed task matrix; saves results.jsonl + summary.csv + per-task JSONL episode logs to `outputs/benchmark/`; accepts `--model-name`/`--api-base` for single-model runs or `--models` to filter from config
+- **tools/benchmark_runner.py** — Config-driven benchmark orchestrator: dataset×category×difficulty×model×seed task matrix; saves results.jsonl + summary.csv + per-task JSONL episode logs to `outputs/benchmark/`; accepts `--model-name`/`--api-base` for single-model runs or `--models` to filter from config; retries up to 3× with backoff on CAPACITY_REACHED errors
 - **tools/benchmark_config.yaml** — Benchmark config: 6 local GGUF models (Qwen3.5-0.8B/2B/9B, gemma-4-E2B/E4B, Qwen3-4B), 6 categories, 3 difficulties, all discovered datasets
 - **run_benchmark.sh** — Multi-model benchmark orchestrator: loops through GGUF models, starts/stops llama-server per model, delegates to benchmark_runner; supports `--models`, `--categories`, `--difficulties` filters
 - **run_all_models.sh** — Legacy multi-model runner (calls inference.py directly, no category tagging)
@@ -168,12 +168,24 @@ Full model benchmarks should be rerun after the rebalance before publishing new 
 - Context window overflow on hard tasks with small local models (8192 tokens) — inference auto-submits `done` on context exceeded
 - `titanic_hard` shows 16/958 fixed at reset — phantom matches from overlapping corruptions where dirty value happens to equal clean value
 - ~~`clean_value: None` overlap bug~~ — fixed: `_get_clean_val()` always reads from original clean_df, not corrupted df
-- Grader index type mismatch: if `result_df` has string index (e.g. after CSV round-trip) but error_map keys are int-based, `df.at[int_idx, col]` silently KeyErrors → all cells marked "unfixed". Pre-existing bug, not yet fixed
-- ~~Grader `_row_hash` int/float mismatch~~ — fixed: CSV round-trip converts int columns to float when NaN is present, causing `str(6) ≠ str(6.0)` and zero row matches in `match_rows_by_content`. `_row_hash` now normalizes numeric values (`6.0 → "6"`). Harmless for same-row-count tasks (identity fallback) but broke hard tasks with `drop_rows`/`duplicate_rows`
-- Medium/hard 0-progress with small models: not an environment bug — `pd.to_numeric(errors='coerce')` converts sentinels like `"##"` → NaN when clean value is `0`, graded as `wrong_value` (1.5× penalty). Models must impute correct values, not just coerce to NaN. Type_mangle sentinels like "n/a"/"N/A" are auto-parsed as NaN by `pd.read_csv()` before the agent sees them (`dirty_value=None`)
+- ~~Grader index type mismatch~~ — fixed: content-based row matching (`match_rows_by_content`) now used throughout; `_row_hash` handles OverflowError
+- ~~Grader `_row_hash` int/float mismatch~~ — fixed: CSV round-trip converts int columns to float when NaN is present, causing `str(6) ≠ str(6.0)` and zero row matches in `match_rows_by_content`. `_row_hash` now normalizes numeric values (`6.0 → "6"`)
+- Medium/hard 0-progress with small models: not an environment bug — `pd.to_numeric(errors='coerce')` converts sentinels like `"##"` → NaN when clean value is `0`, graded as `wrong_value` (1.5× penalty). Models must impute correct values, not just coerce to NaN
 - ~~Collateral damage detection could compare dropped rows against shifted result indices~~ — fixed: row-mapping aware, skips clean rows missing from the content mapping after row drops
-- ~~Missing rows never graded as fixed~~ — fixed (commit c71d840): error_map keys for missing rows were stored with `"missing_"` prefix; grader expected bare integers. Also fixed row-level ops ordering (alphabetical caused index shift bugs), stale row mapping cache (now always recomputed), and collateral damage using raw index intersection instead of row_mapping
-- Hard difficulty dtype bug still present on some seeds — not yet fixed
+- ~~Missing rows never graded as fixed~~ — fixed: error_map keys for missing rows use `"missing_"` prefix with clean indices; grader handles both spurious and missing rows via content matching
+- ~~Hard difficulty dtype bug (RangeRule int64 crash)~~ — fixed: `business_rule_violation` now casts float bad_val to int for integer columns
+- ~~Error map keys used dirty indices after drop_rows~~ — fixed: all cell corruption functions now use `_error_key()` helper that resolves clean row index via `_get_clean_index_map`
+- ~~Explore/validate costs not reflected in observation reward~~ — fixed: `_handle_explore` now calls `_ensure_graded()` before returning observation; validate already did
+- ~~Validate/explore counters not marking reward stale~~ — fixed: both handlers set `_reward_stale = True` before proceeding
+- ~~Invalid task_id silently picked random dataset~~ — fixed: now raises `ValueError`
+- ~~Schema score cached across column changes~~ — fixed: cache invalidated when column list changes
+- ~~Cross-column rules not built from clean data~~ — fixed: built at reset time and passed to grade()
+- ~~Explore timeout classification counted syntax errors~~ — fixed: only actual timeout/timed-out errors count
+- ~~Benchmark runner no retry on capacity errors~~ — fixed: up to 3 retries with backoff for CAPACITY_REACHED
+- ~~Grader row_mapping fallback after drop_duplicates caused phantom wrong_value penalties~~ — fixed: unmapped rows marked "unfixed" instead of falling back to same index (which pointed to different row after row operations)
+- ~~`_row_hash` str/float mismatch in FP tasks~~ — fixed: string guard prevented normalizing `"0.0"` (str) to match `0.0` (float), causing `match_rows_by_content` to return 0 matches when dirty data had string-typed columns. All FP/format tasks got cell_score=0.0 permanently. Removed the string guard; any value that parses as float normalizes uniformly.
+- Pre-existing: `test_apply_format_corruptions_difficulty[medium]` fails — `apply_format_corruptions` returns empty list for medium CSV
+- wine_quality FP easy: `drop_duplicates()` over-removes rows (1658→1360 vs 1599 clean) because the dataset has 240 natural duplicates. Inference strategy issue, not grading bug.
 
 ## File Map
 

@@ -264,21 +264,43 @@ async def run_benchmark_task(
     inf_mod._jsonl_file = open(episode_path, "w", buffering=1)
 
     t0 = time.time()
+    max_retries = 3
 
     try:
-        # Delegate to the canonical inference loop — gets all improvements for free
-        reward = await inf_mod.run_task(
-            task.dataset_id, task.difficulty,
-            fmt=None,  # let CorruptionPipeline pick format based on category
-            category=task.category,
-            seed=task.seed,
-            max_steps=max_steps,
-        )
+        reward = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                reward = await inf_mod.run_task(
+                    task.dataset_id, task.difficulty,
+                    fmt=None,  # let CorruptionPipeline pick format based on category
+                    category=task.category,
+                    seed=task.seed,
+                    max_steps=max_steps,
+                )
+                break
+            except RuntimeError as e:
+                if "CAPACITY_REACHED" in str(e) and attempt < max_retries:
+                    logger.warning(
+                        "Capacity error on %s (attempt %d/%d), retrying in %ds...",
+                        task_key, attempt, max_retries, attempt * 3,
+                    )
+                    await asyncio.sleep(attempt * 3)
+                    # Reset episode file for retry
+                    inf_mod._jsonl_file.close()
+                    inf_mod._jsonl_file = open(episode_path, "w", buffering=1)
+                    continue
+                raise
+        else:
+            logger.error("Task %s failed after %d capacity retries", task_key, max_retries)
+            inf_mod._jsonl_file.close()
+            inf_mod._jsonl_file = old_jsonl
+            if episode_path.exists():
+                episode_path.unlink()
+            return None
     except Exception:
         logger.exception("Task %s failed", task_key)
         inf_mod._jsonl_file.close()
         inf_mod._jsonl_file = old_jsonl
-        # Clean up episode file on error
         if episode_path.exists():
             episode_path.unlink()
         return None

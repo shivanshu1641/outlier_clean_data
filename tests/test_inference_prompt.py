@@ -16,6 +16,11 @@ def test_build_user_prompt_includes_validate_result():
         transform_result=None,
         validate_result="Cell errors (2 unfixed): ...",
         step_info=None,
+        file_format="csv",
+        target_schema=None,
+        file_preview=None,
+        semantic_rules=[],
+        diagnosis=None,
     )
 
     prompt = build_user_prompt(obs, result_reward=0.0, action_history=[])

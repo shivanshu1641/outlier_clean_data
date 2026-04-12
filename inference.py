@@ -71,28 +71,20 @@ ENV_URL = os.environ.get("ENV_URL", "http://localhost:7860")
 # easy: csv + tsv | medium: csv + json + jsonl | hard: csv + json + xml
 EVAL_TASKS: list[tuple[str, str, str]] = [
     ("titanic", "easy", "csv"),
-    ("titanic", "easy", "tsv"),
     ("titanic", "medium", "csv"),
-    ("titanic", "medium", "json"),
     ("titanic", "hard", "csv"),
-    ("titanic", "hard", "json"),
-    ("titanic", "hard", "xml"),
     ("iris", "easy", "csv"),
     ("iris", "medium", "csv"),
     ("iris", "medium", "jsonl"),
     ("boston_housing", "medium", "csv"),
-    ("boston_housing", "medium", "json"),
     ("boston_housing", "hard", "csv"),
-    ("boston_housing", "hard", "xml"),
+    ("boston_housing", "hard", "json"),
     ("diabetes", "medium", "csv"),
-    ("diabetes", "medium", "jsonl"),
     ("diabetes", "hard", "csv"),
     ("diabetes", "hard", "json"),
     ("wine_quality", "easy", "csv"),
     ("wine_quality", "medium", "csv"),
-    ("wine_quality", "medium", "json"),
     ("wine_quality", "hard", "csv"),
-    ("wine_quality", "hard", "xml"),
     ("breast_cancer", "easy", "csv"),
     ("breast_cancer", "medium", "csv"),
     ("breast_cancer", "medium", "jsonl"),
@@ -1108,7 +1100,11 @@ async def run_task(
         targets = _extract_remaining_error_targets(obs.constraints)
         _SAFE_TEMPLATES: dict[str, callable] = {
             "duplicate_rows": lambda _col: "df = df.drop_duplicates()",
-            "inject_nulls": lambda col: f"df['{col}'] = df['{col}'].fillna(df['{col}'].median())",
+            "inject_nulls": lambda col: (
+                f"df['{col}'] = df['{col}'].fillna("
+                f"df['{col}'].median() if pd.api.types.is_numeric_dtype(df['{col}']) "
+                f"else df['{col}'].mode().iloc[0])"
+            ),
             "whitespace_noise": lambda col: (
                 f"df['{col}'] = df['{col}'].astype(str)"
                 f".str.replace(r'\\s+', ' ', regex=True).str.strip()"
@@ -1175,7 +1171,9 @@ async def run_task(
         step_rewards: list[float] = []
         best_reward: float = current_reward
         best_fixed: int = fixed
-        best_transform_step: int = 0  # checkpoint step for undo (0 = original)
+        # Undo target: if auto-transforms improved state, checkpoint at that step
+        # so auto-undo doesn't revert past auto-transform gains
+        best_transform_step: int = auto_step if auto_action_history else 0
 
         # Escalation ladder state (D)
         stale_count: int = 0   # consecutive non-improving transforms
@@ -1426,6 +1424,10 @@ async def run_task(
                 }
             )
 
+            # Per-step warnings — initialized here so auto-undo can append before
+            # the later warning-generation block adds more.
+            warnings: list[str] = []
+
             # ── Major regression: auto-undo immediately ────────────────────────
             # MUST check BEFORE updating best state, otherwise reward drop is masked
             did_regression_undo = False
@@ -1441,7 +1443,7 @@ async def run_task(
                 if (fixed_regression or wrong_value_regression) and total_auto_undos < 4:
                     reason = "wrong values" if wrong_value_regression else "errors-fixed drop"
                     logger.warning(
-                        "Auto-undo (%s): reward %.4f→%.4f, fixed %d→%d — reverting to step %d",
+                        "Auto-undo (%s): reward %.4f→%.4f, fixed %d→%d — reverting to checkpoint %d",
                         reason,
                         best_reward,
                         current_reward,
@@ -1472,7 +1474,7 @@ async def run_task(
                         {
                             "step": step_num,
                             "type": "undo",
-                            "summary": f"auto-undo ({reason}) to step {best_transform_step}",
+                            "summary": f"auto-undo ({reason}) to checkpoint {best_transform_step}",
                             "reward_after": current_reward,
                             "errors_fixed": fixed,
                         }
@@ -1480,10 +1482,30 @@ async def run_task(
                     stale_count = max(0, stale_count - 1)  # partial credit for undo
                     did_regression_undo = True
                     total_auto_undos += 1
-                    # Update best_fixed/best_reward to post-undo baseline
-                    # Keep best_transform_step as-is — we undid TO that step
+                    # Sync best_fixed to the post-undo state (data matches checkpoint).
+                    # Keep best_reward as-is — the pre-regression peak is the true
+                    # best.  Resetting to post-undo value (which includes undo penalty)
+                    # would permanently lower the bar and mask future regressions.
                     best_fixed = fixed
-                    best_reward = current_reward
+                    # Build explicit post-undo warning so model avoids the same mistake
+                    failed_code = action_dict.get("code", "")
+                    failed_cols = __import__("re").findall(r"df\['([^']+)'\]", failed_code)
+                    undo_warning = (
+                        f"AUTO-UNDO: Your last transform caused a {reason} "
+                        f"(reward {best_reward:.4f}→{current_reward:.4f}). "
+                        f"Reverted to checkpoint {best_transform_step} "
+                        f"({fixed}/{total} fixed)."
+                    )
+                    if failed_cols:
+                        undo_warning += (
+                            f" Avoid column(s) {', '.join(set(failed_cols))} "
+                            f"with that approach — target a DIFFERENT corruption type or column."
+                        )
+                    else:
+                        undo_warning += (
+                            " Target a DIFFERENT corruption type or column next."
+                        )
+                    warnings.append(undo_warning)
 
             # ── Update best state + stale_count after transforms ──────────────
             # (placed AFTER regression check so reward drop isn't masked)
@@ -1523,7 +1545,6 @@ async def run_task(
                           fixed=fixed, best_fixed=best_fixed, temp=current_temp)
 
             # ── Generate per-step warnings ────────────────────────────────────
-            warnings: list[str] = []
             if action_type == "explore":
                 query = action_dict.get("query", "")
                 recent_explores = [
@@ -1650,7 +1671,7 @@ async def run_task(
                 elif stale_count == 3 and best_fixed > 0:
                     # Tier 3: auto-undo to best known good state
                     logger.warning(
-                        "Escalation tier 3: %d stale transforms — auto-undo to step %d",
+                        "Escalation tier 3: %d stale transforms — auto-undo to checkpoint %d",
                         stale_count,
                         best_transform_step,
                     )
@@ -1667,14 +1688,12 @@ async def run_task(
                     log_step(step_num, "undo", current_reward,
                              done=False, errors_fixed=fixed, errors_total=total)
                     action_history.append({"step": step_num, "type": "undo",
-                                           "summary": f"escalation-undo to {best_transform_step}",
+                                           "summary": f"escalation-undo to checkpoint {best_transform_step}",
                                            "reward_after": current_reward, "errors_fixed": fixed})
                     total_auto_undos += 1
-                    # Update best_fixed/best_reward to post-undo state
-                    # so future comparisons use the CURRENT baseline, not the pre-undo peak
-                    # Keep best_transform_step as-is — we undid TO that step, it's still valid
+                    # Sync best_fixed to the post-undo state (data matches checkpoint).
+                    # Keep best_reward as-is — the pre-undo peak is the true best.
                     best_fixed = fixed
-                    best_reward = current_reward
                     _jlog("escalation_undo", step=step_num, stale_count=stale_count,
                           best_transform_step=best_transform_step,
                           total_auto_undos=total_auto_undos)

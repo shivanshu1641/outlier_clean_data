@@ -323,9 +323,9 @@ class TestRunBenchmarkTask:
         ]
         fake_session = _FakeEnvSession(reset_result, step_results)
 
-        monkeypatch.setattr("client.DataCleaningClient", lambda base_url: fake_session)
-        monkeypatch.setattr("inference.get_agent_action", lambda messages, temperature=0.1: ({"type": "done"}, 0.01, None))
-        monkeypatch.setattr("inference.action_from_dict", lambda action_dict: SimpleNamespace(type=action_dict["type"]))
+        monkeypatch.setattr("inference.DataCleaningClient", lambda base_url: fake_session)
+        monkeypatch.setattr("inference.get_agent_action", lambda messages, temperature=0.1: ({"type": "transform", "code": "pass"}, 0.01, None))
+        monkeypatch.setattr("inference.action_from_dict", lambda action_dict: SimpleNamespace(type=action_dict["type"], code=action_dict.get("code", "")))
 
         task = BenchmarkTask(
             dataset_id="titanic",
@@ -348,7 +348,7 @@ class TestRunBenchmarkTask:
             async def __aexit__(self, exc_type, exc, tb):
                 return None
 
-        monkeypatch.setattr("client.DataCleaningClient", lambda base_url: FailingSession())
+        monkeypatch.setattr("inference.DataCleaningClient", lambda base_url: FailingSession())
 
         task = BenchmarkTask(
             dataset_id="titanic",
@@ -372,9 +372,9 @@ class TestRunBenchmarkTask:
         ]
         fake_session = _FakeEnvSession(reset_result, step_results)
 
-        monkeypatch.setattr("client.DataCleaningClient", lambda base_url: fake_session)
-        monkeypatch.setattr("inference.get_agent_action", lambda messages, temperature=0.1: ({"type": "done"}, 0.01, None))
-        monkeypatch.setattr("inference.action_from_dict", lambda action_dict: SimpleNamespace(type=action_dict["type"]))
+        monkeypatch.setattr("inference.DataCleaningClient", lambda base_url: fake_session)
+        monkeypatch.setattr("inference.get_agent_action", lambda messages, temperature=0.1: ({"type": "transform", "code": "pass"}, 0.01, None))
+        monkeypatch.setattr("inference.action_from_dict", lambda action_dict: SimpleNamespace(type=action_dict["type"], code=action_dict.get("code", "")))
 
         task = BenchmarkTask(
             dataset_id="titanic",

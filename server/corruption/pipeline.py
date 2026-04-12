@@ -9,7 +9,12 @@ import numpy as np
 import pandas as pd
 
 from .profiles import DIFFICULTY_PROFILES, DIFFICULTY_WEIGHTS
-from .value_corruptions import CORRUPTION_REGISTRY, CORRUPTION_SEVERITY
+from .value_corruptions import (
+    CORRUPTION_REGISTRY,
+    CORRUPTION_SEVERITY,
+    _CLEAN_INDEX_MAP_ATTR,
+    _CleanIndexMap,
+)
 
 
 class CorruptionPipeline:
@@ -67,6 +72,8 @@ class CorruptionPipeline:
         pipeline_metadata : dict
         """
         df = clean_df.copy()
+        row_mapping = _CleanIndexMap({idx: idx for idx in df.index})
+        df.attrs[_CLEAN_INDEX_MAP_ATTR] = row_mapping
         self._rules = rules or []
         error_log: list[dict] = []
 
@@ -158,6 +165,8 @@ class CorruptionPipeline:
             extra_kwargs = {}
             if corruption_name == "business_rule_violation" and self._rules:
                 extra_kwargs["rules"] = self._rules
+            df.attrs[_CLEAN_INDEX_MAP_ATTR] = row_mapping
+            extra_kwargs["row_mapping"] = row_mapping
 
             df = meta["fn"](
                 df,
@@ -169,6 +178,9 @@ class CorruptionPipeline:
                 py_rng=self.py_rng,
                 **extra_kwargs,
             )
+            mapped = df.attrs.get(_CLEAN_INDEX_MAP_ATTR)
+            if isinstance(mapped, dict):
+                row_mapping = mapped
 
             applied_corruptions.append(
                 {
