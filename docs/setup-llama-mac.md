@@ -39,7 +39,37 @@ hf download unsloth/gemma-4-E2B-it-GGUF gemma-4-E2B-it-Q4_K_M.gguf --local-dir ~
 | `Q8_0`       | 5.0 GB     | Highest quality, still fast on M1 Pro   |
 | `BF16`       | 9.3 GB     | Full precision — avoid on 16GB machines |
 
-### Alternative models (no HF auth needed)
+### Benchmark model suite
+
+All models used by `run_benchmark.sh`. Download all of them to `~/models/`:
+
+```bash
+# Qwen3.5-0.8B (~1GB)
+hf download unsloth/Qwen3.5-0.8B-GGUF \
+  Qwen3.5-0.8B-UD-Q4_K_XL.gguf --local-dir ~/models/
+
+# Qwen3.5-2B (~2GB)
+hf download unsloth/Qwen3.5-2B-GGUF \
+  Qwen3.5-2B-UD-Q4_K_XL.gguf --local-dir ~/models/
+
+# gemma-4-E2B (~3GB)
+hf download unsloth/gemma-4-E2B-it-GGUF \
+  gemma-4-E2B-it-Q4_K_M.gguf --local-dir ~/models/
+
+# gemma-4-E4B (~5GB)
+hf download unsloth/gemma-4-E4B-it-GGUF \
+  gemma-4-E4B-it-Q4_K_M.gguf --local-dir ~/models/
+
+# Qwen3-4B (~3GB)
+hf download Qwen/Qwen3-4B-GGUF \
+  Qwen3-4B-Q4_K_M.gguf --local-dir ~/models/
+
+# Qwen3.5-9B (~7GB)
+hf download unsloth/Qwen3.5-9B-GGUF \
+  Qwen3.5-9B-UD-Q4_K_XL.gguf --local-dir ~/models/
+```
+
+### Other models
 
 ```bash
 # Qwen 2.5 3B — 2GB, strong reasoning
