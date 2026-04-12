@@ -21,6 +21,8 @@ COPY datasets/ datasets/
 COPY tools/ tools/
 COPY openenv.yaml .
 COPY __init__.py .
+COPY app.py .
+COPY outputs/benchmark/ outputs/benchmark/
 
 # Download clean datasets at build time (no CSVs in git)
 RUN python tools/download_datasets.py
@@ -39,5 +41,5 @@ EXPOSE 7860
 
 # tini as PID 1: reaps zombie worker processes inside the container
 ENTRYPOINT ["tini", "--"]
-# Default: run the environment server
-CMD ["python", "-c", "import uvicorn; import os; uvicorn.run('server.app:app', host='0.0.0.0', port=int(os.environ.get('PORT', '7860')), ws_ping_interval=60, ws_ping_timeout=120)"]
+# Default: run the environment server with web interface
+CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "7860", "--ws-ping-interval", "60", "--ws-ping-timeout", "120"]
