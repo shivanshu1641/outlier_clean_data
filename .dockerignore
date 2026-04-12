@@ -7,7 +7,8 @@ __pycache__/
 *.pyc
 *.gguf
 models/
-outputs/
+outputs/*
+!outputs/benchmark/
 data/
 docs/
 .env
