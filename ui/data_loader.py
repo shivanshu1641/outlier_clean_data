@@ -153,6 +153,9 @@ def list_episode_files(log_dir: str = "outputs/benchmark/episodes") -> list[dict
         if not fname.endswith(".jsonl"):
             continue
         path = os.path.join(log_dir, fname)
+        # Skip tiny/failed episode files
+        if os.path.getsize(path) < 500:
+            continue
         # Read first line for metadata
         with open(path) as f:
             first_line = f.readline().strip()

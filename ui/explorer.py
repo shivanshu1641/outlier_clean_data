@@ -8,6 +8,25 @@ import plotly.graph_objects as go
 from ui.data_loader import list_episode_files, load_episode_log
 
 
+def _parse_episode_meta(ep: dict) -> dict:
+    """Extract model, dataset, difficulty from episode metadata."""
+    # Filename: {dataset}_{category}_{difficulty}_{model}_{seed}.jsonl
+    fname = ep.get("file", "")
+    parts = fname.replace(".jsonl", "").rsplit("_", 2)  # [..., model_chunk, seed]
+
+    # Parse difficulty from task_id: "rock_mine_medium_csv"
+    task_id = ep.get("task_id", "")
+    tid_parts = task_id.rsplit("_", 2)
+    difficulty = tid_parts[1] if len(tid_parts) >= 3 else "unknown"
+    dataset = tid_parts[0] if len(tid_parts) >= 3 else task_id
+
+    return {
+        **ep,
+        "dataset": dataset,
+        "difficulty": difficulty,
+    }
+
+
 def _build_reward_chart(events: list[dict]) -> go.Figure | None:
     steps = [e for e in events if e.get("event") == "step"]
     if not steps:
@@ -90,98 +109,242 @@ def _format_steps_html(events: list[dict]) -> str:
             f'{code_block}</div>'
         )
 
+    # Add task_end summary card
+    end = next((e for e in events if e.get("event") == "task_end"), None)
+    if end:
+        final_reward = end.get("final_reward", 0.0)
+        total_steps = end.get("total_steps", 0)
+        elapsed = end.get("elapsed_s", 0.0)
+        reward_color = "#059669" if final_reward >= 0.5 else "#d97706" if final_reward >= 0.2 else "#dc2626"
+        html_parts.append(
+            f'<div style="background:#f0fdf4;border:2px solid {reward_color};border-radius:10px;padding:18px;margin-bottom:10px">'
+            f'<div style="display:flex;justify-content:space-between;align-items:center">'
+            f'<span style="font-weight:700;color:#1e293b;font-size:15px">Episode Complete</span>'
+            f'<span style="font-size:13px;color:#64748b">'
+            f'Final Reward: <b style="color:{reward_color};font-size:15px">{final_reward:.4f}</b>'
+            f' &nbsp;|&nbsp; Steps: <b>{total_steps}</b>'
+            f' &nbsp;|&nbsp; Time: <b>{elapsed:.1f}s</b>'
+            f'</span></div></div>'
+        )
+
     return "\n".join(html_parts)
 
 
-def create_explorer_tab(log_dir: str = "outputs/episodes") -> gr.Blocks:
-    episodes = list_episode_files(log_dir)
+def _build_episode_table_html(episodes: list[dict], selected_path: str = "") -> str:
+    """Build HTML table of episodes with clickable rows."""
+    if not episodes:
+        return '<p style="color:#94a3b8">No episodes match filters.</p>'
+
+    rows = []
+    for i, ep in enumerate(episodes):
+        reward = ep.get("final_reward", 0.0)
+        steps = ep.get("steps", 0)
+        reward_color = "#059669" if reward >= 0.5 else "#d97706" if reward >= 0.2 else "#dc2626"
+        is_selected = ep.get("path", "") == selected_path
+        bg = "#dbeafe" if is_selected else ("#f8fafc" if i % 2 == 0 else "#fff")
+        left_border = "3px solid #2563eb" if is_selected else "3px solid transparent"
+
+        diff_colors = {"easy": "#059669", "medium": "#d97706", "hard": "#dc2626"}
+        diff_color = diff_colors.get(ep.get("difficulty", ""), "#64748b")
+
+        rows.append(
+            f'<tr style="background:{bg};border-bottom:1px solid #e2e8f0;border-left:{left_border}">'
+            f'<td style="padding:10px;font-size:12px;color:#1e293b;font-weight:500">{ep.get("model", "?")}</td>'
+            f'<td style="padding:10px;font-size:12px;color:#334155">{ep.get("dataset", "?")}</td>'
+            f'<td style="padding:10px;font-size:12px"><span style="color:{diff_color};font-weight:600">{ep.get("difficulty", "?")}</span></td>'
+            f'<td style="padding:10px;text-align:center">'
+            f'<b style="color:{reward_color}">{reward:.3f}</b></td>'
+            f'<td style="padding:10px;text-align:center;font-size:12px;color:#334155;font-weight:500">{steps}</td>'
+            f'</tr>'
+        )
+
+    header = (
+        '<div style="max-height:600px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px">'
+        '<table style="width:100%;border-collapse:collapse;font-size:13px;background:#fff">'
+        '<thead><tr style="background:#f1f5f9;position:sticky;top:0;border-bottom:2px solid #cbd5e1">'
+        '<th style="padding:10px;text-align:left;color:#334155;font-weight:700;font-size:12px">Model</th>'
+        '<th style="padding:10px;text-align:left;color:#334155;font-weight:700;font-size:12px">Dataset</th>'
+        '<th style="padding:10px;text-align:left;color:#334155;font-weight:700;font-size:12px">Difficulty</th>'
+        '<th style="padding:10px;text-align:center;color:#334155;font-weight:700;font-size:12px">Reward</th>'
+        '<th style="padding:10px;text-align:center;color:#334155;font-weight:700;font-size:12px">Steps</th>'
+        '</tr></thead><tbody>'
+    )
+
+    return header + "\n".join(rows) + '</tbody></table></div>'
+
+
+def _render_episode(path: str):
+    """Load and render a single episode."""
+    if not path:
+        empty_fig = go.Figure()
+        empty_fig.update_layout(height=250)
+        return "Select an episode from the table.", gr.update(value=empty_fig, visible=False), ""
+
+    events = load_episode_log(path)
+    if not events:
+        empty_fig = go.Figure()
+        empty_fig.update_layout(height=250)
+        return "Failed to load episode.", gr.update(value=empty_fig, visible=False), ""
+
+    start = next((e for e in events if e.get("event") == "task_start"), {})
+    end = next((e for e in events if e.get("event") == "task_end"), {})
+
+    model = start.get("model") or "unknown"
+    task_id = start.get("task_id") or "unknown"
+    final_reward = end.get("final_reward", end.get("reward", 0.0))
+    total_steps = end.get("total_steps", len([e for e in events if e.get("event") == "step"]))
+    elapsed = end.get("elapsed_s", 0.0)
+
+    summary = (
+        f"### {task_id}\n"
+        f"**Model:** {model} &nbsp;|&nbsp; "
+        f"**Final reward:** {final_reward:.4f} &nbsp;|&nbsp; "
+        f"**Steps:** {total_steps} &nbsp;|&nbsp; "
+        f"**Time:** {elapsed:.1f}s"
+    )
+
+    chart = _build_reward_chart(events)
+    steps_html = _format_steps_html(events)
+
+    return summary, gr.update(value=chart, visible=chart is not None), steps_html
+
+
+def create_explorer_tab(log_dir: str = "outputs/benchmark/episodes") -> gr.Blocks:
+    raw_episodes = list_episode_files(log_dir)
+    all_episodes = [_parse_episode_meta(ep) for ep in raw_episodes]
 
     with gr.Blocks() as tab:
         gr.Markdown("## Episode Explorer")
         gr.Markdown("Step-by-step replay of agent cleaning episodes.")
 
-        if not episodes:
+        if not all_episodes:
             gr.Markdown(
                 f"**No episodes found in `{log_dir}/`.** "
-                "Copy JSONL logs there to browse them:\n"
-                "```\nmkdir -p outputs/episodes\n"
-                "cp outputs/logs/run_*.jsonl outputs/episodes/\n```"
+                "Run the benchmark first to generate episodes."
             )
             return tab
 
-        choices = []
-        for ep in episodes:
-            label = f"{ep['model']} | {ep['task_id']} | reward={ep['final_reward']:.3f}"
-            choices.append((label, ep["path"]))
+        # Extract unique filter values
+        all_models = sorted({ep["model"] for ep in all_episodes})
+        all_datasets = sorted({ep["dataset"] for ep in all_episodes})
+        all_diffs = ["easy", "medium", "hard"]
 
-        # Pick best episode (highest reward) as default
-        best_ep = max(episodes, key=lambda e: e.get("final_reward", 0))
-        default_path = best_ep["path"]
+        # Default: longest non-zero reward run
+        nonzero = [ep for ep in all_episodes if ep.get("final_reward", 0) > 0]
+        if nonzero:
+            default_ep = max(nonzero, key=lambda e: e.get("steps", 0))
+        else:
+            default_ep = max(all_episodes, key=lambda e: e.get("steps", 0))
+        default_path = default_ep["path"]
 
-        episode_dd = gr.Dropdown(
-            choices=choices,
-            label="▼ Select Episode",
-            value=default_path,
-            info=f"Click to browse {len(episodes)} episodes — switch between models and tasks",
-            elem_classes=["interactive-dropdown"],
-        )
+        # Store episode data as state
+        episodes_state = gr.State(all_episodes)
+        selected_path = gr.State(default_path)
 
-        def _load_episode(path):
-            if not path:
-                return "Select an episode.", gr.update(visible=False), ""
-
-            events = load_episode_log(path)
-            if not events:
-                return "Failed to load episode.", gr.update(visible=False), ""
-
-            start = next((e for e in events if e.get("event") == "task_start"), {})
-            end = next((e for e in events if e.get("event") == "task_end"), {})
-
-            # Fall back to filename metadata if event fields missing
-            model = start.get("model") or "unknown"
-            task_id = start.get("task_id") or "unknown"
-            final_reward = end.get("final_reward", end.get("reward", 0.0))
-            total_steps = end.get("total_steps", len([e for e in events if e.get("event") == "step"]))
-            elapsed = end.get("elapsed_s", 0.0)
-
-            summary = (
-                f"### {task_id}\n"
-                f"**Model:** {model} &nbsp;|&nbsp; "
-                f"**Final reward:** {final_reward:.4f} &nbsp;|&nbsp; "
-                f"**Steps:** {total_steps} &nbsp;|&nbsp; "
-                f"**Time:** {elapsed:.1f}s"
+        # ── Filters ──────────────────────────────────────
+        with gr.Row():
+            model_dd = gr.Dropdown(
+                choices=["All"] + all_models,
+                value="All",
+                label="Model",
+                scale=2,
+            )
+            dataset_dd = gr.Dropdown(
+                choices=["All"] + all_datasets,
+                value="All",
+                label="Dataset",
+                scale=2,
+            )
+            diff_dd = gr.Dropdown(
+                choices=["All"] + all_diffs,
+                value="All",
+                label="Difficulty",
+                scale=1,
             )
 
-            chart = _build_reward_chart(events)
-            steps = _format_steps_html(events)
+        # ── 2-column layout ──────────────────────────────
+        with gr.Row():
+            # Left: episode table
+            with gr.Column(scale=2):
+                gr.Markdown(f"*{len(all_episodes)} episodes available*")
+                episode_table = gr.HTML(
+                    value=_build_episode_table_html(all_episodes, default_path)
+                )
+                # Dropdown to select episode (since HTML table clicks can't trigger callbacks)
+                episode_select = gr.Dropdown(
+                    choices=[(f"{ep['model']} | {ep['dataset']}_{ep['difficulty']} | {ep['final_reward']:.3f} | {ep['steps']} steps", ep["path"])
+                             for ep in all_episodes],
+                    value=default_path,
+                    label="Select episode to view",
+                    info="Pick from filtered list above",
+                )
 
-            return summary, gr.update(value=chart, visible=chart is not None), steps
+            # Right: episode detail
+            with gr.Column(scale=3):
+                summary_md = gr.Markdown()
+                reward_chart = gr.Plot(visible=False)
+                steps_html = gr.HTML()
 
-        # Auto-load default episode
-        _events = load_episode_log(default_path)
-        _start = next((e for e in _events if e.get("event") == "task_start"), {})
-        _end = next((e for e in _events if e.get("event") == "task_end"), {})
-        _model = _start.get("model") or "unknown"
-        _task_id = _start.get("task_id") or "unknown"
-        _final = _end.get("final_reward", _end.get("reward", 0.0))
-        _steps_n = _end.get("total_steps", len([e for e in _events if e.get("event") == "step"]))
-        _elapsed = _end.get("elapsed_s", 0.0)
-        _default_summary = (
-            f"### {_task_id}\n**Model:** {_model} &nbsp;|&nbsp; "
-            f"**Final reward:** {_final:.4f} &nbsp;|&nbsp; "
-            f"**Steps:** {_steps_n} &nbsp;|&nbsp; **Time:** {_elapsed:.1f}s"
-        )
-        _default_chart = _build_reward_chart(_events)
-        _default_steps_html = _format_steps_html(_events)
+        # ── Filter logic ─────────────────────────────────
+        def _apply_filters(model, dataset, difficulty):
+            filtered = all_episodes
+            if model != "All":
+                filtered = [e for e in filtered if e["model"] == model]
+            if dataset != "All":
+                filtered = [e for e in filtered if e["dataset"] == dataset]
+            if difficulty != "All":
+                filtered = [e for e in filtered if e["difficulty"] == difficulty]
 
-        summary_md = gr.Markdown(value=_default_summary)
-        reward_chart = gr.Plot(value=_default_chart, visible=_default_chart is not None)
-        steps_html = gr.HTML(value=_default_steps_html)
+            # Sort: non-zero reward first, then by steps desc
+            filtered.sort(key=lambda e: (-int(e.get("final_reward", 0) > 0), -e.get("steps", 0)))
 
-        episode_dd.change(
-            fn=_load_episode,
-            inputs=[episode_dd],
+            # Pick best default from filtered
+            new_default = ""
+            if filtered:
+                nz = [e for e in filtered if e.get("final_reward", 0) > 0]
+                best = max(nz, key=lambda e: e.get("steps", 0)) if nz else filtered[0]
+                new_default = best["path"]
+
+            table_html = _build_episode_table_html(filtered, new_default)
+            choices = [(f"{ep['model']} | {ep['dataset']}_{ep['difficulty']} | {ep['final_reward']:.3f} | {ep['steps']} steps", ep["path"])
+                       for ep in filtered]
+
+            if new_default:
+                summ, chart_update, steps = _render_episode(new_default)
+                return (
+                    table_html,
+                    gr.update(choices=choices, value=new_default),
+                    summ, chart_update, steps,
+                )
+            else:
+                empty_fig = go.Figure()
+                empty_fig.update_layout(height=250)
+                return (
+                    table_html,
+                    gr.update(choices=choices, value=None),
+                    "No episodes match filters.",
+                    gr.update(value=empty_fig, visible=False),
+                    "",
+                )
+
+        filter_outputs = [episode_table, episode_select, summary_md, reward_chart, steps_html]
+
+        model_dd.change(fn=_apply_filters, inputs=[model_dd, dataset_dd, diff_dd], outputs=filter_outputs)
+        dataset_dd.change(fn=_apply_filters, inputs=[model_dd, dataset_dd, diff_dd], outputs=filter_outputs)
+        diff_dd.change(fn=_apply_filters, inputs=[model_dd, dataset_dd, diff_dd], outputs=filter_outputs)
+
+        # ── Episode selection ────────────────────────────
+        episode_select.change(
+            fn=_render_episode,
+            inputs=[episode_select],
             outputs=[summary_md, reward_chart, steps_html],
         )
+
+        # ── Auto-load default ────────────────────────────
+        default_summ, default_chart, default_steps = _render_episode(default_path)
+        summary_md.value = default_summ
+        reward_chart.value = default_chart.get("value") if isinstance(default_chart, dict) else default_chart
+        reward_chart.visible = True
+        steps_html.value = default_steps
 
     return tab

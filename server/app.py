@@ -12,6 +12,19 @@ from models import ActionWrapper, DataCleaningObservation
 from server.environment import DataCleaningEnvironment
 from openenv.core import create_app
 
+import gradio as gr
+
+# Patch TabbedInterface so "Custom" tab (benchmark dashboard) loads first
+_OrigTabbedInterface = gr.TabbedInterface
+
+def _swapped_tabbed_interface(interfaces, tab_names=None, **kwargs):
+    if tab_names and len(tab_names) == 2 and tab_names[0] == "Playground":
+        interfaces = list(reversed(interfaces))
+        tab_names = list(reversed(tab_names))
+    return _OrigTabbedInterface(interfaces, tab_names=tab_names, **kwargs)
+
+gr.TabbedInterface = _swapped_tabbed_interface
+
 
 def _gradio_builder(*args, **kwargs):
     """Custom Gradio UI builder for the openenv /web endpoint."""

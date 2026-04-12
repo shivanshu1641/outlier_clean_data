@@ -40,3 +40,4 @@ output_dir: "outputs/benchmark"
 env_url: "http://localhost:7860"
 min_call_interval: 0
 max_steps: 100
+max_tasks: 50          # randomly sample N tasks from matrix (remove or set null for all)

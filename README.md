@@ -5,6 +5,7 @@ colorFrom: blue
 colorTo: green
 sdk: docker
 pinned: false
+default_tab: custom
 ---
 
 # Data Cleaning OpenEnv Environment

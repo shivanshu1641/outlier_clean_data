@@ -23,13 +23,72 @@ pip install -r server/requirements.txt
 ENABLE_WEB_INTERFACE=true uvicorn server.app:app --port 7860 --ws-ping-interval 60 --ws-ping-timeout 120
 ```
 
-### Run Inference
+### Run Inference (local model via llama-server)
 
 ```bash
-source .venv/bin/activate
-bash inference.sh                    # all tasks
-bash inference.sh titanic easy       # specific task (default fmt=csv)
-bash inference.sh titanic easy json  # specific task with explicit format
+# Start llama-server first (see docs/setup-llama-mac.md for model downloads)
+llama-server -m ~/models/gemma-4-E2B-it-Q4_K_M.gguf -c 8192 --port 8080 -ngl 99
+
+# Via wrapper script (pre-flight checks for env server + LLM API)
+./inference.sh                              # all 25 eval tasks
+./inference.sh titanic/easy/csv             # single task
+
+# Or directly
+python inference.py
+python inference.py titanic_easy wine_medium
+```
+
+### Run Inference (paid API — OpenAI, Groq, etc.)
+
+```bash
+export OPENAI_API_KEY="sk-..."
+API_BASE_URL="https://api.openai.com/v1" MODEL_NAME="gpt-4o" MIN_CALL_INTERVAL=2.5 python inference.py
+
+# Groq
+export OPENAI_API_KEY="gsk-..."
+API_BASE_URL="https://api.groq.com/openai/v1" MODEL_NAME="llama-3.3-70b" python inference.py
+```
+
+### Run Benchmark (multi-model, local GGUFs)
+
+Automatically starts/stops llama-server per model. Requires env server running + model GGUFs in `~/models/`.
+
+```bash
+# Full benchmark: 6 models × 6 categories × 3 difficulties × all datasets (~450 tasks)
+./run_benchmark.sh
+
+# Filter by model/category/difficulty
+./run_benchmark.sh --models "gemma-4-E2B-it-Q4_K_M" --categories FP VR --difficulties easy medium
+
+# Random sample of N tasks (skips already-completed)
+./run_benchmark.sh --max-tasks 50
+
+# Benchmark models: Qwen3.5-0.8B/2B/9B, gemma-4-E2B/E4B, Qwen3-4B
+# See docs/setup-llama-mac.md for download commands
+```
+
+### Run Benchmark (paid API)
+
+```bash
+# --api-key-env is the NAME of the env var, not the key itself
+export OPENAI_API_KEY="sk-..."
+python -m tools.benchmark_runner --model-name "gpt-4o" --api-base "https://api.openai.com/v1" --api-key-env "OPENAI_API_KEY" --max-tasks 20
+
+# Groq example
+export OPENAI_API_KEY="gsk-..."
+python -m tools.benchmark_runner --model-name "llama-3.3-70b" --api-base "https://api.groq.com/openai/v1" --api-key-env "OPENAI_API_KEY" --max-tasks 20
+```
+
+Benchmark config: `tools/benchmark_config.yaml` — set `max_tasks`, `min_call_interval`, models, categories, difficulties.
+
+Results saved to `outputs/benchmark/{results.jsonl, summary.csv, episodes/*.jsonl}`. Resumable — skips already-completed (dataset, category, difficulty, model, seed) combos.
+
+### Launch UI (Gradio Dashboard)
+
+```bash
+python -m ui.app                    # default port 7861
+python -m ui.app --port 7862        # custom port
+# Also available at /web when env server runs with ENABLE_WEB_INTERFACE=true
 ```
 
 ### Environment Variables

@@ -19,16 +19,16 @@ OUTPUT_DIR="outputs/benchmark"
 # ── Model registry ─────────────────────────────────────────────────────────────
 # Parallel arrays: name[i] → gguf[i]. Comment out to skip a model.
 NAMES=(
-  "Qwen3.5-0.8B-UD-Q4_K_XL"
-  "Qwen3.5-2B-UD-Q4_K_XL"
+  # "Qwen3.5-0.8B-UD-Q4_K_XL"
+  # "Qwen3.5-2B-UD-Q4_K_XL"
   "gemma-4-E2B-it-Q4_K_M"
   "gemma-4-E4B-it-Q4_K_M"
   "Qwen3-4B-Q4_K_M"
   "Qwen3.5-9B-UD-Q4_K_XL"
 )
 GGUFS=(
-  "Qwen3.5-0.8B-UD-Q4_K_XL.gguf"
-  "Qwen3.5-2B-UD-Q4_K_XL.gguf"
+  # "Qwen3.5-0.8B-UD-Q4_K_XL.gguf"
+  # "Qwen3.5-2B-UD-Q4_K_XL.gguf"
   "gemma-4-E2B-it-Q4_K_M.gguf"
   "gemma-4-E4B-it-Q4_K_M.gguf"
   "Qwen3-4B-Q4_K_M.gguf"

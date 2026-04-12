@@ -298,6 +298,17 @@ Strategy:
 - Only fix columns mentioned in the error summary — do not touch other columns
 - For whitespace errors: use str.replace(r'\\s+', ' ', regex=True).str.strip() not just str.strip()
 
+Fix templates (copy-paste, replace 'col' with actual column name):
+- inject_nulls: df['col'] = df['col'].fillna(df['col'].median())
+- whitespace_noise: df['col'] = df['col'].astype(str).str.replace(r'\\s+', ' ', regex=True).str.strip()
+- duplicate_rows: df = df.drop_duplicates()
+- decimal_shift: med = df['col'].median(); df.loc[df['col'] > med * 8, 'col'] /= 10; df.loc[(df['col'] > 0) & (df['col'] < med / 8), 'col'] *= 10
+- outlier_injection: q1, q3 = df['col'].quantile([0.25, 0.75]); iqr = q3 - q1; mask = (df['col'] < q1 - 3*iqr) | (df['col'] > q3 + 3*iqr); df.loc[mask, 'col'] = df['col'].median()
+- type_mangle: bad = df['col'][pd.to_numeric(df['col'], errors='coerce').isna() & df['col'].notna()]; df['col'] = df['col'].replace(bad.unique().tolist(), float('nan')); df['col'] = pd.to_numeric(df['col']); df['col'] = df['col'].fillna(df['col'].median())
+- category_misspell: from difflib import get_close_matches; valid = df['col'].value_counts().head(10).index.tolist(); df['col'] = df['col'].apply(lambda x: get_close_matches(str(x), valid, n=1, cutoff=0.6)[0] if get_close_matches(str(x), valid, n=1, cutoff=0.6) else x)
+- leading_zero_strip: df['col'] = df['col'].astype(str).str.zfill(5)
+- value_swap: explore first to identify swapped pairs, then swap back targeted rows
+
 Important rules:
 - Do NOT repeat the same explore query — check your action history below
 - If your last transform fixed 0 errors, your approach is WRONG. Do NOT repeat it. Explore the affected columns to understand what the dirty values actually look like, then try a completely different fix.
@@ -872,6 +883,15 @@ def _sanitize_transform_code(code: str) -> str:
                 new_lines.append(line)
         return "\n".join(new_lines)
 
+    # ── Phase 2b: Warn if too many columns modified (don't block, just log) ──
+    col_assignments = _re.findall(r"df\['([^']+)'\]\s*=", code)
+    unique_cols = set(col_assignments)
+    if len(unique_cols) > 3:
+        logger.warning(
+            "Transform touches %d columns (%s) — risk of wrong-value blowup",
+            len(unique_cols), ", ".join(sorted(unique_cols)[:5]),
+        )
+
     # ── Phase 3: Auto-complete truncated type_mangle ───────────────────────
     # Models sometimes generate 3 of 4 lines of the safe type_mangle pattern,
     # ending at pd.to_numeric() without the fillna(median) step.  The NaN
@@ -1318,7 +1338,7 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                     best_reward > 0
                     and current_reward < best_reward * 0.7  # 30%+ reward drop
                 )
-                if (fixed_regression or wrong_value_regression) and total_auto_undos < 2:
+                if (fixed_regression or wrong_value_regression) and total_auto_undos < 4:
                     reason = "wrong values" if wrong_value_regression else "errors-fixed drop"
                     logger.warning(
                         "Auto-undo (%s): reward %.4f→%.4f, fixed %d→%d — reverting to step %d",
@@ -1360,6 +1380,10 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                     stale_count = max(0, stale_count - 1)  # partial credit for undo
                     did_regression_undo = True
                     total_auto_undos += 1
+                    # Update best_fixed/best_reward to post-undo baseline
+                    # Keep best_transform_step as-is — we undid TO that step
+                    best_fixed = fixed
+                    best_reward = current_reward
 
             # ── Update best state + stale_count after transforms ──────────────
             # (placed AFTER regression check so reward drop isn't masked)
@@ -1405,7 +1429,8 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                     )
                 if consecutive_explores >= 3:
                     warnings.append(
-                        f"You have explored {consecutive_explores} times in a row. The diagnostic phase already explored the data. Submit a transform NOW."
+                        f"BLOCKED: You have explored {consecutive_explores} times in a row without transforming. "
+                        f"You MUST submit a transform on your next action. Target the highest-count corruption type in the FIX PLAN."
                     )
             if action_type == "transform":
                 recent_transform_fixed = [
@@ -1533,6 +1558,11 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                                            "summary": f"escalation-undo to {best_transform_step}",
                                            "reward_after": current_reward, "errors_fixed": fixed})
                     total_auto_undos += 1
+                    # Update best_fixed/best_reward to post-undo state
+                    # so future comparisons use the CURRENT baseline, not the pre-undo peak
+                    # Keep best_transform_step as-is — we undid TO that step, it's still valid
+                    best_fixed = fixed
+                    best_reward = current_reward
                     _jlog("escalation_undo", step=step_num, stale_count=stale_count,
                           best_transform_step=best_transform_step,
                           total_auto_undos=total_auto_undos)

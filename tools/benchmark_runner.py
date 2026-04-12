@@ -8,6 +8,7 @@ import csv
 import json
 import logging
 import os
+import random
 import re
 import sys
 import time
@@ -302,29 +303,35 @@ async def run_benchmark(config: dict) -> list[BenchmarkResult]:
 
     completed = _load_completed_keys(output_dir)
 
-    logger.info("Benchmark matrix: %d tasks (%d already completed)", len(tasks), len(completed))
-    results = []
-    skipped = 0
-    for i, task in enumerate(tasks):
+    # Filter out already-completed tasks before sampling
+    pending = []
+    for task in tasks:
         key = (task.dataset_id, task.category, task.difficulty, task.model_name, str(task.seed))
-        if key in completed:
-            skipped += 1
-            logger.info("SKIP %d/%d: %s/%s/%s/%s/seed=%d (already exists)",
-                         i + 1, len(tasks), task.dataset_id, task.category,
-                         task.difficulty, task.model_name, task.seed)
-            continue
+        if key not in completed:
+            pending.append(task)
 
+    # Sample subset if max_tasks is set
+    max_tasks = config.get("max_tasks")
+    if max_tasks and len(pending) > max_tasks:
+        random.shuffle(pending)
+        pending = pending[:max_tasks]
+        logger.info("Sampled %d tasks from %d pending (max_tasks=%d)", len(pending), len(tasks) - len(completed), max_tasks)
+
+    logger.info("Benchmark matrix: %d total, %d already completed, %d to run", len(tasks), len(completed), len(pending))
+    results = []
+    for i, task in enumerate(pending):
         logger.info("Task %d/%d: %s/%s/%s/%s/seed=%d",
-                     i + 1, len(tasks), task.dataset_id, task.category,
+                     i + 1, len(pending), task.dataset_id, task.category,
                      task.difficulty, task.model_name, task.seed)
         result = await run_benchmark_task(task, env_url=env_url, max_steps=max_steps, min_call_interval=min_call_interval, config=config)
         if result is None:
             logger.warning("  FAILED — not saving to results")
+            await asyncio.sleep(3)  # brief pause before next task after failure
             continue
         save_result(result, output_dir=output_dir)
         results.append(result)
         logger.info("  reward=%.4f steps=%d elapsed=%.1fs", result.reward, result.steps, result.elapsed_s)
-    logger.info("Benchmark complete: %d ran, %d skipped", len(results), skipped)
+    logger.info("Benchmark complete: %d ran, %d already done", len(results), len(completed))
     return results
 
 
@@ -338,6 +345,7 @@ def main():
     parser.add_argument("--categories", nargs="*", help="Filter to these categories")
     parser.add_argument("--difficulties", nargs="*", help="Filter to these difficulties")
     parser.add_argument("--datasets", nargs="*", help="Filter to these dataset IDs")
+    parser.add_argument("--max-tasks", type=int, help="Randomly sample N tasks from the matrix")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s — %(message)s", datefmt="%H:%M:%S")
@@ -353,6 +361,9 @@ def main():
         }]
     elif args.models:
         config["models"] = [m for m in config.get("models", []) if m["name"] in args.models]
+
+    if args.max_tasks:
+        config["max_tasks"] = args.max_tasks
 
     asyncio.run(run_benchmark(config))
 

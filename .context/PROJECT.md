@@ -107,6 +107,29 @@ python -m tools.benchmark_runner --model-name "Qwen3.5-0.8B-UD-Q4_K_XL" --api-ba
 #   gemma-4-E2B-it-Q4_K_M, gemma-4-E4B-it-Q4_K_M, Qwen3-4B-Q4_K_M
 # Output: outputs/benchmark/{results.jsonl, summary.csv, episodes/*.jsonl}
 # Resumable: skips already-completed (dataset, category, difficulty, model, seed) combos
+# Sampling: randomly pick N new tasks instead of running full matrix
+./run_benchmark.sh --max-tasks 50
+# Or set max_tasks in tools/benchmark_config.yaml (CLI overrides YAML)
+
+# ── Benchmark with paid APIs (OpenAI, Groq, etc.) ────────────
+# --api-key-env is the NAME of the env var, not the key itself
+export OPENAI_API_KEY="sk-..."
+python -m tools.benchmark_runner --model-name "gpt-4o" --api-base "https://api.openai.com/v1" --api-key-env "OPENAI_API_KEY" --max-tasks 20
+# Groq example:
+export OPENAI_API_KEY="gsk-..."
+python -m tools.benchmark_runner --model-name "llama-3.3-70b" --api-base "https://api.groq.com/openai/v1" --api-key-env "OPENAI_API_KEY" --max-tasks 20
+# Note: set min_call_interval in benchmark_config.yaml to 2.5+ for rate-limited APIs
+
+# ── UI (Gradio benchmark dashboard) ──────────────────────────
+python -m ui.app                            # default port 7861
+python -m ui.app --port 7862                # custom port
+# Also available at /web when env server runs with ENABLE_WEB_INTERFACE=true
+
+# ── Deployment (HF Spaces) ───────────────────────────────────
+# Push to HF Space remote (includes benchmark results + episodes)
+git push hf main
+# Dockerfile runs env server with Gradio UI on port 7860
+# README.md frontmatter controls Space settings (default_tab: custom)
 
 # ── Data & Datasets ───────────────────────────────────────────
 python tools/download_datasets.py           # download/update dataset catalog inputs
