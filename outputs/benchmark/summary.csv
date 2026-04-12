@@ -10,3 +10,10 @@ wine_quality,FP,easy,Qwen3.5-0.8B-UD-Q4_K_XL,42,0.1139,3,outputs/benchmark/episo
 ionosphere,CP,easy,Qwen3.5-0.8B-UD-Q4_K_XL,42,0.0959,3,outputs/benchmark/episodes/ionosphere_CP_easy_Qwen3.5-0.8B-UD-Q4_K_XL_42.jsonl,49.38
 german_credit,SV,easy,Qwen3.5-0.8B-UD-Q4_K_XL,42,0.0,4,outputs/benchmark/episodes/german_credit_SV_easy_Qwen3.5-0.8B-UD-Q4_K_XL_42.jsonl,15.67
 iris,VR,easy,gemma-4-E2B-it-Q4_K_M,42,0.6468,5,outputs/benchmark/episodes/iris_VR_easy_gemma-4-E2B-it-Q4_K_M_42.jsonl,60.07
+sonar,SR,easy,gemma-4-E2B-it-Q4_K_M,42,0.0,10,outputs/benchmark/episodes/sonar_SR_easy_gemma-4-E2B-it-Q4_K_M_42.jsonl,247.3
+mushroom_clean,FP,easy,gemma-4-E2B-it-Q4_K_M,42,0.73,8,outputs/benchmark/episodes/mushroom_clean_FP_easy_gemma-4-E2B-it-Q4_K_M_42.jsonl,227.03
+thyroid_disease,SV,easy,gemma-4-E2B-it-Q4_K_M,42,0.0,8,outputs/benchmark/episodes/thyroid_disease_SV_easy_gemma-4-E2B-it-Q4_K_M_42.jsonl,164.92
+concrete,CP,easy,gemma-4-E2B-it-Q4_K_M,42,0.1715,6,outputs/benchmark/episodes/concrete_CP_easy_gemma-4-E2B-it-Q4_K_M_42.jsonl,244.85
+mushroom,SR,easy,gemma-4-E2B-it-Q4_K_M,42,0.2831,6,outputs/benchmark/episodes/mushroom_SR_easy_gemma-4-E2B-it-Q4_K_M_42.jsonl,363.53
+concrete,MD,easy,gemma-4-E2B-it-Q4_K_M,42,0.0,8,outputs/benchmark/episodes/concrete_MD_easy_gemma-4-E2B-it-Q4_K_M_42.jsonl,529.56
+titanic,CP,easy,gemma-4-E2B-it-Q4_K_M,42,0.2758,8,outputs/benchmark/episodes/titanic_CP_easy_gemma-4-E2B-it-Q4_K_M_42.jsonl,336.35
