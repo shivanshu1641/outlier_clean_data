@@ -139,13 +139,19 @@ def _build_episode_table_html(episodes: list[dict], selected_path: str = "") -> 
     for i, ep in enumerate(episodes):
         reward = ep.get("final_reward", 0.0)
         steps = ep.get("steps", 0)
-        reward_color = "#059669" if reward >= 0.5 else "#d97706" if reward >= 0.2 else "#dc2626"
+        is_failed = ep.get("status") == "failed"
+        reward_color = "#94a3b8" if is_failed else ("#059669" if reward >= 0.5 else "#d97706" if reward >= 0.2 else "#dc2626")
         is_selected = ep.get("path", "") == selected_path
-        bg = "#dbeafe" if is_selected else ("#f8fafc" if i % 2 == 0 else "#fff")
+        bg = "#dbeafe" if is_selected else ("#fef2f2" if is_failed else ("#f8fafc" if i % 2 == 0 else "#fff"))
         left_border = "3px solid #2563eb" if is_selected else "3px solid transparent"
 
         diff_colors = {"easy": "#059669", "medium": "#d97706", "hard": "#dc2626"}
         diff_color = diff_colors.get(ep.get("difficulty", ""), "#64748b")
+
+        if is_failed:
+            reward_cell = '<span style="background:#fecaca;color:#991b1b;font-size:10px;padding:2px 6px;border-radius:3px;font-weight:600">FAILED</span>'
+        else:
+            reward_cell = f'<b style="color:{reward_color}">{reward:.3f}</b>'
 
         rows.append(
             f'<tr style="background:{bg};border-bottom:1px solid #e2e8f0;border-left:{left_border}">'
@@ -153,7 +159,7 @@ def _build_episode_table_html(episodes: list[dict], selected_path: str = "") -> 
             f'<td style="padding:10px;font-size:12px;color:#334155">{ep.get("dataset", "?")}</td>'
             f'<td style="padding:10px;font-size:12px"><span style="color:{diff_color};font-weight:600">{ep.get("difficulty", "?")}</span></td>'
             f'<td style="padding:10px;text-align:center">'
-            f'<b style="color:{reward_color}">{reward:.3f}</b></td>'
+            f'{reward_cell}</td>'
             f'<td style="padding:10px;text-align:center;font-size:12px;color:#334155;font-weight:500">{steps}</td>'
             f'</tr>'
         )

@@ -95,7 +95,12 @@ def load_results(benchmark_dir: str = "outputs/benchmark") -> pd.DataFrame:
             return df
 
     # Fallback: inference.py's results.csv (no category — infer it)
+    # Only use fallback when using the default benchmark_dir
     csv_path = str(_PROJECT_ROOT / "outputs" / "logs" / "results.csv")
+    if not os.path.exists(os.path.join(benchmark_dir, "results.jsonl")):
+        # benchmark_dir was explicitly set and has no results — don't fall back
+        if benchmark_dir != str(_PROJECT_ROOT / "outputs" / "benchmark"):
+            return pd.DataFrame()
     if not os.path.exists(csv_path):
         return pd.DataFrame()
 
@@ -153,19 +158,21 @@ def list_episode_files(log_dir: str = "outputs/benchmark/episodes") -> list[dict
         if not fname.endswith(".jsonl"):
             continue
         path = os.path.join(log_dir, fname)
-        # Skip tiny/failed episode files
-        if os.path.getsize(path) < 500:
-            continue
+        file_size = os.path.getsize(path)
         # Read first line for metadata
-        with open(path) as f:
-            first_line = f.readline().strip()
-        if not first_line:
-            continue
-        meta = json.loads(first_line)
-        # Read last line for final results
-        with open(path) as f:
-            lines = [l.strip() for l in f if l.strip()]
-        last = json.loads(lines[-1]) if lines else {}
+        try:
+            with open(path) as f:
+                first_line = f.readline().strip()
+            if not first_line:
+                continue
+            meta = json.loads(first_line)
+            # Read last line for final results
+            with open(path) as f:
+                lines = [l.strip() for l in f if l.strip()]
+            last = json.loads(lines[-1]) if lines else {}
+        except (json.JSONDecodeError, IndexError):
+            continue  # truly corrupt file
+        status = "failed" if file_size < 500 else "completed"
         episodes.append({
             "file": fname,
             "path": path,
@@ -173,6 +180,7 @@ def list_episode_files(log_dir: str = "outputs/benchmark/episodes") -> list[dict
             "model": meta.get("model", "unknown"),
             "final_reward": last.get("final_reward", last.get("reward", 0.0)),
             "steps": last.get("total_steps", 0),
+            "status": status,
         })
     return episodes
 
@@ -187,3 +195,22 @@ def load_catalog(catalog_path: str = "datasets/catalog.json") -> dict:
         return {}
     with open(catalog_path) as f:
         return json.load(f)
+
+
+# ── Backward-compat aliases & helpers ─────────────────────────────────────────
+
+load_benchmark_summary = load_results
+
+
+def get_available_models(df: pd.DataFrame) -> list[str]:
+    """Return unique model names from a results DataFrame."""
+    if "model" not in df.columns:
+        return []
+    return df["model"].unique().tolist()
+
+
+def get_available_datasets(df: pd.DataFrame) -> list[str]:
+    """Return unique dataset IDs from a results DataFrame."""
+    if "dataset_id" not in df.columns:
+        return []
+    return df["dataset_id"].unique().tolist()

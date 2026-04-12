@@ -274,6 +274,7 @@ class _FakeEnvSession:
     def __init__(self, reset_result, step_results):
         self._reset_result = reset_result
         self._step_results = list(step_results)
+        self._last_result = step_results[-1] if step_results else reset_result
         self.done_actions = 0
 
     async def __aenter__(self):
@@ -288,13 +289,16 @@ class _FakeEnvSession:
     async def step(self, action):
         if getattr(action, "type", None) == "done":
             self.done_actions += 1
-        return self._step_results.pop(0)
+        if self._step_results:
+            self._last_result = self._step_results.pop(0)
+        return self._last_result
 
 
 def _make_step_result(*, reward: float, done: bool, fixed: int, total: int):
     constraint_status = {f"err_{i}": i < fixed for i in range(total)}
     observation = SimpleNamespace(
         constraint_status=constraint_status,
+        task_id="test_task",
         task_description="Clean sample data",
         constraints=[],
         data_summary="sample",
@@ -302,8 +306,11 @@ def _make_step_result(*, reward: float, done: bool, fixed: int, total: int):
         transform_result=None,
         validate_result=None,
         step_info=None,
-        reward=reward,
-        done=done,
+        file_format=None,
+        target_schema=None,
+        file_preview=None,
+        diagnosis=None,
+        semantic_rules=[],
     )
     return SimpleNamespace(observation=observation, reward=reward, done=done)
 
@@ -317,7 +324,7 @@ class TestRunBenchmarkTask:
         fake_session = _FakeEnvSession(reset_result, step_results)
 
         monkeypatch.setattr("client.DataCleaningClient", lambda base_url: fake_session)
-        monkeypatch.setattr("inference.get_agent_action", lambda messages: ({"type": "done"}, 0.01, None))
+        monkeypatch.setattr("inference.get_agent_action", lambda messages, temperature=0.1: ({"type": "done"}, 0.01, None))
         monkeypatch.setattr("inference.action_from_dict", lambda action_dict: SimpleNamespace(type=action_dict["type"]))
 
         task = BenchmarkTask(
@@ -353,19 +360,28 @@ class TestRunBenchmarkTask:
             seed=42,
         )
 
-        with pytest.raises(RuntimeError, match="boom"):
-            asyncio.run(run_benchmark_task(task, max_steps=1, min_call_interval=0))
+        # run_benchmark_task catches exceptions and returns None
+        result = asyncio.run(run_benchmark_task(task, max_steps=1, min_call_interval=0))
+        assert result is None
 
     def test_auto_done_uses_final_reward(self, monkeypatch):
         reset_result = _make_step_result(reward=0.0, done=False, fixed=0, total=2)
+        # Provide enough step results for diagnostic phase (explores + validate)
+        # plus the actual LLM transform. The final result should be what the
+        # benchmark reports.
         step_results = [
-            _make_step_result(reward=1.0, done=False, fixed=2, total=2),
-            _make_step_result(reward=0.97, done=True, fixed=2, total=2),
+            _make_step_result(reward=0.0, done=False, fixed=0, total=2),  # diagnostic steps
+            _make_step_result(reward=0.0, done=False, fixed=0, total=2),
+            _make_step_result(reward=0.0, done=False, fixed=0, total=2),
+            _make_step_result(reward=0.0, done=False, fixed=0, total=2),
+            _make_step_result(reward=0.0, done=False, fixed=0, total=2),
+            _make_step_result(reward=1.0, done=False, fixed=2, total=2),  # LLM transform
+            _make_step_result(reward=0.97, done=True, fixed=2, total=2),  # auto-done
         ]
         fake_session = _FakeEnvSession(reset_result, step_results)
 
         monkeypatch.setattr("client.DataCleaningClient", lambda base_url: fake_session)
-        monkeypatch.setattr("inference.get_agent_action", lambda messages: ({"type": "transform", "code": "pass"}, 0.01, None))
+        monkeypatch.setattr("inference.get_agent_action", lambda messages, temperature=0.1: ({"type": "transform", "code": "pass"}, 0.01, None))
         monkeypatch.setattr("inference.action_from_dict", lambda action_dict: SimpleNamespace(type=action_dict["type"]))
 
         task = BenchmarkTask(

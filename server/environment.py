@@ -616,7 +616,9 @@ class DataCleaningEnvironment(
         tmp_csv.close()
         try:
             self._sandbox_dir, self._worker_proc = create_sandbox(
-                self._episode_id, tmp_csv.name, base_dir=SANDBOX_BASE
+                self._episode_id, tmp_csv.name, base_dir=SANDBOX_BASE,
+                dirty_content=self._dirty_content,
+                file_format=self._file_format,
             )
         finally:
             os.unlink(tmp_csv.name)

@@ -196,11 +196,12 @@ def get_llm_client() -> OpenAI:
 ENV_NAME = "data_cleaning_env"
 
 
-def log_start(task_id: str):
+def log_start(task_id: str, category: str = "", seed: int = 0):
     model_name = get_model_name()
     api_base_url = get_api_base_url()
     print(f"[START] task={task_id} env={ENV_NAME} model={model_name}", flush=True)
-    _jlog("task_start", task_id=task_id, model=model_name, api_base=api_base_url)
+    _jlog("task_start", task_id=task_id, model=model_name, api_base=api_base_url,
+          category=category, seed=seed)
 
 
 def log_step(
@@ -245,6 +246,8 @@ def log_end(
     total_steps: int,
     elapsed: float,
     rewards: list[float],
+    category: str = "",
+    seed: int = 0,
 ):
     score = max(0.001, min(final_reward, 0.999))
     success = str(score >= 0.5).lower()
@@ -259,6 +262,8 @@ def log_end(
         final_reward=final_reward,
         total_steps=total_steps,
         elapsed_s=round(elapsed, 2),
+        category=category,
+        seed=seed,
     )
 
 
@@ -1036,10 +1041,17 @@ async def run_diagnostic_phase(env, obs, *, skip_validate: bool = False) -> tupl
 # ── Run Task ──────────────────────────────────────────────────────────────────
 
 
-async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
+async def run_task(
+    dataset_id: str,
+    difficulty: str,
+    fmt: str | None = "csv",
+    category: str | None = None,
+    seed: int | None = None,
+    max_steps: int | None = None,
+) -> float:
     """Run the agent on a single task via WebSocket. Returns final reward."""
-    task_id = f"{dataset_id}_{difficulty}_{fmt}"
-    log_start(task_id)
+    task_id = f"{dataset_id}_{difficulty}_{fmt or 'auto'}"
+    log_start(task_id, category=category or "", seed=seed or 0)
     task_start = time.time()
     current_reward = 0.0
     step_num = 0
@@ -1054,9 +1066,14 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
     env_client = DataCleaningClient(base_url=ENV_URL)
 
     async with env_client as env:
-        step_result = await env.reset(
-            task_id=dataset_id, difficulty=difficulty, format=fmt
-        )
+        reset_kwargs = dict(task_id=dataset_id, difficulty=difficulty)
+        if fmt is not None:
+            reset_kwargs["format"] = fmt
+        if category is not None:
+            reset_kwargs["category"] = category
+        if seed is not None:
+            reset_kwargs["seed"] = seed
+        step_result = await env.reset(**reset_kwargs)
         obs = step_result.observation
         current_reward = step_result.reward or 0.0
 
@@ -1109,16 +1126,19 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                     current_reward = result.reward if result.reward is not None else current_reward
                     constraint_status = obs.constraint_status or {}
                     new_fixed = sum(1 for v in constraint_status.values() if v)
-                    logger.info(
-                        "Auto-transform %s: %d/%d fixed, reward=%.4f",
-                        ctype, new_fixed, total, current_reward,
-                    )
-                    auto_action_history.append({
-                        "step": auto_step, "type": "transform",
-                        "summary": f"auto: {code[:60]}",
-                        "reward_after": current_reward, "errors_fixed": new_fixed,
-                    })
-                    fixed = new_fixed
+                    if new_fixed >= fixed:
+                        logger.info(
+                            "Auto-transform %s: %d/%d fixed, reward=%.4f",
+                            ctype, new_fixed, total, current_reward,
+                        )
+                        auto_action_history.append({
+                            "step": auto_step, "type": "transform",
+                            "summary": f"auto: {code[:60]}",
+                            "reward_after": current_reward, "errors_fixed": new_fixed,
+                        })
+                        fixed = new_fixed
+                    else:
+                        logger.warning("Auto-transform %s regressed %d->%d, skipping", ctype, fixed, new_fixed)
                 except Exception as exc:
                     logger.warning("Auto-transform %s failed: %s", ctype, exc)
             else:
@@ -1131,16 +1151,19 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                         current_reward = result.reward if result.reward is not None else current_reward
                         constraint_status = obs.constraint_status or {}
                         new_fixed = sum(1 for v in constraint_status.values() if v)
-                        logger.info(
-                            "Auto-transform %s(%s): %d/%d fixed, reward=%.4f",
-                            ctype, col, new_fixed, total, current_reward,
-                        )
-                        auto_action_history.append({
-                            "step": auto_step, "type": "transform",
-                            "summary": f"auto: {code[:60]}",
-                            "reward_after": current_reward, "errors_fixed": new_fixed,
-                        })
-                        fixed = new_fixed
+                        if new_fixed >= fixed:
+                            logger.info(
+                                "Auto-transform %s(%s): %d/%d fixed, reward=%.4f",
+                                ctype, col, new_fixed, total, current_reward,
+                            )
+                            auto_action_history.append({
+                                "step": auto_step, "type": "transform",
+                                "summary": f"auto: {code[:60]}",
+                                "reward_after": current_reward, "errors_fixed": new_fixed,
+                            })
+                            fixed = new_fixed
+                        else:
+                            logger.warning("Auto-transform %s(%s) regressed %d->%d, skipping", ctype, col, fixed, new_fixed)
                     except Exception as exc:
                         logger.warning("Auto-transform %s(%s) failed: %s", ctype, col, exc)
 
@@ -1175,7 +1198,7 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
         ]
 
         step_num = 0
-        max_steps = MAX_STEPS_BY_DIFFICULTY.get(difficulty, 60)
+        max_steps = max_steps or MAX_STEPS_BY_DIFFICULTY.get(difficulty, 60)
 
         while step_num < max_steps:
             step_num += 1
@@ -1471,17 +1494,27 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                     _jlog("transform_exec_failed", step=step_num, stale_count=stale_count,
                           error=(obs.transform_result or "")[:200])
                     logger.warning("Step %d transform FAILED to execute — stale=%d", step_num, stale_count)
-                elif fixed > best_fixed and current_reward >= best_reward:
-                    # Only update best state if BOTH fixed count AND reward improved
-                    # (more fixes + lower reward means wrong values introduced)
-                    stale_count = 0
-                    best_reward = current_reward
+                elif fixed > best_fixed:
+                    # Always update checkpoint when more errors fixed (for undo targeting)
                     best_fixed = fixed
                     best_transform_step = sum(
                         1
                         for h in action_history
                         if h["type"] == "transform" and not h.get("exec_failed")
                     )
+                    if current_reward >= best_reward:
+                        # Both improved — clear stale, update reward checkpoint
+                        stale_count = 0
+                        best_reward = current_reward
+                        current_temp = 0.1
+                    else:
+                        # Fixed more but reward dropped — wrong values introduced
+                        stale_count += 1
+                        current_temp = min(0.1 + stale_count * 0.2, 0.7)
+                elif current_reward > best_reward:
+                    # Reward improved without fixing more — still good progress
+                    stale_count = 0
+                    best_reward = current_reward
                     current_temp = 0.1
                 else:
                     stale_count += 1
@@ -1760,7 +1793,8 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                 break
 
     elapsed = time.time() - task_start
-    log_end(task_id, current_reward, step_num, elapsed, step_rewards)
+    log_end(task_id, current_reward, step_num, elapsed, step_rewards,
+            category=category or "", seed=seed or 0)
     logger.info(
         "Task %s complete | reward=%.4f | steps=%d | elapsed=%.1fs",
         task_id,

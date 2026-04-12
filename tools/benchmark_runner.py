@@ -60,6 +60,24 @@ _SUMMARY_BASE_FIELDS = [
 ]
 
 
+def _extract_steps_from_episode(episode_path: Path) -> int:
+    """Read task_end event from episode JSONL to get total_steps."""
+    if not episode_path.exists():
+        return 0
+    with open(episode_path) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue  # truncated line from interrupted run
+            if event.get("event") == "task_end":
+                return event.get("total_steps", 0)
+    return 0
+
+
 def _safe_task_key(task_key: str) -> str:
     """Sanitize task keys for safe filesystem use."""
     return re.sub(r"[^A-Za-z0-9._-]+", "_", task_key)
@@ -250,7 +268,11 @@ async def run_benchmark_task(
     try:
         # Delegate to the canonical inference loop — gets all improvements for free
         reward = await inf_mod.run_task(
-            task.dataset_id, task.difficulty, fmt="csv",
+            task.dataset_id, task.difficulty,
+            fmt=None,  # let CorruptionPipeline pick format based on category
+            category=task.category,
+            seed=task.seed,
+            max_steps=max_steps,
         )
     except Exception:
         logger.exception("Task %s failed", task_key)
@@ -271,7 +293,7 @@ async def run_benchmark_task(
         dataset_id=task.dataset_id, category=task.category,
         difficulty=task.difficulty, model=task.model_name,
         seed=task.seed, reward=reward, scores={},
-        steps=0,  # step count is in the inference JSONL log
+        steps=_extract_steps_from_episode(episode_path),
         episode_log_path=str(episode_path),
         elapsed_s=round(elapsed, 2),
     )
