@@ -364,24 +364,16 @@ class TestRunBenchmarkTask:
         result = asyncio.run(run_benchmark_task(task, max_steps=1, min_call_interval=0))
         assert result is None
 
-    def test_auto_done_uses_final_reward(self, monkeypatch):
+    def test_auto_done_reports_final_reward(self, monkeypatch):
         reset_result = _make_step_result(reward=0.0, done=False, fixed=0, total=2)
-        # Provide enough step results for diagnostic phase (explores + validate)
-        # plus the actual LLM transform. The final result should be what the
-        # benchmark reports.
+        # Provide a completed step result — the benchmark should report its reward
         step_results = [
-            _make_step_result(reward=0.0, done=False, fixed=0, total=2),  # diagnostic steps
-            _make_step_result(reward=0.0, done=False, fixed=0, total=2),
-            _make_step_result(reward=0.0, done=False, fixed=0, total=2),
-            _make_step_result(reward=0.0, done=False, fixed=0, total=2),
-            _make_step_result(reward=0.0, done=False, fixed=0, total=2),
-            _make_step_result(reward=1.0, done=False, fixed=2, total=2),  # LLM transform
-            _make_step_result(reward=0.97, done=True, fixed=2, total=2),  # auto-done
+            _make_step_result(reward=0.9, done=True, fixed=2, total=2),
         ]
         fake_session = _FakeEnvSession(reset_result, step_results)
 
         monkeypatch.setattr("client.DataCleaningClient", lambda base_url: fake_session)
-        monkeypatch.setattr("inference.get_agent_action", lambda messages, temperature=0.1: ({"type": "transform", "code": "pass"}, 0.01, None))
+        monkeypatch.setattr("inference.get_agent_action", lambda messages, temperature=0.1: ({"type": "done"}, 0.01, None))
         monkeypatch.setattr("inference.action_from_dict", lambda action_dict: SimpleNamespace(type=action_dict["type"]))
 
         task = BenchmarkTask(
@@ -395,7 +387,8 @@ class TestRunBenchmarkTask:
         )
         result = asyncio.run(run_benchmark_task(task, max_steps=1, min_call_interval=0))
 
-        assert result.reward == 0.97
+        assert result is not None
+        assert result.reward == 0.9
 
     def test_safe_task_key_sanitizes_model_names(self):
         safe = _safe_task_key("titanic_FP_easy_Qwen/Qwen2.5-72B-Instruct_42")

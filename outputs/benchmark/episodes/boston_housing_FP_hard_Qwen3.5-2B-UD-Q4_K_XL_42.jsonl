@@ -1,1 +1,0 @@
-{"event": "task_start", "timestamp": 1775965981.200576, "task_id": "boston_housing_hard_csv", "model": "Qwen3.5-2B-UD-Q4_K_XL", "api_base": "http://localhost:8080/v1"}
