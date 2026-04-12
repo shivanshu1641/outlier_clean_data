@@ -305,7 +305,7 @@ Fix templates (copy-paste, replace 'col' with actual column name):
 - decimal_shift: med = df['col'].median(); df.loc[df['col'] > med * 8, 'col'] /= 10; df.loc[(df['col'] > 0) & (df['col'] < med / 8), 'col'] *= 10
 - outlier_injection: q1, q3 = df['col'].quantile([0.25, 0.75]); iqr = q3 - q1; mask = (df['col'] < q1 - 3*iqr) | (df['col'] > q3 + 3*iqr); df.loc[mask, 'col'] = df['col'].median()
 - type_mangle: bad = df['col'][pd.to_numeric(df['col'], errors='coerce').isna() & df['col'].notna()]; df['col'] = df['col'].replace(bad.unique().tolist(), float('nan')); df['col'] = pd.to_numeric(df['col']); df['col'] = df['col'].fillna(df['col'].median())
-- category_misspell: from difflib import get_close_matches; valid = df['col'].value_counts().head(10).index.tolist(); df['col'] = df['col'].apply(lambda x: get_close_matches(str(x), valid, n=1, cutoff=0.6)[0] if get_close_matches(str(x), valid, n=1, cutoff=0.6) else x)
+- category_misspell: valid = df['col'].value_counts().head(10).index.tolist(); df['col'] = df['col'].apply(lambda x: min(valid, key=lambda v: sum(a!=b for a,b in zip(str(x).lower(),v.lower()))) if str(x) not in valid else x)
 - leading_zero_strip: df['col'] = df['col'].astype(str).str.zfill(5)
 - value_swap: explore first to identify swapped pairs, then swap back targeted rows
 
@@ -594,34 +594,49 @@ def build_user_prompt(
 
     # Show prioritized fix plan with counts on every step (not just hard tasks)
     if total - fixed > 0 and obs.constraints:
-        error_text = str(obs.constraints[0]) if obs.constraints else ""
-        import re as _re
+        import re as _re_fix
 
-        type_lines = _re.findall(r"(\w+) in: ([^\n]+?)(?:\s*—\s*(\d+)\s*errors?)?(?:\n|$)", error_text)
-        if type_lines:
-            _PRIORITY = {
-                "duplicate_rows": 0,
-                "drop_rows": 0,
-                "header_in_data": 0,
-                "column_shift": 1,
-                "value_swap": 1,
-                "inject_nulls": 2,
-                "whitespace_noise": 2,
-                "type_mangle": 3,
-                "format_inconsistency": 3,
-                "outlier_injection": 4,
-                "decimal_shift": 4,
-                "category_misspell": 5,
-                "typo_injection": 5,
-            }
-            sorted_types = sorted(type_lines, key=lambda t: _PRIORITY.get(t[0], 6))
+        _PRIORITY = {
+            "duplicate_rows": 0,
+            "drop_rows": 0,
+            "header_in_data": 0,
+            "column_shift": 1,
+            "value_swap": 1,
+            "inject_nulls": 2,
+            "whitespace_noise": 2,
+            "type_mangle": 3,
+            "format_inconsistency": 3,
+            "outlier_injection": 4,
+            "decimal_shift": 4,
+            "category_misspell": 5,
+            "typo_injection": 5,
+        }
+        # Parse using the same logic as _extract_remaining_error_targets, plus counts
+        fix_plan_items: list[tuple[str, str, str]] = []
+        for desc in obs.constraints or []:
+            for raw_line in str(desc).splitlines():
+                line = raw_line.strip()
+                if "duplicate_rows" in line and "extra rows" in line:
+                    count_m = _re_fix.search(r"(\d+)\s*extra", line)
+                    fix_plan_items.append(("duplicate_rows", "", count_m.group(1) if count_m else ""))
+                    continue
+                if " in: " not in line:
+                    continue
+                left, right = line.split(" in: ", 1)
+                # left is like "type_mangle (108 errors)"
+                ctype = left.split("(")[0].strip().split()[-1].rstrip(":")
+                count_m = _re_fix.search(r"\((\d+)\s*errors?\)", left)
+                count = count_m.group(1) if count_m else ""
+                cols = right.strip()
+                fix_plan_items.append((ctype, cols, count))
+
+        if fix_plan_items:
+            sorted_types = sorted(fix_plan_items, key=lambda t: _PRIORITY.get(t[0], 6))
             parts.extend(["", "FIX PLAN (work top to bottom, one at a time):"])
-            for i, match_tuple in enumerate(sorted_types, 1):
-                ctype = match_tuple[0]
-                cols = match_tuple[1]
-                count = match_tuple[2] if len(match_tuple) > 2 and match_tuple[2] else ""
+            for i, (ctype, cols, count) in enumerate(sorted_types, 1):
                 count_str = f" ({count} errors)" if count else ""
-                parts.append(f"  {i}. {ctype} in {cols}{count_str}")
+                col_str = f" in {cols}" if cols else ""
+                parts.append(f"  {i}. {ctype}{col_str}{count_str}")
 
     if obs.diagnosis:
         parts.extend(["", "Diagnosis:", obs.diagnosis])
@@ -851,37 +866,31 @@ def _sanitize_transform_code(code: str) -> str:
 
     # ── Phase 2: Fix spurious indentation ────────────────────────────────────
     lines = code.split("\n")
-    if len(lines) <= 1:
-        return code
+    if len(lines) > 1:
+        first_nonempty = next((l for l in lines if l.strip()), None)
+        if first_nonempty is not None:
+            first_indent = len(first_nonempty) - len(first_nonempty.lstrip())
 
-    first_nonempty = next((l for l in lines if l.strip()), None)
-    if first_nonempty is None:
-        return code
-    first_indent = len(first_nonempty) - len(first_nonempty.lstrip())
-
-    # If first line itself is indented, textwrap.dedent handles it
-    if first_indent > 0:
-        return textwrap.dedent(code)
-
-    # First line at col 0 — check if subsequent lines have uniform extra indent
-    rest_non_empty = [l for l in lines[1:] if l.strip()]
-    if not rest_non_empty:
-        return code
-    rest_indents = [len(l) - len(l.lstrip()) for l in rest_non_empty]
-    min_rest = min(rest_indents)
-
-    if min_rest > 0 and not first_nonempty.rstrip().endswith(":"):
-        # Subsequent lines have more indent than first, and first line isn't
-        # a control-flow statement — strip the uniform excess
-        new_lines = [lines[0]]
-        for line in lines[1:]:
-            if not line.strip():
-                new_lines.append(line)
-            elif len(line) - len(line.lstrip()) >= min_rest:
-                new_lines.append(line[min_rest:])
+            if first_indent > 0:
+                # First line itself is indented — textwrap.dedent handles it
+                code = textwrap.dedent(code)
             else:
-                new_lines.append(line)
-        return "\n".join(new_lines)
+                # First line at col 0 — check if subsequent lines have uniform extra indent
+                rest_non_empty = [l for l in lines[1:] if l.strip()]
+                if rest_non_empty:
+                    rest_indents = [len(l) - len(l.lstrip()) for l in rest_non_empty]
+                    min_rest = min(rest_indents)
+
+                    if min_rest > 0 and not first_nonempty.rstrip().endswith(":"):
+                        new_lines = [lines[0]]
+                        for line in lines[1:]:
+                            if not line.strip():
+                                new_lines.append(line)
+                            elif len(line) - len(line.lstrip()) >= min_rest:
+                                new_lines.append(line[min_rest:])
+                            else:
+                                new_lines.append(line)
+                        code = "\n".join(new_lines)
 
     # ── Phase 2b: Warn if too many columns modified (don't block, just log) ──
     col_assignments = _re.findall(r"df\['([^']+)'\]\s*=", code)
@@ -932,8 +941,8 @@ def action_from_dict(d: dict):
 DIAG_MAX_EXPLORES = 4
 
 
-async def run_diagnostic_phase(env, obs) -> tuple[str, str, object]:
-    """Run pre-LLM diagnostics: targeted explore battery + one validate call.
+async def run_diagnostic_phase(env, obs, *, skip_validate: bool = False) -> tuple[str, str, object]:
+    """Run pre-LLM diagnostics: targeted explore battery + optional validate.
 
     Returns (explore_text, validate_text, updated_obs).
     Explore results are collected from the env without spending the LLM's
@@ -1000,13 +1009,15 @@ async def run_diagnostic_phase(env, obs) -> tuple[str, str, object]:
                 await _explore(f"df[{repr(col)}].head(10)")
 
     # 3. Validate — gives per-cell expected vs actual breakdown
+    # Skip for easy tasks to preserve validate budget (costs 0.01 penalty each)
     validate_text = ""
-    try:
-        vresult = await env.step(ValidateAction())
-        obs = vresult.observation
-        validate_text = (obs.validate_result or "").strip()
-    except Exception as exc:
-        logger.warning("Diagnostic validate failed: %s", exc)
+    if not skip_validate:
+        try:
+            vresult = await env.step(ValidateAction())
+            obs = vresult.observation
+            validate_text = (obs.validate_result or "").strip()
+        except Exception as exc:
+            logger.warning("Diagnostic validate failed: %s", exc)
 
     explore_text = "\n\n".join(explore_blocks)
     _jlog(
@@ -1060,8 +1071,9 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
         )
 
         # ── Diagnostic phase: auto-explore + validate before LLM's first turn (A+B) ──
+        # Skip validate for easy tasks — saves budget (0.01 penalty) and they're small enough
         diag_explore_text, diag_validate_text, obs = await run_diagnostic_phase(
-            env, obs
+            env, obs, skip_validate=(difficulty == "easy"),
         )
         # Re-read constraint status after diagnostic validate may have updated obs
         constraint_status = obs.constraint_status or {}
@@ -1071,7 +1083,72 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
         # Build corruption-type templates from the error summary (C)
         template_hints = _build_template_hints(obs)
 
-        action_history: list[dict] = []
+        # ── Auto-submit safe transforms for known corruption types ───────────
+        # Deterministic first-pass: submit template code for unambiguous types
+        # before the LLM starts. This handles types small models struggle with.
+        auto_action_history: list[dict] = []
+        auto_step = 0
+        targets = _extract_remaining_error_targets(obs.constraints)
+        _SAFE_TEMPLATES: dict[str, callable] = {
+            "duplicate_rows": lambda _col: "df = df.drop_duplicates()",
+            "inject_nulls": lambda col: f"df['{col}'] = df['{col}'].fillna(df['{col}'].median())",
+            "whitespace_noise": lambda col: (
+                f"df['{col}'] = df['{col}'].astype(str)"
+                f".str.replace(r'\\s+', ' ', regex=True).str.strip()"
+            ),
+        }
+        for ctype, cols in targets.items():
+            if ctype not in _SAFE_TEMPLATES:
+                continue
+            if ctype == "duplicate_rows":
+                code = _SAFE_TEMPLATES[ctype]("")
+                auto_step += 1
+                try:
+                    result = await env.step(TransformAction(code=code))
+                    obs = result.observation
+                    current_reward = result.reward if result.reward is not None else current_reward
+                    constraint_status = obs.constraint_status or {}
+                    new_fixed = sum(1 for v in constraint_status.values() if v)
+                    logger.info(
+                        "Auto-transform %s: %d/%d fixed, reward=%.4f",
+                        ctype, new_fixed, total, current_reward,
+                    )
+                    auto_action_history.append({
+                        "step": auto_step, "type": "transform",
+                        "summary": f"auto: {code[:60]}",
+                        "reward_after": current_reward, "errors_fixed": new_fixed,
+                    })
+                    fixed = new_fixed
+                except Exception as exc:
+                    logger.warning("Auto-transform %s failed: %s", ctype, exc)
+            else:
+                for col in cols[:2]:
+                    code = _SAFE_TEMPLATES[ctype](col)
+                    auto_step += 1
+                    try:
+                        result = await env.step(TransformAction(code=code))
+                        obs = result.observation
+                        current_reward = result.reward if result.reward is not None else current_reward
+                        constraint_status = obs.constraint_status or {}
+                        new_fixed = sum(1 for v in constraint_status.values() if v)
+                        logger.info(
+                            "Auto-transform %s(%s): %d/%d fixed, reward=%.4f",
+                            ctype, col, new_fixed, total, current_reward,
+                        )
+                        auto_action_history.append({
+                            "step": auto_step, "type": "transform",
+                            "summary": f"auto: {code[:60]}",
+                            "reward_after": current_reward, "errors_fixed": new_fixed,
+                        })
+                        fixed = new_fixed
+                    except Exception as exc:
+                        logger.warning("Auto-transform %s(%s) failed: %s", ctype, col, exc)
+
+        # Refresh template hints after auto-transforms
+        if auto_action_history:
+            template_hints = _build_template_hints(obs)
+
+        action_history: list[dict] = auto_action_history
         step_rewards: list[float] = []
         best_reward: float = current_reward
         best_fixed: int = fixed
@@ -1394,7 +1471,9 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                     _jlog("transform_exec_failed", step=step_num, stale_count=stale_count,
                           error=(obs.transform_result or "")[:200])
                     logger.warning("Step %d transform FAILED to execute — stale=%d", step_num, stale_count)
-                elif fixed > best_fixed:
+                elif fixed > best_fixed and current_reward >= best_reward:
+                    # Only update best state if BOTH fixed count AND reward improved
+                    # (more fixes + lower reward means wrong values introduced)
                     stale_count = 0
                     best_reward = current_reward
                     best_fixed = fixed
