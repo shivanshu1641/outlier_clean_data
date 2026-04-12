@@ -55,12 +55,15 @@ def _format_rules_html(rules: list[dict]) -> str:
         elif rtype == "cross_column":
             detail = r.get("relationship", "?")
 
+        detail_html = (
+            f'<br><span style="color:#64748b;font-size:12px">{detail}</span>' if detail else ""
+        )
         lines.append(
             f'<div style="padding:8px 12px;margin:4px 0;background:#f8fafc;border-radius:6px;'
             f'border-left:3px solid {color};font-size:13px">'
             f'<span style="color:{color};font-weight:600">{rtype.title()}</span> '
             f'<code style="color:#1e293b;font-weight:500">{col}</code>'
-            f'{f"<br><span style=\'color:#64748b;font-size:12px\'>{detail}</span>" if detail else ""}'
+            f'{detail_html}'
             f'</div>'
         )
     return "\n".join(lines)
