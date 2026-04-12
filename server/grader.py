@@ -730,8 +730,9 @@ def grade(
         transform_excess / (max_transform_steps * 2) if max_transform_steps > 0 else 0
     )
     normal_explores = explore_steps - explore_timeouts
+    free_explores = max(0, normal_explores - int(min_transform_steps * 1.5))  # 1.5 explores per corruption type
     explore_penalty = (
-        normal_explores * explore_cost_per_step
+        free_explores * explore_cost_per_step
         + explore_timeouts * explore_timeout_cost
     )
     undo_penalty = undo_count * undo_cost

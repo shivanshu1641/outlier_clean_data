@@ -209,6 +209,7 @@ async def run_benchmark_task(
     env_url: str = "http://localhost:7860",
     max_steps: int = 50,
     min_call_interval: float = 2.5,
+    config: dict | None = None,
 ) -> BenchmarkResult:
     """Run a single benchmark task by delegating to inference.run_task.
 
@@ -230,6 +231,19 @@ async def run_benchmark_task(
     task_key = f"{task.dataset_id}_{task.category}_{task.difficulty}_{task.model_name}_{task.seed}"
     logger.info("Starting benchmark task: %s", task_key)
 
+    # Point inference JSONL logs to the benchmark episodes dir so we capture
+    # the full step-by-step log per task (not just a summary).
+    episode_dir = Path(
+        config.get("output_dir", "outputs/benchmark") if config else "outputs/benchmark"
+    ) / "episodes"
+    episode_dir.mkdir(parents=True, exist_ok=True)
+    safe_key = _safe_task_key(task_key)
+    episode_path = episode_dir / f"{safe_key}.jsonl"
+
+    # Redirect inference module's JSONL log to our episode file
+    old_jsonl = inf_mod._jsonl_file
+    inf_mod._jsonl_file = open(episode_path, "w", buffering=1)
+
     t0 = time.time()
 
     try:
@@ -239,54 +253,88 @@ async def run_benchmark_task(
         )
     except Exception:
         logger.exception("Task %s failed", task_key)
-        reward = 0.0
+        inf_mod._jsonl_file.close()
+        inf_mod._jsonl_file = old_jsonl
+        # Clean up episode file on error
+        if episode_path.exists():
+            episode_path.unlink()
+        return None
+    finally:
+        if not inf_mod._jsonl_file.closed:
+            inf_mod._jsonl_file.close()
+        inf_mod._jsonl_file = old_jsonl
 
     elapsed = time.time() - t0
-
-    # The inference module already writes per-step JSONL logs to LOG_DIR.
-    # Point the episode_log_path to the latest run log for this task.
-    episode_dir = os.path.join("outputs", "episodes")
-    os.makedirs(episode_dir, exist_ok=True)
-    episode_path = os.path.join(episode_dir, f"{_safe_task_key(task_key)}.json")
-    with open(episode_path, "w") as f:
-        json.dump({"task_key": task_key, "reward": reward, "elapsed_s": round(elapsed, 2)}, f)
 
     return BenchmarkResult(
         dataset_id=task.dataset_id, category=task.category,
         difficulty=task.difficulty, model=task.model_name,
         seed=task.seed, reward=reward, scores={},
         steps=0,  # step count is in the inference JSONL log
-        episode_log_path=episode_path,
+        episode_log_path=str(episode_path),
         elapsed_s=round(elapsed, 2),
     )
 
 
+def _load_completed_keys(output_dir: str | Path) -> set[str]:
+    """Load (dataset_id, category, difficulty, model, seed) keys already in results."""
+    existing = load_results_summary(output_dir)
+    keys = set()
+    for row in existing:
+        key = (
+            row.get("dataset_id", ""),
+            row.get("category", ""),
+            row.get("difficulty", ""),
+            row.get("model", ""),
+            str(row.get("seed", "")),
+        )
+        keys.add(key)
+    return keys
+
+
 async def run_benchmark(config: dict) -> list[BenchmarkResult]:
-    """Run the full benchmark matrix sequentially."""
+    """Run the full benchmark matrix sequentially, skipping already-completed tasks."""
     tasks = generate_task_matrix(config)
     output_dir = config.get("output_dir", "outputs/benchmark")
     env_url = config.get("env_url", "http://localhost:7860")
     max_steps = config.get("max_steps", 50)
     min_call_interval = config.get("min_call_interval", 2.5)
 
-    logger.info("Benchmark matrix: %d tasks", len(tasks))
+    completed = _load_completed_keys(output_dir)
+
+    logger.info("Benchmark matrix: %d tasks (%d already completed)", len(tasks), len(completed))
     results = []
+    skipped = 0
     for i, task in enumerate(tasks):
+        key = (task.dataset_id, task.category, task.difficulty, task.model_name, str(task.seed))
+        if key in completed:
+            skipped += 1
+            logger.info("SKIP %d/%d: %s/%s/%s/%s/seed=%d (already exists)",
+                         i + 1, len(tasks), task.dataset_id, task.category,
+                         task.difficulty, task.model_name, task.seed)
+            continue
+
         logger.info("Task %d/%d: %s/%s/%s/%s/seed=%d",
                      i + 1, len(tasks), task.dataset_id, task.category,
                      task.difficulty, task.model_name, task.seed)
-        result = await run_benchmark_task(task, env_url=env_url, max_steps=max_steps, min_call_interval=min_call_interval)
+        result = await run_benchmark_task(task, env_url=env_url, max_steps=max_steps, min_call_interval=min_call_interval, config=config)
+        if result is None:
+            logger.warning("  FAILED — not saving to results")
+            continue
         save_result(result, output_dir=output_dir)
         results.append(result)
         logger.info("  reward=%.4f steps=%d elapsed=%.1fs", result.reward, result.steps, result.elapsed_s)
-    logger.info("Benchmark complete: %d tasks", len(results))
+    logger.info("Benchmark complete: %d ran, %d skipped", len(results), skipped)
     return results
 
 
 def main():
     parser = argparse.ArgumentParser(description="Run data cleaning benchmark")
     parser.add_argument("--config", default="tools/benchmark_config.yaml")
-    parser.add_argument("--models", nargs="*", help="Filter to these model names")
+    parser.add_argument("--models", nargs="*", help="Filter to these model names (must exist in config)")
+    parser.add_argument("--model-name", help="Run a single model by name (creates entry if not in config)")
+    parser.add_argument("--api-base", default="http://localhost:8080/v1", help="API base URL for --model-name")
+    parser.add_argument("--api-key-env", default="OPENAI_API_KEY", help="Env var for API key")
     parser.add_argument("--categories", nargs="*", help="Filter to these categories")
     parser.add_argument("--difficulties", nargs="*", help="Filter to these difficulties")
     parser.add_argument("--datasets", nargs="*", help="Filter to these dataset IDs")
@@ -294,16 +342,17 @@ def main():
 
     logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s — %(message)s", datefmt="%H:%M:%S")
 
-    # CLI --models filter works by name matching
-    models_filter = None
-    if args.models:
-        models_filter = args.models
-
     config = load_config(args.config, categories=args.categories, difficulties=args.difficulties, datasets=args.datasets)
 
-    # Filter models by name if --models provided
-    if models_filter:
-        config["models"] = [m for m in config.get("models", []) if m["name"] in models_filter]
+    # Single model from CLI (creates entry on the fly)
+    if args.model_name:
+        config["models"] = [{
+            "name": args.model_name,
+            "api_base": args.api_base,
+            "api_key_env": args.api_key_env,
+        }]
+    elif args.models:
+        config["models"] = [m for m in config.get("models", []) if m["name"] in args.models]
 
     asyncio.run(run_benchmark(config))
 

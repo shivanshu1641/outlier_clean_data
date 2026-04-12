@@ -1,6 +1,21 @@
 models:
-  - name: gemma-4-E2B-it
-    api_base: "http://localhost:16384/v1"
+  - name: Qwen3.5-0.8B-UD-Q4_K_XL
+    api_base: "http://localhost:8080/v1"
+    api_key_env: "OPENAI_API_KEY"
+  - name: Qwen3.5-2B-UD-Q4_K_XL
+    api_base: "http://localhost:8080/v1"
+    api_key_env: "OPENAI_API_KEY"
+  - name: gemma-4-E2B-it-Q4_K_M
+    api_base: "http://localhost:8080/v1"
+    api_key_env: "OPENAI_API_KEY"
+  - name: gemma-4-E4B-it-Q4_K_M
+    api_base: "http://localhost:8080/v1"
+    api_key_env: "OPENAI_API_KEY"
+  - name: Qwen3-4B-Q4_K_M
+    api_base: "http://localhost:8080/v1"
+    api_key_env: "OPENAI_API_KEY"
+  - name: Qwen3.5-9B-UD-Q4_K_XL
+    api_base: "http://localhost:8080/v1"
     api_key_env: "OPENAI_API_KEY"
 
 categories:

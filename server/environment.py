@@ -94,7 +94,7 @@ CATALOG_PATH = os.environ.get(
 
 # Defaults for profile keys not present in DIFFICULTY_PROFILES
 _EXPLORE_BUDGET_DEFAULT = 10
-_EXPLORE_COST_PER_STEP_DEFAULT = 0.01
+_EXPLORE_COST_PER_STEP_DEFAULT = 0.005
 _EXPLORE_TIMEOUT_COST_DEFAULT = 0.03
 _VALIDATE_BUDGET_DEFAULT = 2
 _UNDO_COST_DEFAULT = 0.02
@@ -422,7 +422,7 @@ def _validate_breakdown(
         lines.append(f"\nSpurious rows ({len(unfixed_spurious)} unfixed):")
         for key in unfixed_spurious[:5]:
             row_str = key.replace("spurious_", "")
-            lines.append(f"  Row index {row_str} is a duplicate — remove it")
+            lines.append(f"  Row {row_str} is a duplicate — use df.drop_duplicates() to remove")
 
     unfixed_missing = [
         k for k, v in error_status.items() if k.startswith("missing_") and v != "fixed"
@@ -754,6 +754,14 @@ class DataCleaningEnvironment(
             )
 
         max_steps = self._profile.get("max_transform_steps", 10)
+        # Scale hard cap with corruption count so complex tasks get enough steps
+        n_ctypes = len(set(
+            info.get("corruption") for info in self._error_map.get("cell_errors", {}).values()
+            if info.get("corruption")
+        ))
+        if self._error_map.get("row_errors"):
+            n_ctypes += 1
+        max_steps = max(max_steps, n_ctypes * 3)
         if self._transform_steps >= max_steps:
             self._done = True
             msg += "\nMax transform steps reached. Episode ending."
@@ -846,13 +854,28 @@ class DataCleaningEnvironment(
         cached_rm = (
             None  # Always recompute — row content may change without count change
         )
+        # Scale min_transform_steps to actual corruption count so tasks with
+        # many corruption types aren't penalised for the minimum required work.
+        corruption_types = set()
+        for info in self._error_map.get("cell_errors", {}).values():
+            ct = info.get("corruption")
+            if ct:
+                corruption_types.add(ct)
+        if self._error_map.get("row_errors"):
+            corruption_types.add("row_errors")
+        profile_min = profile.get("min_transform_steps", 2)
+        effective_min = max(profile_min, len(corruption_types))
+        # Scale max_transform_steps so penalty spreads over a wider window
+        profile_max = profile.get("max_transform_steps", 10)
+        effective_max = max(profile_max, len(corruption_types) * 3)
+
         self._error_status, self._current_reward, ss, rm = grade(
             self._clean_df,
             self._current_df,
             self._error_map,
             self._transform_steps,
-            profile.get("min_transform_steps", 2),
-            profile.get("max_transform_steps", 10),
+            effective_min,
+            effective_max,
             explore_steps=self._explore_steps_total,
             explore_timeouts=self._explore_timeouts,
             explore_cost_per_step=profile.get(

@@ -1,0 +1,1 @@
+{"event": "task_start", "timestamp": 1775965982.0091782, "task_id": "horse_colic_easy_csv", "model": "Qwen3.5-2B-UD-Q4_K_XL", "api_base": "http://localhost:8080/v1"}

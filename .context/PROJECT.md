@@ -19,8 +19,12 @@ OpenEnv environment for the Meta PyTorch Hackathon (deadline: April 8, 2026). AI
 - **server/corruption/categories.py** — 6 benchmark categories (FP/VR/MD/SR/SV/CP) mapping to corruption subsets and format pools
 - **server/rules/** — 7 semantic rule types (Range, Regex, Enum, Dtype, NotNull, Unique, CrossColumn), auto-inferred from clean data, validated in grading
 - **datasets/** — 25-entry dataset catalog plus download pipeline in `tools/download_datasets.py`
-- **tools/benchmark_runner.py** — CLI benchmark orchestrator: generates task matrix, runs inference agent, saves JSONL + CSV results
-- **ui/** — Gradio benchmark dashboard: leaderboard, episode explorer, dataset catalog tabs
+- **tools/benchmark_runner.py** — Config-driven benchmark orchestrator: dataset×category×difficulty×model×seed task matrix; saves results.jsonl + summary.csv + per-task JSONL episode logs to `outputs/benchmark/`; accepts `--model-name`/`--api-base` for single-model runs or `--models` to filter from config
+- **tools/benchmark_config.yaml** — Benchmark config: 6 local GGUF models (Qwen3.5-0.8B/2B/9B, gemma-4-E2B/E4B, Qwen3-4B), 6 categories, 3 difficulties, all discovered datasets
+- **run_benchmark.sh** — Multi-model benchmark orchestrator: loops through GGUF models, starts/stops llama-server per model, delegates to benchmark_runner; supports `--models`, `--categories`, `--difficulties` filters
+- **run_all_models.sh** — Legacy multi-model runner (calls inference.py directly, no category tagging)
+- **outputs/benchmark/** — Git-tracked benchmark results: `results.jsonl`, `summary.csv`, `episodes/*.jsonl`
+- **ui/** — Gradio benchmark dashboard (dark theme): category-card leaderboard with bar charts, step-by-step episode explorer, dataset catalog with rule viewer
 
 ## Key Decisions
 
@@ -80,6 +84,19 @@ python inference.py titanic_easy wine_medium
 python tools/download_datasets.py
 # Generate all task artifacts (clean, dirty, error_map, severity_map)
 python tools/corruption/engine.py
+
+# ── Benchmark ──────────────────────────────────────────────────
+# Full benchmark: all 6 models × 6 categories × 3 difficulties × all datasets
+./run_benchmark.sh
+# Filter by model/category/difficulty
+./run_benchmark.sh --models "Qwen3.5-0.8B-UD-Q4_K_XL" --categories FP VR --difficulties easy medium
+# Single model via benchmark_runner directly (server must be running)
+python -m tools.benchmark_runner --model-name "Qwen3.5-0.8B-UD-Q4_K_XL" --api-base http://localhost:8080/v1
+
+# ── UI ─────────────────────────────────────────────────────────
+# Launch Gradio dashboard (reads from outputs/benchmark/)
+python -m ui.app
+python -m ui.app --port 7862 --benchmark-dir outputs/benchmark
 ```
 
 ## Benchmark Status
@@ -137,13 +154,16 @@ Full model benchmarks should be rerun after the rebalance before publishing new 
 - `server/rules/enrich_catalog.py` — Batch-enrich catalog.json with inferred rules
 - `datasets/catalog.json` — 25 dataset entries used by the generative environment
 - `tools/download_datasets.py` — Dataset download pipeline (GitHub mirrors + source URLs)
-- `tools/benchmark_runner.py` — CLI benchmark orchestrator for model evaluation
-- `tools/benchmark_config.yaml` — Default benchmark config (models, categories, difficulties)
-- `ui/app.py` — Gradio dashboard entry point
-- `ui/leaderboard.py` — Model × Category leaderboard pivot table
-- `ui/explorer.py` — Step-by-step episode replay viewer
-- `ui/catalog_view.py` — Dataset catalog browser with rule viewer
-- `ui/data_loader.py` — Loads benchmark results, episode logs, catalog
+- `run_benchmark.sh` — Multi-model benchmark shell orchestrator: llama-server lifecycle per model, delegates to benchmark_runner
+- `run_all_models.sh` — Legacy multi-model runner (calls inference.py directly)
+- `tools/benchmark_runner.py` — Config-driven benchmark orchestrator: task matrix generation, per-task JSONL episode capture, results.jsonl + summary.csv output
+- `tools/benchmark_config.yaml` — Benchmark config: 6 models, 6 categories, 3 difficulties
+- `ui/app.py` — Gradio dashboard entry point, injects dark CSS
+- `ui/theme.py` — Dark CSS, category metadata (FP/VR/MD/SR/SV/CP), model color palette
+- `ui/leaderboard.py` — Category-card grid with expandable bar charts per category
+- `ui/explorer.py` — Step-by-step episode replay from JSONL logs
+- `ui/catalog_view.py` — Dataset catalog browser with semantic rule viewer
+- `ui/data_loader.py` — Loads benchmark results (results.jsonl primary, results.csv fallback), JSONL episodes, catalog; infers category when not present
 
 ## Task IDs
 

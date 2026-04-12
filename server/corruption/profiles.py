@@ -36,7 +36,7 @@ DIFFICULTY_PROFILES = {
         "format_pool": ["csv", "json", "jsonl", "excel", "tsv", "xml",
                         "fixed_width", "html_table", "sql_dump", "yaml"],
         "min_transform_steps": 8,
-        "max_transform_steps": 25,
+        "max_transform_steps": 40,
         # allowed_corruptions intentionally absent — hard mode uses all 22 types
     },
 }

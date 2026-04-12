@@ -1,0 +1,1 @@
+{"event": "task_start", "timestamp": 1775965981.5921888, "task_id": "german_credit_medium_csv", "model": "Qwen3.5-2B-UD-Q4_K_XL", "api_base": "http://localhost:8080/v1"}

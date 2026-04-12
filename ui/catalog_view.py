@@ -1,5 +1,4 @@
-# ui/catalog_view.py
-"""Dataset catalog browser tab."""
+"""Dataset catalog browser tab — two-pane: table left, rules right."""
 from __future__ import annotations
 
 import gradio as gr
@@ -14,47 +13,77 @@ def _catalog_to_df(catalog: dict) -> pd.DataFrame:
         rules = entry.get("rules", [])
         rule_types = list({r.get("type", "") for r in rules})
         rows.append({
-            "dataset_id": dataset_id,
-            "domain": entry.get("domain", ""),
-            "rows": entry.get("rows", ""),
-            "cols": entry.get("cols", ""),
-            "size_class": entry.get("size_class", ""),
-            "num_rules": len(rules),
-            "rule_types": ", ".join(sorted(rule_types)),
-            "filename": entry.get("filename", ""),
+            "Dataset": dataset_id,
+            "Domain": entry.get("domain", ""),
+            "Rows": entry.get("rows", ""),
+            "Cols": entry.get("cols", ""),
+            "Rules": len(rules),
+            "Rule Types": ", ".join(sorted(rule_types)),
         })
-    return pd.DataFrame(rows).sort_values("dataset_id").reset_index(drop=True)
+    return pd.DataFrame(rows).sort_values("Dataset").reset_index(drop=True)
 
 
-def _format_rules(rules: list[dict]) -> str:
+def _format_rules_html(rules: list[dict]) -> str:
     if not rules:
-        return "*No semantic rules inferred for this dataset.*"
+        return "<p style='color:#94a3b8'>No semantic rules inferred.</p>"
+
+    type_colors = {
+        "range": "#0d9488", "enum": "#2563eb", "regex": "#d97706",
+        "not_null": "#dc2626", "unique": "#7c3aed", "dtype": "#059669",
+        "cross_column": "#db2777",
+    }
+
     lines = []
     for r in rules:
         rtype = r.get("type", "unknown")
         col = r.get("column", r.get("columns", ""))
-        source = r.get("source", "")
+        color = type_colors.get(rtype, "#94a3b8")
+
+        detail = ""
         if rtype == "range":
-            lines.append(f"- **Range** `{col}`: [{r.get('min', '?')}, {r.get('max', '?')}] *(source: {source})*")
+            detail = f"[{r.get('min', '?')}, {r.get('max', '?')}]"
         elif rtype == "enum":
             vals = r.get("values", r.get("allowed_values", []))
-            preview = ", ".join(str(v) for v in vals[:10])
-            if len(vals) > 10:
-                preview += f" ... ({len(vals)} total)"
-            lines.append(f"- **Enum** `{col}`: {{{preview}}} *(source: {source})*")
+            preview = ", ".join(str(v) for v in vals[:6])
+            if len(vals) > 6:
+                preview += f" +{len(vals) - 6} more"
+            detail = f"{{{preview}}}"
         elif rtype == "regex":
-            lines.append(f"- **Regex** `{col}`: `{r.get('pattern', '')}` *(source: {source})*")
-        elif rtype == "not_null":
-            lines.append(f"- **NotNull** `{col}` *(source: {source})*")
-        elif rtype == "unique":
-            lines.append(f"- **Unique** `{col}` *(source: {source})*")
+            detail = f"<code style='background:#f1f5f9;padding:1px 5px;border-radius:3px'>{r.get('pattern', '')}</code>"
         elif rtype == "dtype":
-            lines.append(f"- **Dtype** `{col}`: {r.get('expected_dtype', '?')} *(source: {source})*")
+            detail = r.get("expected_dtype", "?")
         elif rtype == "cross_column":
-            lines.append(f"- **CrossColumn** `{col}`: {r.get('relationship', '?')} *(source: {source})*")
-        else:
-            lines.append(f"- **{rtype}** `{col}` *(source: {source})*")
+            detail = r.get("relationship", "?")
+
+        lines.append(
+            f'<div style="padding:8px 12px;margin:4px 0;background:#f8fafc;border-radius:6px;'
+            f'border-left:3px solid {color};font-size:13px">'
+            f'<span style="color:{color};font-weight:600">{rtype.title()}</span> '
+            f'<code style="color:#1e293b;font-weight:500">{col}</code>'
+            f'{f"<br><span style=\'color:#64748b;font-size:12px\'>{detail}</span>" if detail else ""}'
+            f'</div>'
+        )
     return "\n".join(lines)
+
+
+def _build_rules_panel(catalog: dict, dataset_id: str | None) -> str:
+    if not dataset_id or dataset_id not in catalog:
+        return '<p style="color:#94a3b8;padding:20px">Select a dataset from the table.</p>'
+
+    entry = catalog[dataset_id]
+    rules = entry.get("rules", [])
+
+    header = (
+        f'<div style="padding:4px 0">'
+        f'<h3 style="color:#1e293b;margin:0 0 4px 0;font-size:18px">{dataset_id}</h3>'
+        f'<p style="color:#64748b;font-size:13px;margin:0 0 16px 0">'
+        f'<span style="background:#f1f5f9;padding:2px 8px;border-radius:4px;margin-right:8px">{entry.get("domain", "N/A")}</span>'
+        f'{entry.get("rows", "?")} rows &times; {entry.get("cols", "?")} cols'
+        f'</p>'
+        f'<h4 style="color:#475569;font-size:14px;margin:0 0 10px 0">Semantic Rules ({len(rules)})</h4>'
+    )
+
+    return header + _format_rules_html(rules) + '</div>'
 
 
 def create_catalog_tab() -> gr.Blocks:
@@ -62,32 +91,41 @@ def create_catalog_tab() -> gr.Blocks:
 
     with gr.Blocks() as tab:
         gr.Markdown("## Dataset Catalog")
-        gr.Markdown(f"*{len(catalog)} datasets registered.*")
+        gr.Markdown(f"*{len(catalog)} datasets registered in the benchmark suite.*")
 
         if not catalog:
             gr.Markdown("**No catalog found at `datasets/catalog.json`.**")
             return tab
 
         catalog_df = _catalog_to_df(catalog)
-        table = gr.DataFrame(value=catalog_df, label="Datasets", interactive=False)
+        default_ds = sorted(catalog.keys())[0]
 
-        dataset_dd = gr.Dropdown(choices=sorted(catalog.keys()), label="Select dataset to view rules")
-        rules_display = gr.Markdown("Select a dataset above to see its semantic rules.")
+        with gr.Row():
+            # Left pane — table
+            with gr.Column(scale=3):
+                dataset_dd = gr.Dropdown(
+                    choices=sorted(catalog.keys()),
+                    label="▼ Select Dataset",
+                    info="Pick a dataset to view its semantic rules on the right",
+                    value=default_ds,
+                    elem_classes=["interactive-dropdown"],
+                )
+                table = gr.DataFrame(
+                    value=catalog_df,
+                    label="Datasets",
+                    interactive=False,
+                )
 
-        def show_rules(dataset_id):
-            if not dataset_id or dataset_id not in catalog:
-                return "Select a dataset."
-            entry = catalog[dataset_id]
-            rules = entry.get("rules", [])
-            header = (
-                f"### {dataset_id}\n\n"
-                f"**Domain:** {entry.get('domain', 'N/A')} | "
-                f"**Rows:** {entry.get('rows', '?')} | "
-                f"**Cols:** {entry.get('cols', '?')}\n\n"
-                f"#### Semantic Rules ({len(rules)})\n\n"
-            )
-            return header + _format_rules(rules)
+            # Right pane — rules
+            with gr.Column(scale=2):
+                rules_panel = gr.HTML(
+                    value=_build_rules_panel(catalog, default_ds),
+                )
 
-        dataset_dd.change(fn=show_rules, inputs=[dataset_dd], outputs=[rules_display])
+        dataset_dd.change(
+            fn=lambda ds: _build_rules_panel(catalog, ds),
+            inputs=[dataset_dd],
+            outputs=[rules_panel],
+        )
 
     return tab

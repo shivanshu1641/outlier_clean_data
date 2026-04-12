@@ -12,8 +12,9 @@ CLAUDE.md
 *.gguf
 models/
 
-# Outputs (runtime artifacts)
-outputs/
+# Outputs (runtime artifacts — except benchmark results which are git-tracked)
+outputs/*
+!outputs/benchmark/
 
 # Downloaded datasets — fetched on the fly via tools/download_datasets.py
 data/clean/
@@ -38,3 +39,4 @@ docs/
 *.swp
 .DS_Store
 .worktrees/
+*.log

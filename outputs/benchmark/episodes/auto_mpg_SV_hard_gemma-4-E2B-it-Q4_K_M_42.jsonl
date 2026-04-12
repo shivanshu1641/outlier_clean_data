@@ -1,0 +1,1 @@
+{"event": "task_start", "timestamp": 1775965999.295095, "task_id": "auto_mpg_hard_csv", "model": "gemma-4-E2B-it-Q4_K_M", "api_base": "http://localhost:8080/v1"}

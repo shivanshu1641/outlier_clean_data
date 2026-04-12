@@ -1,0 +1,1 @@
+{"event": "task_start", "timestamp": 1775966000.293772, "task_id": "breast_cancer_hard_csv", "model": "gemma-4-E2B-it-Q4_K_M", "api_base": "http://localhost:8080/v1"}

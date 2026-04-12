@@ -113,8 +113,10 @@ TRANSFORM_TEMPLATES: dict[str, str] = {
         "df['{col}'] = df['{col}'].str.replace(r'\\s+', ' ', regex=True).str.strip()"
     ),
     "type_mangle": (
-        "df['{col}'] = df['{col}'].replace(['unknown', '##', '???', '--', 'n/a', 'NA', 'null'], float('nan'))\n"
-        "df['{col}'] = pd.to_numeric(df['{col}'], errors='coerce')\n"
+        "# Find only the values that actually fail numeric conversion:\n"
+        "bad = df['{col}'][pd.to_numeric(df['{col}'], errors='coerce').isna() & df['{col}'].notna()]\n"
+        "df['{col}'] = df['{col}'].replace(bad.unique().tolist(), float('nan'))\n"
+        "df['{col}'] = pd.to_numeric(df['{col}'])\n"
         "df['{col}'] = df['{col}'].fillna(df['{col}'].median())"
     ),
     "inject_nulls": (
@@ -285,7 +287,8 @@ Strategy:
 - DIAGNOSTIC FIRST: Before any transform, explore to understand the scope. Run `df.isnull().sum()` and check value counts on columns mentioned in the error summary.
 - On medium/hard tasks, do at least one targeted explore per error type before your first transform
 - Tackle the largest error group first (highest count), then work down
-- Then apply targeted transforms to fix all errors
+- Fix ONE column per transform — short, focused code. Do NOT try to fix multiple columns at once.
+- Do NOT write comments in your code — they waste tokens. Code only.
 - Check error status after each transform
 - If your reward or errors-fixed DROPS after a transform, immediately undo to restore your best state, then try a different approach
 - Submit 'done' when all errors are fixed or you can't improve further
@@ -303,7 +306,7 @@ Important rules:
 - If you're stuck, submit 'done' rather than repeating the same failing transform
 - The clean data has ZERO NaN — every NaN in the dirty data is from corruption. fillna() is always safe: `df['col'] = df['col'].fillna(df['col'].median())` for numeric, `df['col'] = df['col'].fillna(df['col'].mode()[0])` for categorical.
 - fillna(value, inplace=True) on a column may silently no-op in pandas 2.x. Use assignment: df['col'] = df['col'].fillna(value)
-- For type_mangle: explore `df['col'].unique()[:20]` first to see dirty tokens. Then replace sentinels and convert: `df['col'] = df['col'].replace(['##','???','unknown'], float('nan')); df['col'] = pd.to_numeric(df['col'], errors='coerce'); df['col'] = df['col'].fillna(df['col'].median())`
+- For type_mangle: find ONLY the values that fail numeric conversion, then replace those specifically: `bad = df['col'][pd.to_numeric(df['col'], errors='coerce').isna() & df['col'].notna()]; df['col'] = df['col'].replace(bad.unique().tolist(), float('nan')); df['col'] = pd.to_numeric(df['col']); df['col'] = df['col'].fillna(df['col'].median())`. This preserves valid values. Do NOT use blanket to_numeric(errors='coerce') on the whole column — it destroys valid cells.
 - NEVER invent or re-sequence identifier columns (e.g. PassengerId, id, index, key). Inspect the exact dirty tokens with explore first; do not overwrite IDs with sequential integers or any fabricated values.
 - A single cell can have MULTIPLE corruptions (e.g. type_mangle + inject_nulls on the same column). One transform may only fix one layer — check errors after each step and apply follow-up transforms for remaining issues.
 """
@@ -321,6 +324,10 @@ def _extract_remaining_error_targets(
     for desc in constraints or []:
         for raw_line in str(desc).splitlines():
             line = raw_line.strip()
+            # Handle row-level corruptions (no columns): "duplicate_rows: 59 extra rows"
+            if "duplicate_rows" in line and "extra rows" in line:
+                targets["duplicate_rows"] = []
+                continue
             if " in: " not in line:
                 continue
             left, right = line.split(" in: ", 1)
@@ -391,12 +398,12 @@ def _explore_manual(obs) -> list[str]:
 
     if "type_mangle" in targets:
         bullets.append(
-            "For type_mangle: explore with `df['col'].unique()[:20]` to see the bad tokens. "
-            "Then replace sentinels and convert in one step: "
-            "`df['col'] = df['col'].replace(['##','???','unknown'], float('nan')); "
-            "df['col'] = pd.to_numeric(df['col'], errors='coerce'); "
+            "For type_mangle: find ONLY values that fail numeric conversion, then replace those: "
+            "`bad = df['col'][pd.to_numeric(df['col'], errors='coerce').isna() & df['col'].notna()]; "
+            "df['col'] = df['col'].replace(bad.unique().tolist(), float('nan')); "
+            "df['col'] = pd.to_numeric(df['col']); "
             "df['col'] = df['col'].fillna(df['col'].median())`. "
-            "All NaN are from corruption so fillna is safe."
+            "This preserves valid values. Do NOT use blanket to_numeric(errors='coerce') on the whole column."
         )
     if "inject_nulls" in targets or "null_injected" in targets:
         bullets.append(
@@ -442,18 +449,25 @@ def _build_template_hints(obs) -> str:
     if not targets:
         return ""
     lines: list[str] = []
+    # Only show top 2 corruption types to keep prompt short
+    shown = 0
     for ctype, cols in targets.items():
+        if shown >= 2:
+            break
         template = TRANSFORM_TEMPLATES.get(ctype)
         if template is None:
             continue
-        lines.append(f"### {ctype}: affects {', '.join(cols[:4])}")
-        if "{col}" in template:
-            for col in cols[:2]:
-                lines.append(f"# '{col}':")
-                lines.append(template.replace("{col}", col))
+        if cols:
+            lines.append(f"### {ctype}: affects {', '.join(cols[:4])}")
+        else:
+            lines.append(f"### {ctype}")
+        if "{col}" in template and cols:
+            # Only show template for first column
+            lines.append(template.replace("{col}", cols[0]))
         else:
             lines.append(template)
         lines.append("")
+        shown += 1
     return "\n".join(lines).strip()
 
 
@@ -523,7 +537,7 @@ def build_user_prompt(
         parts.extend([
             "",
             "*** YOUR LAST TRANSFORM FAILED TO EXECUTE ***",
-            "The code crashed. Do NOT repeat it. Read the error below and fix:",
+            "The code crashed. Do NOT repeat it. Try fixing a DIFFERENT corruption type first and come back to this one later.",
             transform_result,
             "Do NOT use import statements — pandas (pd), numpy (np), re, math, datetime, string, json, csv are already available.",
             "Write ONLY the transform code that operates on df.",
@@ -536,6 +550,23 @@ def build_user_prompt(
             "Undo immediately or target a DIFFERENT corruption type.",
             transform_result,
         ])
+
+    # Detect when all original errors have been attempted (0 unfixed remaining)
+    # — only wrong_value errors remain, model should stop or undo
+    all_attempted = False
+    error_text = str(obs.constraints[0]) if obs.constraints else ""
+    if "0 errors still unfixed" in error_text or ("wrong value" in error_text.lower() and "still unfixed" not in error_text):
+        # Check: are there ONLY wrong_value lines (no "Still need fixing")?
+        if "Still need fixing" not in error_text:
+            all_attempted = True
+            parts.extend([
+                "",
+                "*** ALL ORIGINAL ERRORS HAVE BEEN ATTEMPTED ***",
+                "Only wrong_value cells remain — these are cells YOUR transforms broke.",
+                "You cannot fix them with more transforms. Submit {\"type\": \"done\"} now.",
+            ])
+            # Suppress explore/template hints — nothing productive to do
+            template_hints = None
     elif transform_result:
         parts.extend(["", "Last action outcome:", transform_result])
 
@@ -550,12 +581,12 @@ def build_user_prompt(
             for line in str(desc).splitlines():
                 parts.append(f"  {line}")
 
-    # On hard tasks (many errors), add a prioritized fix plan so the model doesn't flail
-    if total - fixed > 200 and obs.constraints:
+    # Show prioritized fix plan with counts on every step (not just hard tasks)
+    if total - fixed > 0 and obs.constraints:
         error_text = str(obs.constraints[0]) if obs.constraints else ""
         import re as _re
 
-        type_lines = _re.findall(r"(\w+) in: ([^\n]+)", error_text)
+        type_lines = _re.findall(r"(\w+) in: ([^\n]+?)(?:\s*—\s*(\d+)\s*errors?)?(?:\n|$)", error_text)
         if type_lines:
             _PRIORITY = {
                 "duplicate_rows": 0,
@@ -573,9 +604,13 @@ def build_user_prompt(
                 "typo_injection": 5,
             }
             sorted_types = sorted(type_lines, key=lambda t: _PRIORITY.get(t[0], 6))
-            parts.extend(["", "FIX PRIORITY (work in this order):"])
-            for i, (ctype, cols) in enumerate(sorted_types, 1):
-                parts.append(f"  {i}. {ctype} in {cols}")
+            parts.extend(["", "FIX PLAN (work top to bottom, one at a time):"])
+            for i, match_tuple in enumerate(sorted_types, 1):
+                ctype = match_tuple[0]
+                cols = match_tuple[1]
+                count = match_tuple[2] if len(match_tuple) > 2 and match_tuple[2] else ""
+                count_str = f" ({count} errors)" if count else ""
+                parts.append(f"  {i}. {ctype} in {cols}{count_str}")
 
     if obs.diagnosis:
         parts.extend(["", "Diagnosis:", obs.diagnosis])
@@ -657,7 +692,7 @@ def get_agent_action(
                 model=get_model_name(),
                 messages=messages,
                 temperature=temperature,
-                max_tokens=4096,
+                max_tokens=2048,
             )
             latency = time.time() - t0
             _last_call_time = time.time()
@@ -788,6 +823,11 @@ def _sanitize_transform_code(code: str) -> str:
         cleaned_lines.append(line)
     code = "\n".join(cleaned_lines)
 
+    # ── Phase 1a: Strip comments to save tokens ──────────────────────────────
+    # Only strip line-level comments (lines starting with optional whitespace + #)
+    # to avoid breaking '#' inside strings like df['col'].replace(['##', ...])
+    code = _re.sub(r"^\s*#[^\n]*$", "", code, flags=_re.MULTILINE)
+
     # ── Phase 1b: Strip df = pd.read_csv(...) reloads ───────────────────────
     # Small models re-load the file even though df is pre-loaded. The file
     # doesn't exist in sandbox, so the line either errors or silently resets df.
@@ -831,6 +871,20 @@ def _sanitize_transform_code(code: str) -> str:
             else:
                 new_lines.append(line)
         return "\n".join(new_lines)
+
+    # ── Phase 3: Auto-complete truncated type_mangle ───────────────────────
+    # Models sometimes generate 3 of 4 lines of the safe type_mangle pattern,
+    # ending at pd.to_numeric() without the fillna(median) step.  The NaN
+    # values left behind count as wrong_value cells.
+    _mangle_pat = _re.search(
+        r"df\['([^']+)'\]\s*=\s*pd\.to_numeric\(df\['([^']+)'\]",
+        code,
+    )
+    if _mangle_pat and "fillna" not in code.split("to_numeric")[-1]:
+        col = _mangle_pat.group(1)
+        code = code.rstrip().rstrip(";")
+        code += f"\ndf['{col}'] = df['{col}'].fillna(df['{col}'].median())"
+        logger.warning("Auto-completed truncated type_mangle for '%s'", col)
 
     return code
 
@@ -1126,14 +1180,41 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                     logger.warning("BLOCKED duplicate transform — same code as a previous step (blocks=%d)", consecutive_blocks)
                     _jlog("blocked_duplicate_transform", step=step_num, consecutive_blocks=consecutive_blocks)
                     step_num -= 1
+                    # Build a directive hint: which corruption types haven't been successfully fixed yet?
+                    remaining = _extract_remaining_error_targets(obs.constraints or [])
+                    # Figure out which types the model already tried (from action_history)
+                    tried_codes = [h["summary"] for h in action_history if h["type"] == "transform"]
+                    tried_cols = set()
+                    for c in tried_codes:
+                        for col_match in __import__("re").findall(r"df\['([^']+)'\]", c):
+                            tried_cols.add(col_match)
+                    # Find untried corruption types (types with columns not yet attempted)
+                    untried = []
+                    for ctype, cols in remaining.items():
+                        untried_cols = [c for c in cols if c not in tried_cols] if cols else []
+                        if untried_cols or (not cols and ctype not in str(tried_codes)):
+                            untried.append((ctype, untried_cols))
+
+                    block_warning = (
+                        "BLOCKED: You submitted the EXACT SAME transform code as a previous step. "
+                        "You MUST target a DIFFERENT corruption type or different columns."
+                    )
+                    if untried:
+                        next_type, next_cols = untried[0]
+                        if next_cols:
+                            block_warning += f"\n>>> TRY THIS: Fix '{next_type}' in column '{next_cols[0]}' next."
+                        else:
+                            block_warning += f"\n>>> TRY THIS: Fix '{next_type}' next."
+                    elif remaining:
+                        # All types tried but some still unfixed — suggest re-approach
+                        first_type = next(iter(remaining))
+                        block_warning += f"\n>>> Your previous attempt at '{first_type}' didn't fully work. Try a different approach for it."
+
                     messages[-1] = {
                         "role": "user",
                         "content": build_user_prompt(
                             obs, current_reward, action_history=action_history,
-                            warnings=[
-                                "BLOCKED: You submitted the EXACT SAME transform code as a previous step. "
-                                "You MUST target a DIFFERENT corruption type or different columns."
-                            ],
+                            warnings=[block_warning],
                             template_hints=_build_template_hints(obs),
                         ),
                     }
@@ -1225,43 +1306,16 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                 }
             )
 
-            # ── Update best state + stale_count after transforms ──────────────
-            if action_type == "transform":
-                if transform_exec_failed:
-                    # Code didn't execute — always count as stale, bump temp harder
-                    stale_count += 1
-                    current_temp = min(0.1 + stale_count * 0.2, 0.7)
-                    _jlog("transform_exec_failed", step=step_num, stale_count=stale_count,
-                          error=(obs.transform_result or "")[:200])
-                    logger.warning("Step %d transform FAILED to execute — stale=%d", step_num, stale_count)
-                elif fixed > best_fixed:
-                    # Progress — reset staleness, update best checkpoint
-                    stale_count = 0
-                    best_reward = current_reward
-                    best_fixed = fixed
-                    best_transform_step = sum(
-                        1
-                        for h in action_history
-                        if h["type"] == "transform" and not h.get("exec_failed")
-                    )
-                    current_temp = 0.1  # cool down on success (F)
-                else:
-                    stale_count += 1
-                    # Bump temperature to force different outputs (F)
-                    current_temp = min(0.1 + stale_count * 0.2, 0.7)
-                    _jlog("stale_transform", step=step_num, stale_count=stale_count,
-                          fixed=fixed, best_fixed=best_fixed, temp=current_temp)
-
             # ── Major regression: auto-undo immediately ────────────────────────
-            # Flag prevents escalation ladder from also firing this same step.
+            # MUST check BEFORE updating best state, otherwise reward drop is masked
             did_regression_undo = False
             if action_type == "transform" and not transform_exec_failed and best_fixed > 0:
                 # Case 1: errors-fixed count dropped significantly
                 fixed_regression = fixed < best_fixed and (best_fixed - fixed) / best_fixed >= 0.25
-                # Case 2: reward dropped significantly while fixed stayed same — wrong values introduced
+                # Case 2: reward dropped significantly — wrong values introduced
+                # (even if fixed count increased, reward drop means wrong values)
                 wrong_value_regression = (
-                    fixed >= best_fixed
-                    and best_reward > 0
+                    best_reward > 0
                     and current_reward < best_reward * 0.7  # 30%+ reward drop
                 )
                 if (fixed_regression or wrong_value_regression) and total_auto_undos < 2:
@@ -1306,6 +1360,31 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                     stale_count = max(0, stale_count - 1)  # partial credit for undo
                     did_regression_undo = True
                     total_auto_undos += 1
+
+            # ── Update best state + stale_count after transforms ──────────────
+            # (placed AFTER regression check so reward drop isn't masked)
+            if action_type == "transform" and not did_regression_undo:
+                if transform_exec_failed:
+                    stale_count += 1
+                    current_temp = min(0.1 + stale_count * 0.2, 0.7)
+                    _jlog("transform_exec_failed", step=step_num, stale_count=stale_count,
+                          error=(obs.transform_result or "")[:200])
+                    logger.warning("Step %d transform FAILED to execute — stale=%d", step_num, stale_count)
+                elif fixed > best_fixed:
+                    stale_count = 0
+                    best_reward = current_reward
+                    best_fixed = fixed
+                    best_transform_step = sum(
+                        1
+                        for h in action_history
+                        if h["type"] == "transform" and not h.get("exec_failed")
+                    )
+                    current_temp = 0.1
+                else:
+                    stale_count += 1
+                    current_temp = min(0.1 + stale_count * 0.2, 0.7)
+                    _jlog("stale_transform", step=step_num, stale_count=stale_count,
+                          fixed=fixed, best_fixed=best_fixed, temp=current_temp)
 
             # ── Generate per-step warnings ────────────────────────────────────
             warnings: list[str] = []
@@ -1403,7 +1482,7 @@ async def run_task(dataset_id: str, difficulty: str, fmt: str = "csv") -> float:
                     and obs.step_info.validate_uses < obs.step_info.validate_budget
                 )
 
-                if stale_count == 2 and validate_available:
+                if stale_count >= 1 and validate_available:
                     # Tier 2: auto-validate to give the model exact cell-level info
                     logger.warning(
                         "Escalation tier 2: %d stale transforms — auto-validate", stale_count
