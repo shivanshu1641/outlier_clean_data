@@ -1,0 +1,1 @@
+{"event": "task_start", "timestamp": 1776010455.487259, "task_id": "mushroom_clean_easy_auto", "model": "gpt-4.1-mini", "api_base": "https://api.openai.com/v1", "category": "MD", "seed": 42}
