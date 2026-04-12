@@ -1019,7 +1019,7 @@ def _rule_aware_violation(
                 else:
                     spread = abs(rule.max_val - rule.min_val) * 0.5 + 1
                     bad_val = rule.max_val + float(rng.uniform(1, spread))
-            if pd.api.types.is_integer_dtype(df[col].dtype):
+            if pd.api.types.is_integer_dtype(df[col].dtype) or "int" in str(df[col].dtype).lower():
                 bad_val = int(round(bad_val))
             df.at[int(idx), col] = bad_val
         elif isinstance(rule, EnumRule):
